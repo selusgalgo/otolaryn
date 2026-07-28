@@ -1,0 +1,64 @@
+name: RLS tenant isolation spike
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: otolaryn
+      DB_OWNER_USER: otolaryn_owner
+      DB_OWNER_PASSWORD: owner_change_me
+      DB_APP_USER: otolaryn_app
+      DB_APP_PASSWORD: app_change_me
+      JWT_SECRET: ci_only_secret_never_used_outside_ci
+      JWT_EXPIRES_IN: 1h
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The docker-compose init script normally runs automatically via
+      # docker-entrypoint-initdb.d; the GitHub Actions postgres service
+      # doesn't support that mount, so CI runs the same file explicitly
+      # against the freshly-started service container.
+      - name: Bootstrap roles and database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -f docker/init/01-roles-and-db.sql
+
+      - name: Run migrations
+        run: npm run migration:run
+
+      - name: Unit tests
+        run: npm test
+
+      - name: RLS adversarial test battery
+        run: npm run test:e2e
