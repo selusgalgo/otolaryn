@@ -50,8 +50,15 @@ export class TenantContextInterceptor implements NestInterceptor {
     next: CallHandler,
   ): Promise<unknown> {
     const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+    } catch (err) {
+      // Transaction never started, so there's nothing to roll back — but
+      // the connection was checked out of the pool and must still go back.
+      await queryRunner.release();
+      throw err;
+    }
 
     try {
       await queryRunner.query(`SELECT set_config('app.tenant_id', $1, true)`, [

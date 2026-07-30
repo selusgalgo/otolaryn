@@ -57,8 +57,13 @@ async function seed() {
       }
 
       const queryRunner = dataSource.createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      try {
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+      } catch (err) {
+        await queryRunner.release();
+        throw err;
+      }
       try {
         await queryRunner.query(
           `SELECT set_config('app.tenant_id', $1, true)`,

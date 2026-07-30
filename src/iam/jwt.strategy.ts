@@ -16,6 +16,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
+      // Not currently exploitable (jsonwebtoken already restricts to HS*
+      // when secretOrKey is a plain string), but pin it explicitly rather
+      // than rely on that implicit default surviving a future change (e.g.
+      // switching to RS256 keys without updating this).
+      algorithms: ['HS256'],
     });
   }
 

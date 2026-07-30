@@ -98,4 +98,20 @@ describe('RLS: basic isolation', () => {
       ),
     ).rejects.toThrow();
   });
+
+  // Regression test: an appointment's own tenant_id used to be the only
+  // thing checked. Postgres foreign keys don't respect RLS, so nothing
+  // stopped patient_id from pointing at a different tenant's patient —
+  // confirmed with a live INSERT during review, fixed with a composite FK
+  // on (patient_id, tenant_id).
+  it('blocks an appointment whose patient_id belongs to a different tenant, even with a matching tenant_id', async () => {
+    await expect(
+      withTenant(tenantA.id, (client) =>
+        client.query(
+          'INSERT INTO public.appointments (tenant_id, patient_id, scheduled_at) VALUES ($1, $2, now())',
+          [tenantA.id, tenantB.patientId],
+        ),
+      ),
+    ).rejects.toThrow();
+  });
 });
