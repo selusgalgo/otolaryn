@@ -225,6 +225,42 @@ describe('Patients CRUD', () => {
     expect(res.status).toBe(409);
   });
 
+  // Regression: a stray leading/trailing space made " 00000002B" and
+  // "00000002B" look like different documentIds to the DB's unique index,
+  // silently defeating the "no duplicate patient" guarantee — found by the
+  // user creating what looked like a duplicate through the real UI.
+  it('rejects a duplicate document_id even when padded with whitespace', async () => {
+    const base = samplePatient('whitespace-duplicate');
+    await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(base);
+
+    const res = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ ...base, documentId: `  ${base.documentId}  ` });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('trims whitespace from text fields before saving', async () => {
+    const payload = samplePatient('trim-check');
+    const res = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        ...payload,
+        firstName: `  ${payload.firstName}  `,
+        phone: `  ${payload.phone}  `,
+      });
+
+    expect(res.status).toBe(201);
+    const body = res.body as PatientResponse;
+    expect(body.firstName).toBe(payload.firstName);
+    expect(body.phone).toBe(payload.phone);
+  });
+
   it('allows the same document_id to be reused across different tenants', async () => {
     await request(server)
       .post('/patients')

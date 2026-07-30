@@ -15,11 +15,15 @@ function patientPayloadFromFormData(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
 
   return {
-    firstName: String(formData.get("firstName") ?? ""),
-    lastName: String(formData.get("lastName") ?? ""),
-    documentId: String(formData.get("documentId") ?? ""),
+    // Trimmed here too so the UI doesn't round-trip to the API just to
+    // find out a stray space made "00000002B" look new. The API also
+    // trims (it's the guarantee that actually holds for every client),
+    // this is just to avoid a needless request.
+    firstName: String(formData.get("firstName") ?? "").trim(),
+    lastName: String(formData.get("lastName") ?? "").trim(),
+    documentId: String(formData.get("documentId") ?? "").trim(),
     dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
+    phone: String(formData.get("phone") ?? "").trim(),
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(notes ? { notes } : {}),
