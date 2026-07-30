@@ -5,6 +5,7 @@ import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { Appointment } from '../patients/entities/appointment.entity';
+import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { Appointment } from '../patients/entities/appointment.entity';
         username: config.getOrThrow<string>('DB_APP_USER'),
         password: config.getOrThrow<string>('DB_APP_PASSWORD'),
         database: config.getOrThrow<string>('DB_NAME'),
-        entities: [Tenant, User, Patient, Appointment],
+        entities: [Tenant, User, Patient, Appointment, ClinicalEntry],
         synchronize: false,
         migrationsRun: false,
         extra: {

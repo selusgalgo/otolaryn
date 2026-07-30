@@ -103,6 +103,10 @@ export async function destroyTestTenants(
         tenant.id,
       ]);
       await client.query(
+        `DELETE FROM public.clinical_entries WHERE tenant_id = $1`,
+        [tenant.id],
+      );
+      await client.query(
         `DELETE FROM public.appointments WHERE tenant_id = $1`,
         [tenant.id],
       );
