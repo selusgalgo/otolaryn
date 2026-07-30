@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
 import { ApiError, apiFetch } from "@/lib/api";
-import type { Patient } from "@/lib/types";
+import type { ClinicalEntry, Paginated, Patient } from "@/lib/types";
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
+}
 
 export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +22,10 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     }
     throw err;
   }
+
+  const entries = await apiFetch<Paginated<ClinicalEntry>>(
+    `/patients/${id}/clinical-entries?pageSize=50`,
+  );
 
   return (
     <div className="space-y-4">
@@ -62,6 +70,36 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
             <div className="text-muted-foreground">Notas</div>
             <div>{patient.notes ?? "—"}</div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Historia clínica</CardTitle>
+          <Button asChild size="sm">
+            <Link href={`/patients/${id}/clinical-entries/new`}>Nueva entrada</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {entries.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
+          ) : (
+            <ul className="divide-y">
+              {entries.data.map((entry) => (
+                <li key={entry.id} className="py-2">
+                  <Link
+                    href={`/patients/${id}/clinical-entries/${entry.id}`}
+                    className="flex items-center justify-between gap-4 hover:underline"
+                  >
+                    <span className="text-sm">{entry.chiefComplaint}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatDate(entry.visitDate)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

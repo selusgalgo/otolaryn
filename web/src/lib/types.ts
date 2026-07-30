@@ -13,6 +13,20 @@ export interface Patient {
   deletedAt: string | null;
 }
 
+export interface ClinicalEntry {
+  id: string;
+  tenantId: string;
+  patientId: string;
+  authorUserId: string;
+  visitDate: string;
+  chiefComplaint: string;
+  examinationFindings: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  followUpNotes: string | null;
+  createdAt: string;
+}
+
 export interface Paginated<T> {
   data: T[];
   total: number;
