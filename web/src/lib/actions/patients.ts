@@ -7,6 +7,7 @@ import type { Patient } from "@/lib/types";
 
 export interface PatientFormState {
   error?: string;
+  success?: boolean;
 }
 
 function patientPayloadFromFormData(formData: FormData) {
@@ -30,13 +31,16 @@ function patientPayloadFromFormData(formData: FormData) {
   };
 }
 
+// Both actions below back modal forms (creation from the patients list,
+// editing from the patient's own detail page) — they revalidate and
+// report success instead of redirecting, so the dialog can just close
+// itself and let the page underneath refresh in place.
 export async function createPatientAction(
   _prevState: PatientFormState,
   formData: FormData,
 ): Promise<PatientFormState> {
-  let patient: Patient;
   try {
-    patient = await apiFetch<Patient>("/patients", {
+    await apiFetch<Patient>("/patients", {
       method: "POST",
       body: patientPayloadFromFormData(formData),
     });
@@ -48,7 +52,7 @@ export async function createPatientAction(
   }
 
   revalidatePath("/patients");
-  redirect(`/patients/${patient.id}`);
+  return { success: true };
 }
 
 export async function updatePatientAction(
@@ -70,7 +74,7 @@ export async function updatePatientAction(
 
   revalidatePath("/patients");
   revalidatePath(`/patients/${id}`);
-  redirect(`/patients/${id}`);
+  return { success: true };
 }
 
 export async function deletePatientAction(id: string): Promise<void> {

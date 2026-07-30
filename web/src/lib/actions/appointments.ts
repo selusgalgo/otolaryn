@@ -7,6 +7,7 @@ import type { Appointment } from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
+  success?: boolean;
 }
 
 function newAppointmentBody(formData: FormData): { scheduledAt: string; durationMinutes?: number; notes?: string } | null {
@@ -26,6 +27,9 @@ function newAppointmentBody(formData: FormData): { scheduledAt: string; duration
   };
 }
 
+// Backs the "Nueva cita" modal on the patient detail page — revalidates
+// and reports success instead of redirecting, so the dialog just closes
+// and the Agenda card underneath refreshes in place.
 export async function createAppointmentAction(
   patientId: string,
   _prevState: AppointmentFormState,
@@ -36,9 +40,8 @@ export async function createAppointmentAction(
     return { error: "Indica fecha y hora de la cita." };
   }
 
-  let appointment: Appointment;
   try {
-    appointment = await apiFetch<Appointment>(`/patients/${patientId}/appointments`, {
+    await apiFetch<Appointment>(`/patients/${patientId}/appointments`, {
       method: "POST",
       body,
     });
@@ -51,7 +54,7 @@ export async function createAppointmentAction(
 
   revalidatePath(`/patients/${patientId}`);
   revalidatePath("/appointments");
-  redirect(`/appointments/${appointment.id}`);
+  return { success: true };
 }
 
 // Used by /appointments/new: the same form lets staff pick an existing
@@ -121,6 +124,9 @@ export async function createAppointmentForPatientAction(
   redirect(`/appointments/${appointment.id}`);
 }
 
+// Backs the "Editar" modal on the appointment detail page — revalidates
+// and reports success instead of redirecting, so the dialog just closes
+// and the page underneath refreshes in place.
 export async function updateAppointmentAction(
   id: string,
   _prevState: AppointmentFormState,
@@ -143,8 +149,9 @@ export async function updateAppointmentAction(
     ...(status ? { status } : {}),
   };
 
+  let appointment: Appointment;
   try {
-    await apiFetch<Appointment>(`/appointments/${id}`, {
+    appointment = await apiFetch<Appointment>(`/appointments/${id}`, {
       method: "PATCH",
       body,
     });
@@ -157,7 +164,8 @@ export async function updateAppointmentAction(
 
   revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);
-  redirect(`/appointments/${id}`);
+  revalidatePath(`/patients/${appointment.patientId}`);
+  return { success: true };
 }
 
 export async function cancelAppointmentAction(id: string): Promise<void> {

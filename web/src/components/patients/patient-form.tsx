@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +11,19 @@ interface PatientFormProps {
   action: (prevState: PatientFormState, formData: FormData) => Promise<PatientFormState>;
   initialValues?: Partial<Patient>;
   submitLabel: string;
+  // Called after a successful submit — used by the dialog wrappers to
+  // close themselves, since these actions revalidate instead of redirecting.
+  onSuccess?: () => void;
 }
 
 const initialState: PatientFormState = {};
 
-export function PatientForm({ action, initialValues, submitLabel }: PatientFormProps) {
+export function PatientForm({ action, initialValues, submitLabel, onSuccess }: PatientFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+
+  useEffect(() => {
+    if (state.success) onSuccess?.();
+  }, [state.success, onSuccess]);
 
   return (
     <form action={formAction} className="grid max-w-lg gap-4">

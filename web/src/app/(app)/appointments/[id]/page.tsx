@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CancelAppointmentButton } from "@/components/appointments/cancel-appointment-button";
+import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
 import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Appointment, Patient } from "@/lib/types";
@@ -36,9 +36,7 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           <h1 className="text-2xl font-bold">{formatDateTime(appointment.scheduledAt)}</h1>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/appointments/${appointment.id}/edit`}>Editar</Link>
-          </Button>
+          <EditAppointmentDialog appointment={appointment} />
           {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
         </div>
       </div>

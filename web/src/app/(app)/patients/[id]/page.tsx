@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreateAppointmentDialog } from "@/components/appointments/create-appointment-dialog";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
+import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
+import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
@@ -39,13 +42,14 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          {patient.firstName} {patient.lastName}
-        </h1>
+        <div className="flex items-center gap-4">
+          <PatientAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
+          <h1 className="text-2xl font-bold">
+            {patient.firstName} {patient.lastName}
+          </h1>
+        </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/patients/${patient.id}/edit`}>Editar</Link>
-          </Button>
+          <EditPatientDialog patient={patient} />
           <DeletePatientButton id={patient.id} />
         </div>
       </div>
@@ -115,9 +119,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Agenda</CardTitle>
-          <Button asChild size="sm">
-            <Link href={`/patients/${id}/appointments/new`}>Nueva cita</Link>
-          </Button>
+          <CreateAppointmentDialog patientId={id} />
         </CardHeader>
         <CardContent>
           {appointments.data.length === 0 ? (

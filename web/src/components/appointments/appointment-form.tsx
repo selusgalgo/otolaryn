@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,9 @@ interface AppointmentFormProps {
   // embed <PatientPicker /> inside this same <form> so patient selection
   // (or inline creation) and the appointment details submit together.
   children?: React.ReactNode;
+  // Called after a successful submit — used by the dialog wrappers to
+  // close themselves, since those actions revalidate instead of redirecting.
+  onSuccess?: () => void;
 }
 
 const initialState: AppointmentFormState = {};
@@ -38,8 +41,12 @@ function toTimeInputValue(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function AppointmentForm({ action, initialValues, submitLabel, showStatus, children }: AppointmentFormProps) {
+export function AppointmentForm({ action, initialValues, submitLabel, showStatus, children, onSuccess }: AppointmentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+
+  useEffect(() => {
+    if (state.success) onSuccess?.();
+  }, [state.success, onSuccess]);
 
   return (
     <form action={formAction} className="grid max-w-md gap-4">
