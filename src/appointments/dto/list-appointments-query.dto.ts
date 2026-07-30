@@ -22,6 +22,10 @@ export class ListAppointmentsQueryDto {
   practitionerId?: string;
 
   @IsOptional()
+  @IsUUID()
+  patientId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

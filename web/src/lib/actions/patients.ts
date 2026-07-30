@@ -78,3 +78,15 @@ export async function deletePatientAction(id: string): Promise<void> {
   revalidatePath("/patients");
   redirect("/patients");
 }
+
+// Called imperatively from PatientPicker (a client component), not bound
+// to a <form> — a plain async function a Client Component can invoke on
+// every keystroke (debounced) is enough here; no need for useActionState.
+export async function searchPatientsAction(query: string): Promise<Patient[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const result = await apiFetch<{ data: Patient[] }>(
+    `/patients?search=${encodeURIComponent(trimmed)}&pageSize=10`,
+  );
+  return result.data;
+}

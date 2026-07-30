@@ -28,7 +28,7 @@ export class PatientsController {
 
   @Get()
   findAll(@Query() query: ListPatientsQueryDto) {
-    return this.patients.findAll(query.page, query.pageSize);
+    return this.patients.findAll(query.page, query.pageSize, query.search);
   }
 
   @Get(':id')

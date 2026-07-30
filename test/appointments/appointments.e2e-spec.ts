@@ -189,6 +189,31 @@ describe('Agenda (appointments)', () => {
     );
   });
 
+  // Regression: durationMinutes carried a class-property default (`= 30`)
+  // on CreateAppointmentDto. UpdateAppointmentDto extends that via
+  // PartialType, so class-transformer filled durationMinutes back in with
+  // 30 on any PATCH that didn't explicitly send it — silently clobbering a
+  // real, previously-set duration. Found by cancelling an appointment
+  // (which only PATCHes { status }) through the real UI and watching its
+  // duration revert from 45 to 30.
+  it('does not reset durationMinutes to the create-time default on a status-only PATCH', async () => {
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(slot('2027-05-10T09:00:00.000Z', 45));
+    const id = (created.body as AppointmentResponse).id;
+    expect((created.body as AppointmentResponse).durationMinutes).toBe(45);
+
+    const res = await request(server)
+      .patch(`/appointments/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ status: 'cancelled' });
+
+    expect(res.status).toBe(200);
+    expect((res.body as AppointmentResponse).durationMinutes).toBe(45);
+    expect((res.body as AppointmentResponse).status).toBe('cancelled');
+  });
+
   it('has no DELETE route — cancelling is a status change, not row removal', async () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
@@ -239,6 +264,19 @@ describe('Agenda (appointments)', () => {
     expect(res.status).toBe(200);
     const body = res.body as PaginatedAppointments;
     expect(body.data.every((a) => a.practitionerId === practitionerA)).toBe(
+      true,
+    );
+    expect(body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filters the agenda by patientId', async () => {
+    const res = await request(server)
+      .get(`/appointments?patientId=${tenantA.patientId}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+
+    expect(res.status).toBe(200);
+    const body = res.body as PaginatedAppointments;
+    expect(body.data.every((a) => a.patientId === tenantA.patientId)).toBe(
       true,
     );
     expect(body.data.length).toBeGreaterThan(0);

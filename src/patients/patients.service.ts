@@ -31,12 +31,20 @@ export class PatientsService {
   async findAll(
     page: number,
     pageSize: number,
+    search?: string,
   ): Promise<PaginatedResult<Patient>> {
-    const [data, total] = await this.repo.findAndCount({
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+    const qb = this.repo.createQueryBuilder('p').orderBy('p.createdAt', 'DESC');
+
+    if (search) {
+      qb.andWhere(
+        '(p.firstName ILIKE :search OR p.lastName ILIKE :search OR p.documentId ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    qb.skip((page - 1) * pageSize).take(pageSize);
+
+    const [data, total] = await qb.getManyAndCount();
     return { data, total, page, pageSize };
   }
 

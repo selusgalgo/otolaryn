@@ -3,11 +3,16 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
+import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { ApiError, apiFetch } from "@/lib/api";
-import type { ClinicalEntry, Paginated, Patient } from "@/lib/types";
+import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +30,10 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
 
   const entries = await apiFetch<Paginated<ClinicalEntry>>(
     `/patients/${id}/clinical-entries?pageSize=50`,
+  );
+
+  const appointments = await apiFetch<Paginated<Appointment>>(
+    `/appointments?patientId=${id}&pageSize=50`,
   );
 
   return (
@@ -94,6 +103,36 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                     <span className="text-sm">{entry.chiefComplaint}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDate(entry.visitDate)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Agenda</CardTitle>
+          <Button asChild size="sm">
+            <Link href={`/patients/${id}/appointments/new`}>Nueva cita</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {appointments.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin citas todavía.</p>
+          ) : (
+            <ul className="divide-y">
+              {appointments.data.map((appointment) => (
+                <li key={appointment.id} className="py-2">
+                  <Link
+                    href={`/appointments/${appointment.id}`}
+                    className="flex items-center justify-between gap-4 hover:underline"
+                  >
+                    <span className="text-sm">{formatDateTime(appointment.scheduledAt)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {APPOINTMENT_STATUS_LABELS[appointment.status]}
                     </span>
                   </Link>
                 </li>

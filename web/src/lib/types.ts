@@ -27,6 +27,20 @@ export interface ClinicalEntry {
   createdAt: string;
 }
 
+export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+
+export interface Appointment {
+  id: string;
+  tenantId: string;
+  patientId: string;
+  practitionerId: string | null;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: AppointmentStatus;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface Paginated<T> {
   data: T[];
   total: number;

@@ -70,6 +70,9 @@ export class AppointmentsService {
         practitionerId: query.practitionerId,
       });
     }
+    if (query.patientId) {
+      qb.andWhere('a.patientId = :patientId', { patientId: query.patientId });
+    }
 
     qb.skip((query.page - 1) * query.pageSize).take(query.pageSize);
 

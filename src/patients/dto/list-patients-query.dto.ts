@@ -1,7 +1,19 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class ListPatientsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

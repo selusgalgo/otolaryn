@@ -316,4 +316,45 @@ describe('Patients CRUD', () => {
     );
     expect((page1.body as PaginatedPatients).total).toBeGreaterThanOrEqual(4);
   });
+
+  it('searches by first name, last name, and document id, case-insensitively', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        ...samplePatient('search-target'),
+        firstName: 'Zaragoza',
+        lastName: 'Villalobos',
+      });
+    const id = (created.body as PatientResponse).id;
+    const documentId = (created.body as PatientResponse).documentId;
+
+    for (const search of ['zarago', 'VILLALOBOS', documentId.toLowerCase()]) {
+      const res = await request(server)
+        .get(`/patients?search=${encodeURIComponent(search)}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      const ids = (res.body as PaginatedPatients).data.map((p) => p.id);
+      expect(ids).toContain(id);
+    }
+  });
+
+  it("never matches another tenant's patients when searching", async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({
+        ...samplePatient('cross-tenant-search'),
+        firstName: 'Cupertino',
+      });
+
+    const res = await request(server)
+      .get('/patients?search=Cupertino')
+      .set('Authorization', `Bearer ${tokenA}`);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body as PaginatedPatients).data.map((p) => p.id);
+    expect(ids).not.toContain((created.body as PatientResponse).id);
+  });
 });
