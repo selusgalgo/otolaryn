@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { Patient } from '../patients/entities/patient.entity';
-import { Appointment } from '../patients/entities/appointment.entity';
+import { Appointment } from '../appointments/entities/appointment.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 
 @Module({

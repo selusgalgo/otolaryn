@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AppointmentsModule } from './appointments/appointments.module';
 import { ClinicalEntriesModule } from './clinical-entries/clinical-entries.module';
 import { DatabaseModule } from './database/database.module';
 import { IamModule } from './iam/iam.module';
@@ -16,6 +17,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     IamModule,
     PatientsModule,
     ClinicalEntriesModule,
+    AppointmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
