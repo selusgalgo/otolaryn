@@ -11,10 +11,18 @@ import migrationDataSource from './data-source';
 
 const DEV_PASSWORD = 'Passw0rd!';
 
+interface PatientSeed {
+  firstName: string;
+  lastName: string;
+  documentId: string;
+  dateOfBirth: string;
+  phone: string;
+}
+
 interface TenantSeed {
   name: string;
   users: { email: string; role: 'admin' | 'staff' }[];
-  patients: string[];
+  patients: PatientSeed[];
 }
 
 const TENANTS: TenantSeed[] = [
@@ -24,7 +32,22 @@ const TENANTS: TenantSeed[] = [
       { email: 'admin@aurora.test', role: 'admin' },
       { email: 'staff@aurora.test', role: 'staff' },
     ],
-    patients: ['Aurora Patient One', 'Aurora Patient Two'],
+    patients: [
+      {
+        firstName: 'Aurora',
+        lastName: 'Patient One',
+        documentId: '00000001A',
+        dateOfBirth: '1985-03-12',
+        phone: '+34600000001',
+      },
+      {
+        firstName: 'Aurora',
+        lastName: 'Patient Two',
+        documentId: '00000002A',
+        dateOfBirth: '1990-07-20',
+        phone: '+34600000002',
+      },
+    ],
   },
   {
     name: 'Clinica Boreal',
@@ -32,7 +55,22 @@ const TENANTS: TenantSeed[] = [
       { email: 'admin@boreal.test', role: 'admin' },
       { email: 'staff@boreal.test', role: 'staff' },
     ],
-    patients: ['Boreal Patient One', 'Boreal Patient Two'],
+    patients: [
+      {
+        firstName: 'Boreal',
+        lastName: 'Patient One',
+        documentId: '00000001B',
+        dateOfBirth: '1978-11-05',
+        phone: '+34600000003',
+      },
+      {
+        firstName: 'Boreal',
+        lastName: 'Patient Two',
+        documentId: '00000002B',
+        dateOfBirth: '1995-01-30',
+        phone: '+34600000004',
+      },
+    ],
   },
 ];
 
@@ -69,10 +107,18 @@ async function seed() {
           `SELECT set_config('app.tenant_id', $1, true)`,
           [tenantId],
         );
-        for (const patientName of tenantSeed.patients) {
+        for (const patient of tenantSeed.patients) {
           await queryRunner.query(
-            `INSERT INTO public.patients (tenant_id, name) VALUES ($1, $2)`,
-            [tenantId, patientName],
+            `INSERT INTO public.patients (tenant_id, first_name, last_name, document_id, date_of_birth, phone)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              tenantId,
+              patient.firstName,
+              patient.lastName,
+              patient.documentId,
+              patient.dateOfBirth,
+              patient.phone,
+            ],
           );
         }
         await queryRunner.commitTransaction();

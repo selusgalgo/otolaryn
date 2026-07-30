@@ -80,7 +80,10 @@ describe('RLS: no cross-tenant leakage under concurrent pooled requests', () => 
 
     for (const { res, expectedName, forbiddenName } of results) {
       expect(res.status).toBe(200);
-      const names = (res.body as Array<{ name: string }>).map((p) => p.name);
+      const body = res.body as {
+        data: Array<{ firstName: string; lastName: string }>;
+      };
+      const names = body.data.map((p) => `${p.firstName} ${p.lastName}`);
       expect(names).toContain(expectedName);
       expect(names).not.toContain(forbiddenName);
     }

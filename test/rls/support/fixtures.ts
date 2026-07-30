@@ -5,6 +5,8 @@ export interface TestTenant {
   id: string;
   name: string;
   patientId: string;
+  patientFirstName: string;
+  patientLastName: string;
   patientName: string;
   userEmail: string;
   userPassword: string;
@@ -41,7 +43,9 @@ export async function createTestTenants(
       [tenantId, email, passwordHash],
     );
 
-    const patientName = `${label} Patient ${runId}`;
+    const patientFirstName = label;
+    const patientLastName = `Patient ${runId}`;
+    const patientName = `${patientFirstName} ${patientLastName}`;
     const client = await pool.connect();
     let patientId: string;
     try {
@@ -52,8 +56,16 @@ export async function createTestTenants(
       const {
         rows: [{ id }],
       } = await client.query<{ id: string }>(
-        `INSERT INTO public.patients (tenant_id, name) VALUES ($1, $2) RETURNING id`,
-        [tenantId, patientName],
+        `INSERT INTO public.patients (tenant_id, first_name, last_name, document_id, date_of_birth, phone)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [
+          tenantId,
+          patientFirstName,
+          patientLastName,
+          `DOC-${runId}-${label}`,
+          '1990-01-01',
+          '+34600000000',
+        ],
       );
       patientId = id;
       await client.query('COMMIT');
@@ -68,6 +80,8 @@ export async function createTestTenants(
       id: tenantId,
       name: tenantName,
       patientId,
+      patientFirstName,
+      patientLastName,
       patientName,
       userEmail: email,
       userPassword: TEST_PASSWORD,

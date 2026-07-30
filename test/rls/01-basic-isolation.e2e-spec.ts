@@ -51,13 +51,14 @@ describe('RLS: basic isolation', () => {
   interface PatientRow {
     id: string;
     tenant_id: string;
-    name: string;
+    first_name: string;
+    last_name: string;
   }
 
   it('never returns tenant B patients while scoped to tenant A', async () => {
     const { rows } = await withTenant(tenantA.id, (client) =>
       client.query<PatientRow>(
-        'SELECT id, tenant_id, name FROM public.patients',
+        'SELECT id, tenant_id, first_name, last_name FROM public.patients',
       ),
     );
 
@@ -69,7 +70,7 @@ describe('RLS: basic isolation', () => {
   it('never returns tenant A patients while scoped to tenant B', async () => {
     const { rows } = await withTenant(tenantB.id, (client) =>
       client.query<PatientRow>(
-        'SELECT id, tenant_id, name FROM public.patients',
+        'SELECT id, tenant_id, first_name, last_name FROM public.patients',
       ),
     );
 
@@ -92,8 +93,16 @@ describe('RLS: basic isolation', () => {
     await expect(
       withTenant(tenantA.id, (client) =>
         client.query(
-          'INSERT INTO public.patients (tenant_id, name) VALUES ($1, $2)',
-          [tenantB.id, 'cross-tenant write attempt'],
+          `INSERT INTO public.patients (tenant_id, first_name, last_name, document_id, date_of_birth, phone)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            tenantB.id,
+            'Cross',
+            'Tenant Write Attempt',
+            'DOC-BAD-WRITE',
+            '1990-01-01',
+            '+34600000000',
+          ],
         ),
       ),
     ).rejects.toThrow();
