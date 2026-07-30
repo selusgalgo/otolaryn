@@ -21,7 +21,7 @@ export default async function EditPatientPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Editar paciente</h1>
+      <h1 className="text-2xl font-bold">Editar paciente</h1>
       <PatientForm action={boundAction} initialValues={patient} submitLabel="Guardar cambios" />
     </div>
   );

@@ -7,7 +7,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/patients" className="font-semibold">
+          <Link href="/patients" className="font-bold">
             Otolaryn
           </Link>
           <form action={logoutAction}>
