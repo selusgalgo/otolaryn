@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,11 +39,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/30 p-4">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
+      <img src="/logo.svg" alt="Eiduo" className="h-10 w-auto" />
       <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Otolaryn</CardTitle>
-        </CardHeader>
         <CardContent>
           <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">

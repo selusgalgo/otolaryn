@@ -26,5 +26,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Also excludes static assets served from public/ (e.g. logo.svg) — without
+  // this, an unauthenticated request for one of those files gets redirected
+  // to /login instead of served, and shows up as a broken image.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
