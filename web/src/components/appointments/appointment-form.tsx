@@ -13,6 +13,11 @@ interface AppointmentFormProps {
   action: (prevState: AppointmentFormState, formData: FormData) => Promise<AppointmentFormState>;
   initialValues?: Appointment;
   submitLabel: string;
+  // Pre-rendered JSX, not a component reference — this form can be used
+  // from a Server Component page (e.g. /appointments/new), and only plain
+  // React elements survive that server-to-client props boundary, not
+  // function/forwardRef values like a bare icon component.
+  submitIcon?: React.ReactNode;
   // Status is only editable once an appointment exists — a new one always
   // starts as "scheduled" (the backend doesn't even accept status on create).
   showStatus?: boolean;
@@ -41,7 +46,15 @@ function toTimeInputValue(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function AppointmentForm({ action, initialValues, submitLabel, showStatus, children, onSuccess }: AppointmentFormProps) {
+export function AppointmentForm({
+  action,
+  initialValues,
+  submitLabel,
+  submitIcon,
+  showStatus,
+  children,
+  onSuccess,
+}: AppointmentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   useEffect(() => {
@@ -112,7 +125,14 @@ export function AppointmentForm({ action, initialValues, submitLabel, showStatus
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Guardando..." : submitLabel}
+        {pending ? (
+          "Guardando..."
+        ) : (
+          <>
+            {submitIcon}
+            {submitLabel}
+          </>
+        )}
       </Button>
     </form>
   );

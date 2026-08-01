@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PatientForm } from "@/components/patients/patient-form";
@@ -14,7 +15,10 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Editar</Button>
+        <Button variant="outline">
+          <PencilIcon data-icon="inline-start" />
+          Editar
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

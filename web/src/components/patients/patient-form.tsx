@@ -11,6 +11,11 @@ interface PatientFormProps {
   action: (prevState: PatientFormState, formData: FormData) => Promise<PatientFormState>;
   initialValues?: Partial<Patient>;
   submitLabel: string;
+  // Pre-rendered JSX, not a component reference — this form can be used
+  // from a Server Component page (e.g. /appointments/new), and only plain
+  // React elements survive that server-to-client props boundary, not
+  // function/forwardRef values like a bare icon component.
+  submitIcon?: React.ReactNode;
   // Called after a successful submit — used by the dialog wrappers to
   // close themselves, since these actions revalidate instead of redirecting.
   onSuccess?: () => void;
@@ -18,7 +23,7 @@ interface PatientFormProps {
 
 const initialState: PatientFormState = {};
 
-export function PatientForm({ action, initialValues, submitLabel, onSuccess }: PatientFormProps) {
+export function PatientForm({ action, initialValues, submitLabel, submitIcon, onSuccess }: PatientFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   useEffect(() => {
@@ -79,7 +84,14 @@ export function PatientForm({ action, initialValues, submitLabel, onSuccess }: P
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending}>
-        {pending ? "Guardando..." : submitLabel}
+        {pending ? (
+          "Guardando..."
+        ) : (
+          <>
+            {submitIcon}
+            {submitLabel}
+          </>
+        )}
       </Button>
     </form>
   );

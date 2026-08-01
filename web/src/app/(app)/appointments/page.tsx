@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
+import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { apiFetch } from "@/lib/api";
 import type { Appointment, Paginated, Patient } from "@/lib/types";
 
@@ -50,7 +51,10 @@ export default async function AppointmentsPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agenda</h1>
         <Button asChild>
-          <Link href="/appointments/new">Nueva cita</Link>
+          <Link href="/appointments/new">
+            <PlusIcon data-icon="inline-start" />
+            Nueva cita
+          </Link>
         </Button>
       </div>
 
@@ -97,7 +101,9 @@ export default async function AppointmentsPage({
                   {patients[i] ? `${patients[i]!.firstName} ${patients[i]!.lastName}` : "—"}
                 </TableCell>
                 <TableCell>{appointment.durationMinutes} min</TableCell>
-                <TableCell>{APPOINTMENT_STATUS_LABELS[appointment.status]}</TableCell>
+                <TableCell>
+                  <AppointmentStatusBadge status={appointment.status} />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
@@ -13,13 +14,21 @@ export function CreateAppointmentDialog({ patientId }: { patientId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">Nueva cita</Button>
+        <Button size="sm">
+          <PlusIcon data-icon="inline-start" />
+          Nueva cita
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nueva cita</DialogTitle>
         </DialogHeader>
-        <AppointmentForm action={boundAction} submitLabel="Crear cita" onSuccess={() => setOpen(false)} />
+        <AppointmentForm
+          action={boundAction}
+          submitLabel="Crear cita"
+          submitIcon={<PlusIcon data-icon="inline-start" />}
+          onSuccess={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );

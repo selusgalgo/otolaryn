@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { CreateAppointmentDialog } from "@/components/appointments/create-appointment-dialog";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
 import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
 import { PatientAvatar } from "@/components/patients/patient-avatar";
-import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
 
@@ -90,7 +91,10 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Historia clínica</CardTitle>
           <Button asChild size="sm">
-            <Link href={`/patients/${id}/clinical-entries/new`}>Nueva entrada</Link>
+            <Link href={`/patients/${id}/clinical-entries/new`}>
+              <PlusIcon data-icon="inline-start" />
+              Nueva entrada
+            </Link>
           </Button>
         </CardHeader>
         <CardContent>
@@ -133,8 +137,8 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                     className="flex items-center justify-between gap-4 hover:underline"
                   >
                     <span className="text-sm">{formatDateTime(appointment.scheduledAt)}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {APPOINTMENT_STATUS_LABELS[appointment.status]}
+                    <span className="shrink-0">
+                      <AppointmentStatusBadge status={appointment.status} />
                     </span>
                   </Link>
                 </li>

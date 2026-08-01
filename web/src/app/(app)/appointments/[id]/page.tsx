@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CancelAppointmentButton } from "@/components/appointments/cancel-appointment-button";
+import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
-import { APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Appointment, Patient } from "@/lib/types";
 
@@ -52,7 +52,9 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           </div>
           <div>
             <div className="text-muted-foreground">Estado</div>
-            <div>{APPOINTMENT_STATUS_LABELS[appointment.status]}</div>
+            <div>
+              <AppointmentStatusBadge status={appointment.status} />
+            </div>
           </div>
           <div className="col-span-2">
             <div className="text-muted-foreground">Notas</div>
