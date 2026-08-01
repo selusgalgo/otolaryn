@@ -47,6 +47,8 @@ export class AuthService {
       sub: user.id,
       tenant_id: user.tenantId,
       role: user.role,
+      first_name: user.firstName,
+      last_name: user.lastName,
     });
 
     return { accessToken };

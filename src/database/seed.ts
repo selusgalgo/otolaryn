@@ -21,7 +21,12 @@ interface PatientSeed {
 
 interface TenantSeed {
   name: string;
-  users: { email: string; role: 'admin' | 'staff' }[];
+  users: {
+    email: string;
+    role: 'admin' | 'staff';
+    firstName: string;
+    lastName: string;
+  }[];
   patients: PatientSeed[];
 }
 
@@ -29,8 +34,18 @@ const TENANTS: TenantSeed[] = [
   {
     name: 'Clinica Aurora',
     users: [
-      { email: 'admin@aurora.test', role: 'admin' },
-      { email: 'staff@aurora.test', role: 'staff' },
+      {
+        email: 'admin@aurora.test',
+        role: 'admin',
+        firstName: 'Laura',
+        lastName: 'Gomez',
+      },
+      {
+        email: 'staff@aurora.test',
+        role: 'staff',
+        firstName: 'Marcos',
+        lastName: 'Ibanez',
+      },
     ],
     patients: [
       {
@@ -52,8 +67,18 @@ const TENANTS: TenantSeed[] = [
   {
     name: 'Clinica Boreal',
     users: [
-      { email: 'admin@boreal.test', role: 'admin' },
-      { email: 'staff@boreal.test', role: 'staff' },
+      {
+        email: 'admin@boreal.test',
+        role: 'admin',
+        firstName: 'Elena',
+        lastName: 'Ruiz',
+      },
+      {
+        email: 'staff@boreal.test',
+        role: 'staff',
+        firstName: 'Diego',
+        lastName: 'Torres',
+      },
     ],
     patients: [
       {
@@ -89,8 +114,16 @@ async function seed() {
 
       for (const user of tenantSeed.users) {
         await dataSource.query(
-          `INSERT INTO iam.users (tenant_id, email, password_hash, role) VALUES ($1, $2, $3, $4)`,
-          [tenantId, user.email, passwordHash, user.role],
+          `INSERT INTO iam.users (tenant_id, email, password_hash, role, first_name, last_name)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            tenantId,
+            user.email,
+            passwordHash,
+            user.role,
+            user.firstName,
+            user.lastName,
+          ],
         );
       }
 

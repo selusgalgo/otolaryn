@@ -47,3 +47,14 @@ export interface Paginated<T> {
   page: number;
   pageSize: number;
 }
+
+export interface Me {
+  firstName: string;
+  lastName: string;
+  role: string;
+}
+
+export interface TodayDashboard {
+  appointments: Appointment[];
+  clinicalEntries: ClinicalEntry[];
+}

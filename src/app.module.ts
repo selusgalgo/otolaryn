@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { ClinicalEntriesModule } from './clinical-entries/clinical-entries.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { IamModule } from './iam/iam.module';
 import { PatientsModule } from './patients/patients.module';
@@ -18,6 +19,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
     PatientsModule,
     ClinicalEntriesModule,
     AppointmentsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

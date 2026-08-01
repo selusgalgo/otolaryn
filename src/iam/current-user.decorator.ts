@@ -4,6 +4,8 @@ export interface CurrentUserPayload {
   userId: string;
   tenantId: string;
   role: string;
+  firstName: string;
+  lastName: string;
 }
 
 // Pulls the object JwtStrategy.validate() attached as request.user, so

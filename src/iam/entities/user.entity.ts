@@ -23,6 +23,12 @@ export class User {
   @Column()
   email: string;
 
+  @Column({ name: 'first_name' })
+  firstName: string;
+
+  @Column({ name: 'last_name' })
+  lastName: string;
+
   @Column({ name: 'password_hash' })
   passwordHash: string;
 

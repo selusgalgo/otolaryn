@@ -39,8 +39,9 @@ export async function createTestTenants(
 
     const email = `${label.toLowerCase()}-${runId}@rls-test.local`;
     await pool.query(
-      `INSERT INTO iam.users (tenant_id, email, password_hash, role) VALUES ($1, $2, $3, 'admin')`,
-      [tenantId, email, passwordHash],
+      `INSERT INTO iam.users (tenant_id, email, password_hash, role, first_name, last_name)
+       VALUES ($1, $2, $3, 'admin', $4, $5)`,
+      [tenantId, email, passwordHash, label, `Test-${runId}`],
     );
 
     const patientFirstName = label;
