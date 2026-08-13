@@ -3,11 +3,58 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { Appointment } from "@/lib/types";
+import type { Appointment, AppointmentStatus, Paginated, Patient } from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
   success?: boolean;
+}
+
+export interface CalendarAppointment {
+  id: string;
+  scheduledAt: string;
+  status: AppointmentStatus;
+  patientId: string;
+  patientName: string;
+}
+
+// Backs the Escritorio's mini-calendar: one call per visible month, called
+// imperatively from a Client Component on navigation (same pattern as
+// searchPatientsAction for PatientPicker) rather than a page reload. Reuses
+// the existing GET /appointments date-range filter — already scoped
+// correctly per role server-side (profesional forced to their own,
+// admin/recepcion see the whole clinic), nothing extra to enforce here.
+export async function getMonthAppointmentsAction(
+  year: number,
+  month: number,
+): Promise<CalendarAppointment[]> {
+  const from = new Date(Date.UTC(year, month, 1)).toISOString();
+  const to = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999)).toISOString();
+
+  const result = await apiFetch<Paginated<Appointment>>(
+    `/appointments?from=${from}&to=${to}&pageSize=100`,
+  );
+
+  // Same name-resolution pattern as the rest of Escritorio: the API only
+  // returns patientId, not a name.
+  const patientIds = Array.from(new Set(result.data.map((a) => a.patientId)));
+  const patients = await Promise.all(
+    patientIds.map((id) => apiFetch<Patient>(`/patients/${id}`).catch(() => null)),
+  );
+  const patientById = new Map(
+    patients.filter((p): p is Patient => p !== null).map((p) => [p.id, p]),
+  );
+
+  return result.data.map((a) => {
+    const patient = patientById.get(a.patientId);
+    return {
+      id: a.id,
+      scheduledAt: a.scheduledAt,
+      status: a.status,
+      patientId: a.patientId,
+      patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
+    };
+  });
 }
 
 function newAppointmentBody(

@@ -27,6 +27,10 @@ interface AppointmentFormProps {
   // hidden. A non-null array (possibly empty): admin/recepcion, who must
   // pick a profesional explicitly — see getPractitionerOptions().
   practitioners?: PractitionerOption[] | null;
+  // Pre-fills the date field (YYYY-MM-DD) when there's no initialValues yet
+  // — used when arriving from the Escritorio's calendar with a day already
+  // selected. Ignored once initialValues is set (editing always wins).
+  defaultDate?: string;
   // Rendered above the date/time fields — used by /appointments/new to
   // embed <PatientPicker /> inside this same <form> so patient selection
   // (or inline creation) and the appointment details submit together.
@@ -59,6 +63,7 @@ export function AppointmentForm({
   submitIcon,
   showStatus,
   practitioners,
+  defaultDate,
   children,
   onSuccess,
 }: AppointmentFormProps) {
@@ -78,7 +83,7 @@ export function AppointmentForm({
             id="date"
             name="date"
             type="date"
-            defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : undefined}
+            defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
             required
             disabled={pending}
           />

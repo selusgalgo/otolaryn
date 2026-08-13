@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
+import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import type { Patient, TodayDashboard } from "@/lib/types";
@@ -9,32 +10,25 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-}
-
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function DashboardPage() {
   const date = todayIso();
-  const [me, dashboard] = await Promise.all([
+  const today = new Date();
+  const [me, dashboard, monthAppointments] = await Promise.all([
     getCurrentUser(),
     apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
+    // Feeds the calendar's initial month — see AgendaCalendar, which takes
+    // over with its own fetches (getMonthAppointmentsAction) on navigation.
+    getMonthAppointmentsAction(today.getFullYear(), today.getMonth()),
   ]);
 
-  // Same pattern as the Agenda list: the API only returns patientId, not a
-  // name, so it's resolved here for display. Deduped across both widgets
-  // since the same patient can show up in the agenda and in the history.
   // clinicalEntries is null (not just empty) for recepcion — that widget
-  // doesn't render for that role at all, see below.
-  const patientIds = Array.from(
-    new Set([
-      ...dashboard.appointments.map((a) => a.patientId),
-      ...(dashboard.clinicalEntries ?? []).map((e) => e.patientId),
-    ]),
-  );
+  // doesn't render for that role at all, see below. The API only returns
+  // patientId, not a name, so names are resolved here for display.
+  const patientIds = Array.from(new Set((dashboard.clinicalEntries ?? []).map((e) => e.patientId)));
   const patients = await Promise.all(
     patientIds.map((id) => apiFetch<Patient>(`/patients/${id}`).catch(() => null)),
   );
@@ -51,32 +45,11 @@ export default async function DashboardPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Hola, {me.firstName}</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Agenda de hoy</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {dashboard.appointments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin citas hoy.</p>
-          ) : (
-            <ul className="divide-y">
-              {dashboard.appointments.map((appointment) => (
-                <li key={appointment.id} className="py-2">
-                  <Link
-                    href={`/appointments/${appointment.id}`}
-                    className="flex items-center justify-between gap-4 hover:underline"
-                  >
-                    <span className="text-sm">
-                      {formatTime(appointment.scheduledAt)} · {patientName(appointment.patientId)}
-                    </span>
-                    <AppointmentStatusBadge status={appointment.status} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <AgendaCalendar
+        initialYear={today.getFullYear()}
+        initialMonth={today.getMonth()}
+        initialAppointments={monthAppointments}
+      />
 
       {dashboard.clinicalEntries !== null && (
         <Card>

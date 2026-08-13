@@ -4,8 +4,12 @@ import { PatientPicker } from "@/components/appointments/patient-picker";
 import { createAppointmentForPatientAction } from "@/lib/actions/appointments";
 import { getPractitionerOptions } from "@/lib/practitioners";
 
-export default async function NewAppointmentPage() {
-  const practitioners = await getPractitionerOptions();
+export default async function NewAppointmentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const [practitioners, { date }] = await Promise.all([getPractitionerOptions(), searchParams]);
 
   return (
     <div className="space-y-4">
@@ -15,6 +19,7 @@ export default async function NewAppointmentPage() {
         submitLabel="Crear cita"
         submitIcon={<PlusIcon data-icon="inline-start" />}
         practitioners={practitioners}
+        defaultDate={date}
       >
         <PatientPicker />
       </AppointmentForm>
