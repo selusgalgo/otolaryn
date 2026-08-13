@@ -23,12 +23,18 @@ interface TenantSeed {
   name: string;
   users: {
     email: string;
-    role: 'admin' | 'staff';
+    role: 'admin' | 'profesional' | 'recepcion';
     firstName: string;
     lastName: string;
   }[];
   patients: PatientSeed[];
 }
+
+const SUPERADMIN = {
+  email: 'superadmin@eiduo.dev',
+  firstName: 'Eiduo',
+  lastName: 'Superadmin',
+};
 
 const TENANTS: TenantSeed[] = [
   {
@@ -42,9 +48,15 @@ const TENANTS: TenantSeed[] = [
       },
       {
         email: 'staff@aurora.test',
-        role: 'staff',
+        role: 'profesional',
         firstName: 'Marcos',
         lastName: 'Ibanez',
+      },
+      {
+        email: 'recepcion@aurora.test',
+        role: 'recepcion',
+        firstName: 'Nuria',
+        lastName: 'Serra',
       },
     ],
     patients: [
@@ -75,9 +87,15 @@ const TENANTS: TenantSeed[] = [
       },
       {
         email: 'staff@boreal.test',
-        role: 'staff',
+        role: 'profesional',
         firstName: 'Diego',
         lastName: 'Torres',
+      },
+      {
+        email: 'recepcion@boreal.test',
+        role: 'recepcion',
+        firstName: 'Sara',
+        lastName: 'Molina',
       },
     ],
     patients: [
@@ -164,6 +182,20 @@ async function seed() {
 
       console.log(`Seeded tenant "${tenantSeed.name}" (${tenantId})`);
     }
+
+    // Not tied to any tenant — tenant_id stays NULL, which is only valid
+    // for role 'superadmin' (enforced by users_tenant_superadmin_check).
+    await dataSource.query(
+      `INSERT INTO iam.users (tenant_id, email, password_hash, role, first_name, last_name)
+       VALUES (NULL, $1, $2, 'superadmin', $3, $4)`,
+      [
+        SUPERADMIN.email,
+        passwordHash,
+        SUPERADMIN.firstName,
+        SUPERADMIN.lastName,
+      ],
+    );
+    console.log(`Seeded superadmin ${SUPERADMIN.email}`);
 
     console.log(`Dev login password for all seeded users: ${DEV_PASSWORD}`);
   } finally {

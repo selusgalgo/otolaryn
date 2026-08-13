@@ -2,7 +2,8 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface CurrentUserPayload {
   userId: string;
-  tenantId: string;
+  // Null only for 'superadmin' — see User entity comment.
+  tenantId: string | null;
   role: string;
   firstName: string;
   lastName: string;

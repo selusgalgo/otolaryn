@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { Pool } from 'pg';
+import * as argon2 from 'argon2';
 import { createTestApp } from '../rls/support/app';
 import { ownerPool } from '../rls/support/pools';
 import {
@@ -25,6 +26,10 @@ interface AppointmentResponse {
   notes: string | null;
 }
 
+interface PatientResponse {
+  id: string;
+}
+
 interface PaginatedAppointments {
   data: AppointmentResponse[];
   total: number;
@@ -39,13 +44,15 @@ function decodeSub(token: string): string {
   return payload.sub;
 }
 
-function slot(isoStart: string, durationMinutes = 30, practitionerId?: string) {
-  return {
-    scheduledAt: isoStart,
-    durationMinutes,
-    ...(practitionerId ? { practitionerId } : {}),
-  };
+function slot(
+  isoStart: string,
+  durationMinutes: number,
+  practitionerId: string,
+) {
+  return { scheduledAt: isoStart, durationMinutes, practitionerId };
 }
+
+const SECOND_PRACTITIONER_PASSWORD = 'AppointmentsTest-Passw0rd!';
 
 describe('Agenda (appointments)', () => {
   let app: INestApplication;
@@ -56,10 +63,27 @@ describe('Agenda (appointments)', () => {
   let tokenA: string;
   let tokenB: string;
   let practitionerA: string;
+  let practitionerA2: string;
 
   beforeAll(async () => {
     owner = ownerPool();
     [tenantA, tenantB] = await createTestTenants(owner);
+
+    // A second, unrelated practitioner in the same tenant — needed to prove
+    // the no-double-booking constraint is scoped per practitioner, not a
+    // blanket "one appointment per clinic per slot" rule.
+    const passwordHash = await argon2.hash(SECOND_PRACTITIONER_PASSWORD, {
+      type: argon2.argon2id,
+    });
+    const secondEmail = `second-practitioner-${Date.now()}@rls-test.local`;
+    const {
+      rows: [{ id: secondId }],
+    } = await owner.query<{ id: string }>(
+      `INSERT INTO iam.users (tenant_id, email, password_hash, role, first_name, last_name)
+       VALUES ($1, $2, $3, 'profesional', 'Segundo', 'Practitioner') RETURNING id`,
+      [tenantA.id, secondEmail, passwordHash],
+    );
+    practitionerA2 = secondId;
 
     app = await createTestApp();
     server = app.getHttpServer() as Server;
@@ -88,7 +112,7 @@ describe('Agenda (appointments)', () => {
     const res = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-01-10T09:00:00.000Z'));
+      .send(slot('2027-01-10T09:00:00.000Z', 30, practitionerA));
 
     expect(res.status).toBe(201);
     const body = res.body as AppointmentResponse;
@@ -96,11 +120,20 @@ describe('Agenda (appointments)', () => {
     expect(body.status).toBe('scheduled');
   });
 
+  it('rejects creating an appointment with no practitionerId (admin/recepcion must pick one)', async () => {
+    const res = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ scheduledAt: '2027-01-10T09:30:00.000Z', durationMinutes: 30 });
+
+    expect(res.status).toBe(400);
+  });
+
   it('returns 404 creating an appointment for a nonexistent patient', async () => {
     const res = await request(server)
       .post('/patients/00000000-0000-0000-0000-000000000000/appointments')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-01-10T09:30:00.000Z'));
+      .send(slot('2027-01-10T09:30:00.000Z', 30, practitionerA));
 
     expect(res.status).toBe(404);
   });
@@ -109,7 +142,7 @@ describe('Agenda (appointments)', () => {
     const res = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenB}`)
-      .send(slot('2027-01-10T09:30:00.000Z'));
+      .send(slot('2027-01-10T09:30:00.000Z', 30, decodeSub(tokenB)));
 
     expect(res.status).toBe(404);
   });
@@ -129,17 +162,50 @@ describe('Agenda (appointments)', () => {
     expect(overlapping.status).toBe(409);
   });
 
-  it('does not block an overlapping appointment with no practitioner assigned', async () => {
+  // This is the exact scenario reported as a bug: two different patients
+  // must never end up with the same practitioner at the same date/time.
+  // Before practitionerId became mandatory on create, every appointment
+  // left it NULL, which made the DB's exclusion constraint a no-op — this
+  // is the regression test for that fix.
+  it('blocks two different patients from booking the same practitioner at the same time', async () => {
+    const secondPatient = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        firstName: 'Segundo',
+        lastName: 'Paciente',
+        documentId: `DB-${Date.now()}`.slice(0, 20),
+        dateOfBirth: '1992-05-05',
+        phone: '+34600000099',
+      });
+    expect(secondPatient.status).toBe(201);
+    const secondPatientId = (secondPatient.body as PatientResponse).id;
+
     const first = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-03-01T11:00:00.000Z', 30));
+      .send(slot('2027-02-15T09:00:00.000Z', 30, practitionerA));
+    expect(first.status).toBe(201);
+
+    const secondPatientSameSlot = await request(server)
+      .post(`/patients/${secondPatientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(slot('2027-02-15T09:00:00.000Z', 30, practitionerA));
+
+    expect(secondPatientSameSlot.status).toBe(409);
+  });
+
+  it('does not block an overlapping appointment for a different practitioner', async () => {
+    const first = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(slot('2027-03-01T11:00:00.000Z', 30, practitionerA));
     expect(first.status).toBe(201);
 
     const second = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-03-01T11:15:00.000Z', 30));
+      .send(slot('2027-03-01T11:00:00.000Z', 30, practitionerA2));
 
     expect(second.status).toBe(201);
   });
@@ -175,7 +241,7 @@ describe('Agenda (appointments)', () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-05-01T09:00:00.000Z'));
+      .send(slot('2027-05-01T09:00:00.000Z', 30, practitionerA));
     const id = (created.body as AppointmentResponse).id;
 
     const res = await request(server)
@@ -200,7 +266,7 @@ describe('Agenda (appointments)', () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-05-10T09:00:00.000Z', 45));
+      .send(slot('2027-05-10T09:00:00.000Z', 45, practitionerA));
     const id = (created.body as AppointmentResponse).id;
     expect((created.body as AppointmentResponse).durationMinutes).toBe(45);
 
@@ -218,7 +284,7 @@ describe('Agenda (appointments)', () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-06-01T09:00:00.000Z'));
+      .send(slot('2027-06-01T09:00:00.000Z', 30, practitionerA));
     const id = (created.body as AppointmentResponse).id;
 
     const del = await request(server)
@@ -236,7 +302,7 @@ describe('Agenda (appointments)', () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send(slot('2027-07-01T09:00:00.000Z'));
+      .send(slot('2027-07-01T09:00:00.000Z', 30, practitionerA));
     const id = (created.body as AppointmentResponse).id;
 
     const asOther = await request(server)

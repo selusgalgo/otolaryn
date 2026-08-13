@@ -2,22 +2,58 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  LayoutDashboardIcon,
+  LogOutIcon,
+  UserCogIcon,
+  UsersIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
+import type { Role } from "@/lib/types";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Escritorio", icon: LayoutDashboardIcon },
-  { href: "/patients", label: "Pacientes", icon: UsersIcon },
-  { href: "/appointments", label: "Agenda", icon: CalendarDaysIcon },
+// admin/profesional/recepcion only — superadmin never renders this sidebar
+// at all ((app)/layout.tsx redirects it to /platform first).
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboardIcon;
+  roles: Role[];
+}[] = [
+  {
+    href: "/dashboard",
+    label: "Escritorio",
+    icon: LayoutDashboardIcon,
+    roles: ["admin", "profesional", "recepcion"],
+  },
+  {
+    href: "/patients",
+    label: "Pacientes",
+    icon: UsersIcon,
+    roles: ["admin", "profesional", "recepcion"],
+  },
+  {
+    href: "/appointments",
+    label: "Agenda",
+    icon: CalendarDaysIcon,
+    roles: ["admin", "profesional", "recepcion"],
+  },
+  {
+    href: "/users",
+    label: "Usuarios",
+    icon: UserCogIcon,
+    roles: ["admin"],
+  },
 ];
 
-function NavLinks() {
+function NavLinks({ role }: { role: Role }) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   return (
     <nav className="flex-1 space-y-1 p-3">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -40,12 +76,13 @@ function NavLinks() {
 }
 
 // Bottom tab bar, mobile only — icon-over-label, native-app style.
-function MobileBottomNav() {
+function MobileBottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-primary-foreground/10 bg-primary pb-[env(safe-area-inset-bottom)] md:hidden">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -81,23 +118,23 @@ function LogoutForm() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: Role }) {
   return (
     <>
       {/* Desktop: fixed sidebar, always visible */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-primary md:flex">
-        <Link href="/patients" className="flex items-center border-b border-primary-foreground/10 px-4 py-4">
+        <Link href="/dashboard" className="flex items-center border-b border-primary-foreground/10 px-4 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
           <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
         </Link>
-        <NavLinks />
+        <NavLinks role={role} />
         <LogoutForm />
       </aside>
 
       {/* Mobile: top bar with logo + logout — navigation itself lives in the
           fixed bottom tab bar below, app-style, so there's no hamburger/drawer. */}
       <header className="flex items-center justify-between bg-primary px-4 py-3 md:hidden">
-        <Link href="/patients" className="flex items-center">
+        <Link href="/dashboard" className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
           <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
         </Link>
@@ -112,7 +149,7 @@ export function Sidebar() {
         </form>
       </header>
 
-      <MobileBottomNav />
+      <MobileBottomNav role={role} />
     </>
   );
 }

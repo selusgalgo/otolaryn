@@ -5,6 +5,7 @@ import { CancelAppointmentButton } from "@/components/appointments/cancel-appoin
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
 import { ApiError, apiFetch } from "@/lib/api";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Patient } from "@/lib/types";
 
 function formatDateTime(iso: string): string {
@@ -24,7 +25,10 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
     throw err;
   }
 
-  const patient = await apiFetch<Patient>(`/patients/${appointment.patientId}`);
+  const [patient, practitioners] = await Promise.all([
+    apiFetch<Patient>(`/patients/${appointment.patientId}`),
+    getPractitionerOptions(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -36,7 +40,7 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           <h1 className="text-2xl font-bold">{formatDateTime(appointment.scheduledAt)}</h1>
         </div>
         <div className="flex gap-2">
-          <EditAppointmentDialog appointment={appointment} />
+          <EditAppointmentDialog appointment={appointment} practitioners={practitioners} />
           {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
         </div>
       </div>

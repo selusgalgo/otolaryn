@@ -48,13 +48,33 @@ export interface Paginated<T> {
   pageSize: number;
 }
 
+export type Role = "superadmin" | "admin" | "profesional" | "recepcion";
+
 export interface Me {
   firstName: string;
   lastName: string;
-  role: string;
+  role: Role;
 }
 
 export interface TodayDashboard {
   appointments: Appointment[];
-  clinicalEntries: ClinicalEntry[];
+  // Omitted (null), not just empty, for recepcion — that role has no
+  // access to clinical content at all.
+  clinicalEntries: ClinicalEntry[] | null;
+}
+
+export interface AppUser {
+  id: string;
+  tenantId: string | null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  createdAt: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  createdAt: string;
 }

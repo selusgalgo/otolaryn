@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { apiFetch } from "@/lib/api";
-import type { Me, Patient, TodayDashboard } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth";
+import type { Patient, TodayDashboard } from "@/lib/types";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -19,17 +20,19 @@ function formatDateTime(iso: string): string {
 export default async function DashboardPage() {
   const date = todayIso();
   const [me, dashboard] = await Promise.all([
-    apiFetch<Me>("/auth/me"),
+    getCurrentUser(),
     apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
   ]);
 
   // Same pattern as the Agenda list: the API only returns patientId, not a
   // name, so it's resolved here for display. Deduped across both widgets
   // since the same patient can show up in the agenda and in the history.
+  // clinicalEntries is null (not just empty) for recepcion — that widget
+  // doesn't render for that role at all, see below.
   const patientIds = Array.from(
     new Set([
       ...dashboard.appointments.map((a) => a.patientId),
-      ...dashboard.clinicalEntries.map((e) => e.patientId),
+      ...(dashboard.clinicalEntries ?? []).map((e) => e.patientId),
     ]),
   );
   const patients = await Promise.all(
@@ -75,34 +78,36 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Historia clínica de hoy</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {dashboard.clinicalEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin entradas registradas hoy.</p>
-          ) : (
-            <ul className="divide-y">
-              {dashboard.clinicalEntries.map((entry) => (
-                <li key={entry.id} className="py-2">
-                  <Link
-                    href={`/patients/${entry.patientId}/clinical-entries/${entry.id}`}
-                    className="flex items-center justify-between gap-4 hover:underline"
-                  >
-                    <span className="text-sm">
-                      {patientName(entry.patientId)} · {entry.chiefComplaint}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDateTime(entry.visitDate)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {dashboard.clinicalEntries !== null && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Historia clínica de hoy</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dashboard.clinicalEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin entradas registradas hoy.</p>
+            ) : (
+              <ul className="divide-y">
+                {dashboard.clinicalEntries.map((entry) => (
+                  <li key={entry.id} className="py-2">
+                    <Link
+                      href={`/patients/${entry.patientId}/clinical-entries/${entry.id}`}
+                      className="flex items-center justify-between gap-4 hover:underline"
+                    >
+                      <span className="text-sm">
+                        {patientName(entry.patientId)} · {entry.chiefComplaint}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDateTime(entry.visitDate)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

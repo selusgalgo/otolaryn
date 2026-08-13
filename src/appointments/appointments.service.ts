@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
+import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -29,16 +32,35 @@ export class AppointmentsService {
   async create(
     patientId: string,
     dto: CreateAppointmentDto,
+    user: CurrentUserPayload,
   ): Promise<Appointment> {
-    // Throws NotFoundException if the patient doesn't exist or belongs to
-    // another tenant — also what makes the FK on (patient_id, tenant_id)
-    // succeed below.
+    // Existence check only — deliberately unrestricted by "own patients"
+    // even for a profesional: booking someone's first appointment is
+    // exactly the act that establishes that link, so requiring it upfront
+    // would make it impossible to ever book a new patient. Also what makes
+    // the FK on (patient_id, tenant_id) succeed below.
     await this.patients.findOne(patientId);
+
+    // A profesional can only ever book themselves — any practitionerId sent
+    // in the body is ignored, not just validated, so a crafted request can't
+    // book on someone else's behalf. admin/recepcion must pick one
+    // explicitly: this is also what makes the DB's no-double-booking
+    // exclusion constraint actually fire (it's a no-op when
+    // practitioner_id is NULL, which every appointment used to be).
+    let practitionerId: string;
+    if (user.role === 'profesional') {
+      practitionerId = user.userId;
+    } else {
+      if (!dto.practitionerId) {
+        throw new BadRequestException('practitionerId is required');
+      }
+      practitionerId = dto.practitionerId;
+    }
 
     const appointment = this.repo.create({
       tenantId: this.tenancyContext.tenantId,
       patientId,
-      practitionerId: dto.practitionerId ?? null,
+      practitionerId,
       scheduledAt: new Date(dto.scheduledAt),
       durationMinutes: dto.durationMinutes ?? 30,
       status: 'scheduled',
@@ -54,6 +76,7 @@ export class AppointmentsService {
 
   async findAll(
     query: ListAppointmentsQueryDto,
+    user: CurrentUserPayload,
   ): Promise<PaginatedResult<Appointment>> {
     const qb = this.repo
       .createQueryBuilder('a')
@@ -65,7 +88,13 @@ export class AppointmentsService {
     if (query.to) {
       qb.andWhere('a.scheduledAt <= :to', { to: query.to });
     }
-    if (query.practitionerId) {
+    if (user.role === 'profesional') {
+      // Forced, not just defaulted — a profesional can't widen this by
+      // passing a different practitionerId in the query string.
+      qb.andWhere('a.practitionerId = :practitionerId', {
+        practitionerId: user.userId,
+      });
+    } else if (query.practitionerId) {
       qb.andWhere('a.practitionerId = :practitionerId', {
         practitionerId: query.practitionerId,
       });
@@ -88,8 +117,19 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async update(id: string, dto: UpdateAppointmentDto): Promise<Appointment> {
+  async update(
+    id: string,
+    dto: UpdateAppointmentDto,
+    user: CurrentUserPayload,
+  ): Promise<Appointment> {
     const appointment = await this.findOne(id);
+
+    if (
+      user.role === 'profesional' &&
+      appointment.practitionerId !== user.userId
+    ) {
+      throw new ForbiddenException('You can only modify your own appointments');
+    }
 
     if (dto.scheduledAt !== undefined) {
       appointment.scheduledAt = new Date(dto.scheduledAt);
@@ -97,7 +137,9 @@ export class AppointmentsService {
     if (dto.durationMinutes !== undefined) {
       appointment.durationMinutes = dto.durationMinutes;
     }
-    if (dto.practitionerId !== undefined) {
+    if (dto.practitionerId !== undefined && user.role !== 'profesional') {
+      // A profesional can't reassign their own appointment to someone
+      // else — only admin/recepcion redistribute the agenda.
       appointment.practitionerId = dto.practitionerId;
     }
     if (dto.notes !== undefined) {

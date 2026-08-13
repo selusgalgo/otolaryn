@@ -10,11 +10,16 @@ export interface AppointmentFormState {
   success?: boolean;
 }
 
-function newAppointmentBody(formData: FormData): { scheduledAt: string; durationMinutes?: number; notes?: string } | null {
+function newAppointmentBody(
+  formData: FormData,
+): { scheduledAt: string; durationMinutes?: number; notes?: string; practitionerId?: string } | null {
   const date = String(formData.get("date") ?? "").trim();
   const time = String(formData.get("time") ?? "").trim();
   const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  // Absent entirely for a profesional (the field isn't rendered — the
+  // backend auto-assigns them); present and required for admin/recepcion.
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return null;
@@ -24,6 +29,7 @@ function newAppointmentBody(formData: FormData): { scheduledAt: string; duration
     scheduledAt: new Date(`${date}T${time}`).toISOString(),
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     ...(notes ? { notes } : {}),
+    ...(practitionerId ? { practitionerId } : {}),
   };
 }
 
@@ -137,6 +143,9 @@ export async function updateAppointmentAction(
   const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
+  // Absent for profesional (field not rendered) — a profesional can't
+  // reassign their own appointment to someone else, only admin/recepcion do.
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return { error: "Indica fecha y hora de la cita." };
@@ -147,6 +156,7 @@ export async function updateAppointmentAction(
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     notes: notes || null,
     ...(status ? { status } : {}),
+    ...(practitionerId ? { practitionerId } : {}),
   };
 
   let appointment: Appointment;
