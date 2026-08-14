@@ -48,13 +48,62 @@ export interface Paginated<T> {
   pageSize: number;
 }
 
+export type Role = "superadmin" | "admin" | "profesional" | "recepcion";
+
 export interface Me {
   firstName: string;
   lastName: string;
-  role: string;
+  role: Role;
 }
 
 export interface TodayDashboard {
   appointments: Appointment[];
-  clinicalEntries: ClinicalEntry[];
+  // Omitted (null), not just empty, for recepcion — that role has no
+  // access to clinical content at all.
+  clinicalEntries: ClinicalEntry[] | null;
+}
+
+export interface AppUser {
+  id: string;
+  tenantId: string | null;
+  email: string;
+  username: string | null;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  createdAt: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface AccountProfile {
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  email: string;
+  role: Role;
+}
+
+// Weekly recurring, whole-clinic schedule — index 0=Monday..6=Sunday. A day
+// with an empty slots array is closed.
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+}
+
+export interface DaySchedule {
+  weekday: number;
+  slots: TimeSlot[];
+}
+
+export interface Schedule {
+  days: DaySchedule[];
+}
+
+export interface TenantSchedule extends Schedule {
+  tenantName: string;
 }

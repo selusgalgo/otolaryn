@@ -19,7 +19,10 @@ export function middleware(request: NextRequest) {
   }
 
   if (hasSession && isLoginPage) {
-    return NextResponse.redirect(new URL("/patients", request.url));
+    // Not role-aware here on purpose (no JWT decoding at the edge) — lands
+    // everyone on /dashboard, which (app)/layout.tsx immediately bounces
+    // superadmin onward from, same as visiting "/" directly.
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

@@ -11,7 +11,7 @@ import { DataSource } from 'typeorm';
 import { TenancyContext } from './tenancy-context';
 
 interface AuthenticatedRequest {
-  user?: { userId: string; tenantId: string; role: string };
+  user?: { userId: string; tenantId: string | null; role: string };
 }
 
 // Wraps every authenticated request in its own transaction and pins the

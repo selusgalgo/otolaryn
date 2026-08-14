@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -8,7 +9,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { IamModule } from './iam/iam.module';
 import { PatientsModule } from './patients/patients.module';
+import { PlatformModule } from './platform/platform.module';
+import { SettingsModule } from './settings/settings.module';
 import { TenancyModule } from './tenancy/tenancy.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -20,6 +24,10 @@ import { TenancyModule } from './tenancy/tenancy.module';
     ClinicalEntriesModule,
     AppointmentsModule,
     DashboardModule,
+    UsersModule,
+    PlatformModule,
+    AccountModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -41,7 +41,7 @@ describe('RLS: tampered JWT is rejected before hitting the database', () => {
     server = app.getHttpServer() as Server;
     const login = await request(server)
       .post('/auth/login')
-      .send({ email: tenantA.userEmail, password: tenantA.userPassword });
+      .send({ identifier: tenantA.userEmail, password: tenantA.userPassword });
     validToken = (login.body as LoginResponse).accessToken;
     expect(validToken).toBeDefined();
   }, 30000);

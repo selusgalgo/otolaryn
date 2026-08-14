@@ -13,6 +13,9 @@ export class Tenant {
   @Column()
   name: string;
 
+  // Schedule lives in ClinicHour (iam.clinic_hours), one row per open time
+  // slot — see that entity.
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

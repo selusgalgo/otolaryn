@@ -9,6 +9,8 @@ import { DeletePatientButton } from "@/components/patients/delete-patient-button
 import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { ApiError, apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
 
 function formatDate(iso: string): string {
@@ -32,13 +34,17 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     throw err;
   }
 
-  const entries = await apiFetch<Paginated<ClinicalEntry>>(
-    `/patients/${id}/clinical-entries?pageSize=50`,
-  );
-
-  const appointments = await apiFetch<Paginated<Appointment>>(
-    `/appointments?patientId=${id}&pageSize=50`,
-  );
+  const me = await getCurrentUser();
+  // recepcion has no access to clinical history at all — the backend 403s
+  // this endpoint for that role, so it's skipped entirely rather than
+  // fetched and hidden.
+  const [entries, appointments, practitioners] = await Promise.all([
+    me.role === "recepcion"
+      ? null
+      : apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
+    apiFetch<Paginated<Appointment>>(`/appointments?patientId=${id}&pageSize=50`),
+    getPractitionerOptions(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -51,7 +57,10 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="flex gap-2">
           <EditPatientDialog patient={patient} />
-          <DeletePatientButton id={patient.id} />
+          {/* recepcion can create/edit patients but not discharge one —
+              backend already 403s this for that role (see PatientsController),
+              hidden here too so the button isn't there to click in the first place. */}
+          {me.role !== "recepcion" && <DeletePatientButton id={patient.id} />}
         </div>
       </div>
 
@@ -87,43 +96,45 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Historia clínica</CardTitle>
-          <Button asChild size="sm">
-            <Link href={`/patients/${id}/clinical-entries/new`}>
-              <PlusIcon data-icon="inline-start" />
-              Nueva entrada
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {entries.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
-          ) : (
-            <ul className="divide-y">
-              {entries.data.map((entry) => (
-                <li key={entry.id} className="py-2">
-                  <Link
-                    href={`/patients/${id}/clinical-entries/${entry.id}`}
-                    className="flex items-center justify-between gap-4 hover:underline"
-                  >
-                    <span className="text-sm">{entry.chiefComplaint}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDate(entry.visitDate)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {entries !== null && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Historia clínica</CardTitle>
+            <Button asChild size="sm">
+              <Link href={`/patients/${id}/clinical-entries/new`}>
+                <PlusIcon data-icon="inline-start" />
+                Nueva entrada
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {entries.data.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
+            ) : (
+              <ul className="divide-y">
+                {entries.data.map((entry) => (
+                  <li key={entry.id} className="py-2">
+                    <Link
+                      href={`/patients/${id}/clinical-entries/${entry.id}`}
+                      className="flex items-center justify-between gap-4 hover:underline"
+                    >
+                      <span className="text-sm">{entry.chiefComplaint}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDate(entry.visitDate)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Agenda</CardTitle>
-          <CreateAppointmentDialog patientId={id} />
+          <CreateAppointmentDialog patientId={id} practitioners={practitioners} />
         </CardHeader>
         <CardContent>
           {appointments.data.length === 0 ? (

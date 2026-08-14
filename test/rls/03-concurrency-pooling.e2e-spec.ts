@@ -39,10 +39,10 @@ describe('RLS: no cross-tenant leakage under concurrent pooled requests', () => 
 
     const loginA = await request(server)
       .post('/auth/login')
-      .send({ email: tenantA.userEmail, password: tenantA.userPassword });
+      .send({ identifier: tenantA.userEmail, password: tenantA.userPassword });
     const loginB = await request(server)
       .post('/auth/login')
-      .send({ email: tenantB.userEmail, password: tenantB.userPassword });
+      .send({ identifier: tenantB.userEmail, password: tenantB.userPassword });
 
     tokenA = (loginA.body as LoginResponse).accessToken;
     tokenB = (loginB.body as LoginResponse).accessToken;

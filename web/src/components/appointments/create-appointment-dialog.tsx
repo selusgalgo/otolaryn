@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { createAppointmentAction } from "@/lib/actions/appointments";
+import type { PractitionerOption } from "@/lib/practitioners";
 
-export function CreateAppointmentDialog({ patientId }: { patientId: string }) {
+export function CreateAppointmentDialog({
+  patientId,
+  practitioners,
+}: {
+  patientId: string;
+  practitioners?: PractitionerOption[] | null;
+}) {
   const [open, setOpen] = useState(false);
   const boundAction = createAppointmentAction.bind(null, patientId);
 
@@ -27,6 +34,7 @@ export function CreateAppointmentDialog({ patientId }: { patientId: string }) {
           action={boundAction}
           submitLabel="Crear cita"
           submitIcon={<PlusIcon data-icon="inline-start" />}
+          practitioners={practitioners}
           onSuccess={() => setOpen(false)}
         />
       </DialogContent>

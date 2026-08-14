@@ -5,7 +5,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-export type UserRole = 'admin' | 'staff';
+export type UserRole = 'superadmin' | 'admin' | 'profesional' | 'recepcion';
 
 // Deliberately NOT row-level-secured: login must look up a user by email
 // before any tenant context exists, so this table can't depend on
@@ -17,11 +17,19 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'tenant_id' })
-  tenantId: string;
+  // Null only for 'superadmin' — every other role belongs to exactly one
+  // tenant. Enforced at the DB level by users_tenant_superadmin_check, not
+  // just here.
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  tenantId: string | null;
 
   @Column()
   email: string;
+
+  // Alternative login identifier, optional — see users_username_lower_idx
+  // (partial unique index, only enforced among rows that set one).
+  @Column({ type: 'text', nullable: true })
+  username: string | null;
 
   @Column({ name: 'first_name' })
   firstName: string;
@@ -32,7 +40,7 @@ export class User {
   @Column({ name: 'password_hash' })
   passwordHash: string;
 
-  @Column({ default: 'staff' })
+  @Column({ default: 'profesional' })
   role: UserRole;
 
   @CreateDateColumn({ name: 'created_at' })

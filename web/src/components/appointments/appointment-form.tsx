@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
+import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 
 interface AppointmentFormProps {
@@ -21,6 +22,15 @@ interface AppointmentFormProps {
   // Status is only editable once an appointment exists — a new one always
   // starts as "scheduled" (the backend doesn't even accept status on create).
   showStatus?: boolean;
+  // null (or omitted): profesional role — the backend auto-assigns the
+  // appointment to the caller, so there's nothing to pick and the field is
+  // hidden. A non-null array (possibly empty): admin/recepcion, who must
+  // pick a profesional explicitly — see getPractitionerOptions().
+  practitioners?: PractitionerOption[] | null;
+  // Pre-fills the date field (YYYY-MM-DD) when there's no initialValues yet
+  // — used when arriving from the Escritorio's calendar with a day already
+  // selected. Ignored once initialValues is set (editing always wins).
+  defaultDate?: string;
   // Rendered above the date/time fields — used by /appointments/new to
   // embed <PatientPicker /> inside this same <form> so patient selection
   // (or inline creation) and the appointment details submit together.
@@ -52,6 +62,8 @@ export function AppointmentForm({
   submitLabel,
   submitIcon,
   showStatus,
+  practitioners,
+  defaultDate,
   children,
   onSuccess,
 }: AppointmentFormProps) {
@@ -71,7 +83,7 @@ export function AppointmentForm({
             id="date"
             name="date"
             type="date"
-            defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : undefined}
+            defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
             required
             disabled={pending}
           />
@@ -88,6 +100,28 @@ export function AppointmentForm({
           />
         </div>
       </div>
+      {practitioners != null && (
+        <div className="space-y-2">
+          <Label htmlFor="practitionerId">Profesional</Label>
+          <select
+            id="practitionerId"
+            name="practitionerId"
+            required
+            defaultValue={initialValues?.practitionerId ?? ""}
+            disabled={pending}
+            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+          >
+            <option value="" disabled>
+              Selecciona un profesional
+            </option>
+            {practitioners.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="durationMinutes">Duración (minutos)</Label>
         <Input

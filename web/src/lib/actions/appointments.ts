@@ -3,18 +3,70 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { Appointment } from "@/lib/types";
+import type { Appointment, AppointmentStatus, Paginated, Patient } from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
   success?: boolean;
 }
 
-function newAppointmentBody(formData: FormData): { scheduledAt: string; durationMinutes?: number; notes?: string } | null {
+export interface CalendarAppointment {
+  id: string;
+  scheduledAt: string;
+  status: AppointmentStatus;
+  patientId: string;
+  patientName: string;
+}
+
+// Backs the Escritorio's mini-calendar: one call per visible month, called
+// imperatively from a Client Component on navigation (same pattern as
+// searchPatientsAction for PatientPicker) rather than a page reload. Reuses
+// the existing GET /appointments date-range filter — already scoped
+// correctly per role server-side (profesional forced to their own,
+// admin/recepcion see the whole clinic), nothing extra to enforce here.
+export async function getMonthAppointmentsAction(
+  year: number,
+  month: number,
+): Promise<CalendarAppointment[]> {
+  const from = new Date(Date.UTC(year, month, 1)).toISOString();
+  const to = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999)).toISOString();
+
+  const result = await apiFetch<Paginated<Appointment>>(
+    `/appointments?from=${from}&to=${to}&pageSize=100`,
+  );
+
+  // Same name-resolution pattern as the rest of Escritorio: the API only
+  // returns patientId, not a name.
+  const patientIds = Array.from(new Set(result.data.map((a) => a.patientId)));
+  const patients = await Promise.all(
+    patientIds.map((id) => apiFetch<Patient>(`/patients/${id}`).catch(() => null)),
+  );
+  const patientById = new Map(
+    patients.filter((p): p is Patient => p !== null).map((p) => [p.id, p]),
+  );
+
+  return result.data.map((a) => {
+    const patient = patientById.get(a.patientId);
+    return {
+      id: a.id,
+      scheduledAt: a.scheduledAt,
+      status: a.status,
+      patientId: a.patientId,
+      patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
+    };
+  });
+}
+
+function newAppointmentBody(
+  formData: FormData,
+): { scheduledAt: string; durationMinutes?: number; notes?: string; practitionerId?: string } | null {
   const date = String(formData.get("date") ?? "").trim();
   const time = String(formData.get("time") ?? "").trim();
   const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  // Absent entirely for a profesional (the field isn't rendered — the
+  // backend auto-assigns them); present and required for admin/recepcion.
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return null;
@@ -24,6 +76,7 @@ function newAppointmentBody(formData: FormData): { scheduledAt: string; duration
     scheduledAt: new Date(`${date}T${time}`).toISOString(),
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     ...(notes ? { notes } : {}),
+    ...(practitionerId ? { practitionerId } : {}),
   };
 }
 
@@ -137,6 +190,9 @@ export async function updateAppointmentAction(
   const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
+  // Absent for profesional (field not rendered) — a profesional can't
+  // reassign their own appointment to someone else, only admin/recepcion do.
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return { error: "Indica fecha y hora de la cita." };
@@ -147,6 +203,7 @@ export async function updateAppointmentAction(
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     notes: notes || null,
     ...(status ? { status } : {}),
+    ...(practitionerId ? { practitionerId } : {}),
   };
 
   let appointment: Appointment;

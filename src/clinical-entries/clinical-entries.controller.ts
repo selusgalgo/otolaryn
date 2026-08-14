@@ -12,6 +12,8 @@ import {
 import { CurrentUser } from '../iam/current-user.decorator';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
+import { Roles } from '../iam/roles.decorator';
+import { RolesGuard } from '../iam/roles.guard';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
 import { ClinicalEntriesService } from './clinical-entries.service';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
@@ -19,9 +21,13 @@ import { ListClinicalEntriesQueryDto } from './dto/list-clinical-entries-query.d
 
 // No PATCH, no DELETE anywhere here on purpose — clinical_entries is
 // append-only. A correction is a new entry, not an edit to history.
+//
+// recepcion is deliberately excluded from @Roles here — clinical history is
+// off-limits to that role entirely, unlike patients/appointments.
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantContextInterceptor)
+@Roles('admin', 'profesional')
 export class ClinicalEntriesController {
   constructor(private readonly clinicalEntries: ClinicalEntriesService) {}
 
