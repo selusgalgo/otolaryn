@@ -26,6 +26,11 @@ export class User {
   @Column()
   email: string;
 
+  // Alternative login identifier, optional — see users_username_lower_idx
+  // (partial unique index, only enforced among rows that set one).
+  @Column({ type: 'text', nullable: true })
+  username: string | null;
+
   @Column({ name: 'first_name' })
   firstName: string;
 

@@ -67,6 +67,7 @@ export interface AppUser {
   id: string;
   tenantId: string | null;
   email: string;
+  username: string | null;
   firstName: string;
   lastName: string;
   role: Role;
@@ -77,4 +78,12 @@ export interface Tenant {
   id: string;
   name: string;
   createdAt: string;
+}
+
+export interface AccountProfile {
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  email: string;
+  role: Role;
 }

@@ -11,30 +11,31 @@ import { loginAction, type LoginState } from "@/lib/actions/auth";
 
 const initialState: LoginState = {};
 
-// Only the email is remembered — never the password. Read on mount (not
-// via useState's lazy initializer) so the first client render matches the
-// server-rendered empty form and React doesn't flag a hydration mismatch.
-const REMEMBER_EMAIL_KEY = "otolaryn_remembered_email";
+// Only the identifier (email or username) is remembered — never the
+// password. Read on mount (not via useState's lazy initializer) so the
+// first client render matches the server-rendered empty form and React
+// doesn't flag a hydration mismatch.
+const REMEMBER_IDENTIFIER_KEY = "otolaryn_remembered_identifier";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
-  const [email, setEmail] = useState("");
-  const [rememberEmail, setRememberEmail] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [rememberIdentifier, setRememberIdentifier] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    const saved = localStorage.getItem(REMEMBER_IDENTIFIER_KEY);
     if (saved) {
-      setEmail(saved);
-      setRememberEmail(true);
+      setIdentifier(saved);
+      setRememberIdentifier(true);
     }
   }, []);
 
   function handleSubmit() {
-    if (rememberEmail) {
-      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    if (rememberIdentifier) {
+      localStorage.setItem(REMEMBER_IDENTIFIER_KEY, identifier);
     } else {
-      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      localStorage.removeItem(REMEMBER_IDENTIFIER_KEY);
     }
   }
 
@@ -46,16 +47,16 @@ export default function LoginPage() {
         <CardContent>
           <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Email o nombre de usuario</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="identifier"
+                name="identifier"
+                type="text"
+                autoComplete="username"
                 required
                 disabled={pending}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -84,12 +85,12 @@ export default function LoginPage() {
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
-                id="rememberEmail"
-                checked={rememberEmail}
-                onCheckedChange={(checked) => setRememberEmail(checked === true)}
+                id="rememberIdentifier"
+                checked={rememberIdentifier}
+                onCheckedChange={(checked) => setRememberIdentifier(checked === true)}
                 disabled={pending}
               />
-              <Label htmlFor="rememberEmail" className="font-normal">
+              <Label htmlFor="rememberIdentifier" className="font-normal">
                 Recordar usuario
               </Label>
             </div>

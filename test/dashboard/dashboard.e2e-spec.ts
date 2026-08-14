@@ -98,16 +98,17 @@ describe('Dashboard (Escritorio) — Hoy', () => {
 
     const loginA = await request(server)
       .post('/auth/login')
-      .send({ email: tenantA.userEmail, password: tenantA.userPassword });
+      .send({ identifier: tenantA.userEmail, password: tenantA.userPassword });
     const loginB = await request(server)
       .post('/auth/login')
-      .send({ email: tenantB.userEmail, password: tenantB.userPassword });
-    const loginSecond = await request(server)
-      .post('/auth/login')
-      .send({ email: secondEmail, password: SECOND_PROFESSIONAL_PASSWORD });
+      .send({ identifier: tenantB.userEmail, password: tenantB.userPassword });
+    const loginSecond = await request(server).post('/auth/login').send({
+      identifier: secondEmail,
+      password: SECOND_PROFESSIONAL_PASSWORD,
+    });
     const loginRecepcion = await request(server)
       .post('/auth/login')
-      .send({ email: recepcionEmail, password: RECEPCION_PASSWORD });
+      .send({ identifier: recepcionEmail, password: RECEPCION_PASSWORD });
 
     tokenA = (loginA.body as LoginResponse).accessToken;
     tokenB = (loginB.body as LoginResponse).accessToken;

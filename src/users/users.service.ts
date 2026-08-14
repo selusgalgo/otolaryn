@@ -72,6 +72,7 @@ function stripPasswordHash(user: User): SafeUser {
     id: user.id,
     tenantId: user.tenantId,
     email: user.email,
+    username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,

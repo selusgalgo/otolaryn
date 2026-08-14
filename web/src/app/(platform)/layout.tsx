@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
-import { LogOutIcon } from "lucide-react";
+import { LogOutIcon, UserIcon } from "lucide-react";
 
 // Deliberately its own chrome, not a variant of (app)/layout.tsx — superadmin
 // manages clinics themselves, a different domain from the per-clinic Sidebar
@@ -21,15 +22,24 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
           <span className="text-sm font-medium text-primary-foreground/70">Panel Eiduo</span>
         </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            aria-label="Cerrar sesión"
+        <div className="flex items-center gap-1">
+          <Link
+            href="/account"
+            aria-label="Mi cuenta"
             className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
           >
-            <LogOutIcon className="size-5" />
-          </button>
-        </form>
+            <UserIcon className="size-5" />
+          </Link>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              aria-label="Cerrar sesión"
+              className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+            >
+              <LogOutIcon className="size-5" />
+            </button>
+          </form>
+        </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>

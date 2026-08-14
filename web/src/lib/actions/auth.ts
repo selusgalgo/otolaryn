@@ -15,14 +15,15 @@ interface LoginResponse {
 }
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "");
+  // Email or username — the backend checks both columns (AuthService.login).
+  const identifier = String(formData.get("identifier") ?? "");
   const password = String(formData.get("password") ?? "");
 
   let destination = "/dashboard";
   try {
     const { accessToken } = await apiFetch<LoginResponse>("/auth/login", {
       method: "POST",
-      body: { email, password },
+      body: { identifier, password },
       skipAuth: true,
     });
     await setSessionToken(accessToken);
@@ -32,7 +33,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     destination = homeForRole(me.role);
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.status === 401 ? "Email o contraseña incorrectos." : err.message };
+      return { error: err.status === 401 ? "Email/usuario o contraseña incorrectos." : err.message };
     }
     return { error: "No se pudo conectar con el servidor." };
   }

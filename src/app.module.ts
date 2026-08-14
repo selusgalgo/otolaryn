@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     DashboardModule,
     UsersModule,
     PlatformModule,
+    AccountModule,
   ],
   controllers: [AppController],
   providers: [AppService],

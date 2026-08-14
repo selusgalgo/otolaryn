@@ -99,16 +99,16 @@ describe('Roles — RolesGuard + scoping matrix', () => {
 
     const loginAdmin = await request(server)
       .post('/auth/login')
-      .send({ email: tenantA.userEmail, password: tenantA.userPassword });
+      .send({ identifier: tenantA.userEmail, password: tenantA.userPassword });
     const loginProfesional = await request(server)
       .post('/auth/login')
-      .send({ email: profesionalEmail, password: PROFESIONAL_PASSWORD });
+      .send({ identifier: profesionalEmail, password: PROFESIONAL_PASSWORD });
     const loginRecepcion = await request(server)
       .post('/auth/login')
-      .send({ email: recepcionEmail, password: RECEPCION_PASSWORD });
+      .send({ identifier: recepcionEmail, password: RECEPCION_PASSWORD });
     const loginSuperadmin = await request(server)
       .post('/auth/login')
-      .send({ email: superadminEmail, password: SUPERADMIN_PASSWORD });
+      .send({ identifier: superadminEmail, password: SUPERADMIN_PASSWORD });
 
     tokenAdmin = (loginAdmin.body as LoginResponse).accessToken;
     tokenProfesional = (loginProfesional.body as LoginResponse).accessToken;
@@ -187,7 +187,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
 
     const loginNewAdmin = await request(server)
       .post('/auth/login')
-      .send({ email: newAdminEmail, password: 'RolesTest-NewAdmin1!' });
+      .send({ identifier: newAdminEmail, password: 'RolesTest-NewAdmin1!' });
     expect(loginNewAdmin.status).toBe(200);
     expect((loginNewAdmin.body as LoginResponse).accessToken).toBeDefined();
   });
@@ -251,7 +251,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
 
     const login = await request(server)
       .post('/auth/login')
-      .send({ email, password: 'RolesTest-CreatedUser1!' });
+      .send({ identifier: email, password: 'RolesTest-CreatedUser1!' });
     expect(login.status).toBe(200);
   });
 
