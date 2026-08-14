@@ -7,23 +7,28 @@ import { RolesGuard } from '../iam/roles.guard';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { SettingsService } from './settings.service';
 
-// admin-only, own clinic — superadmin manages any clinic's schedule from
+// Own clinic only — superadmin manages any clinic's schedule from
 // PlatformController instead (it has no tenantId of its own to scope by).
 @Controller('settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
 
+  // Read access is for every tenant role, not just admin: the Agenda page's
+  // occupancy calendar needs the clinic's hours for profesional/recepcion
+  // too, to know what counts as a "full" day. Writing stays admin-only,
+  // below.
   @Get('schedule')
+  @Roles('admin', 'profesional', 'recepcion')
   getSchedule(@CurrentUser() user: CurrentUserPayload) {
     // tenantId is guaranteed non-null here: users_tenant_superadmin_check
-    // requires every non-superadmin row to have one, and @Roles('admin')
+    // requires every non-superadmin row to have one, and @Roles(...)
     // already excludes superadmin.
     return this.settings.getSchedule(user.tenantId as string);
   }
 
   @Patch('schedule')
+  @Roles('admin')
   updateSchedule(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: UpdateScheduleDto,

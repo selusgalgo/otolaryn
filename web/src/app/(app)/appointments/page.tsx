@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
 import { apiFetch } from "@/lib/api";
-import type { Appointment, Paginated, Patient } from "@/lib/types";
+import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
+import type { Appointment, Paginated, Patient, Schedule } from "@/lib/types";
 
 const PAGE_SIZE = 20;
 
@@ -46,6 +48,20 @@ export default async function AppointmentsPage({
     ),
   );
 
+  // The calendar starts on whatever month "from" falls in (today, unless
+  // the date-range form above has been used) — schedule is read-only here
+  // for every tenant role (see SettingsController), profesional/recepcion
+  // included, since they need it too to make sense of the colors.
+  const fromDate = new Date(`${from}T00:00:00`);
+  const [schedule, initialAppointments] = await Promise.all([
+    apiFetch<Schedule>("/settings/schedule"),
+    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
+  ]);
+  // A day is "selected" on the calendar only when the filter form is
+  // pinned to exactly one day (from === to) — the same state a day click
+  // below produces, so clicking a day highlights itself on reload.
+  const selectedDateKey = to === from ? from : undefined;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -57,6 +73,14 @@ export default async function AppointmentsPage({
           </Link>
         </Button>
       </div>
+
+      <OccupancyCalendar
+        initialYear={fromDate.getFullYear()}
+        initialMonth={fromDate.getMonth()}
+        initialAppointments={initialAppointments}
+        schedule={schedule}
+        selectedDateKey={selectedDateKey}
+      />
 
       <form className="flex items-end gap-4" action="/appointments">
         <div className="space-y-2">
