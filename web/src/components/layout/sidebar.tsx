@@ -6,6 +6,7 @@ import {
   CalendarDaysIcon,
   LayoutDashboardIcon,
   LogOutIcon,
+  SettingsIcon,
   UserCogIcon,
   UserIcon,
   UsersIcon,
@@ -44,6 +45,12 @@ const NAV_ITEMS: {
     href: "/users",
     label: "Usuarios",
     icon: UserCogIcon,
+    roles: ["admin"],
+  },
+  {
+    href: "/settings",
+    label: "Configuración",
+    icon: SettingsIcon,
     roles: ["admin"],
   },
 ];

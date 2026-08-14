@@ -1,12 +1,22 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
+import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 
 const UNIQUE_VIOLATION = '23505';
+
+export interface TenantSchedule {
+  tenantName: string;
+  openDays: boolean[];
+}
 
 // Cross-tenant on purpose, unlike every other service in this app: a
 // superadmin has no tenantId to scope through (see User entity comment), so
@@ -62,5 +72,28 @@ export class PlatformService {
 
       return tenant;
     });
+  }
+
+  private async findTenant(id: string): Promise<Tenant> {
+    const tenant = await this.tenants.findOne({ where: { id } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    return tenant;
+  }
+
+  async getSchedule(id: string): Promise<TenantSchedule> {
+    const tenant = await this.findTenant(id);
+    return { tenantName: tenant.name, openDays: tenant.openDays };
+  }
+
+  async updateSchedule(
+    id: string,
+    dto: UpdateScheduleDto,
+  ): Promise<TenantSchedule> {
+    const tenant = await this.findTenant(id);
+    tenant.openDays = dto.openDays;
+    const saved = await this.tenants.save(tenant);
+    return { tenantName: saved.name, openDays: saved.openDays };
   }
 }

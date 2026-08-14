@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { SettingsIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateTenantDialog } from "@/components/platform/create-tenant-dialog";
 import { apiFetch } from "@/lib/api";
@@ -23,12 +26,13 @@ export default async function PlatformPage() {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Creada</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {tenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
                   No hay clínicas todavía.
                 </TableCell>
               </TableRow>
@@ -37,6 +41,14 @@ export default async function PlatformPage() {
               <TableRow key={tenant.id}>
                 <TableCell>{tenant.name}</TableCell>
                 <TableCell>{formatDate(tenant.createdAt)}</TableCell>
+                <TableCell className="text-right">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/platform/${tenant.id}/settings`}>
+                      <SettingsIcon data-icon="inline-start" />
+                      Configuración
+                    </Link>
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

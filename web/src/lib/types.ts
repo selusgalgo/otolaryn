@@ -87,3 +87,12 @@ export interface AccountProfile {
   email: string;
   role: Role;
 }
+
+// Weekly recurring, whole-clinic schedule — index 0=Monday..6=Sunday.
+export interface Schedule {
+  openDays: boolean[];
+}
+
+export interface TenantSchedule extends Schedule {
+  tenantName: string;
+}
