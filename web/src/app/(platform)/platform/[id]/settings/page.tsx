@@ -28,7 +28,7 @@ export default async function TenantSettingsPage({
           <CardTitle className="text-base">Horario de la clínica</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScheduleForm action={action} initialOpenDays={schedule.openDays} />
+          <ScheduleForm action={action} initialDays={schedule.days} />
         </CardContent>
       </Card>
     </div>

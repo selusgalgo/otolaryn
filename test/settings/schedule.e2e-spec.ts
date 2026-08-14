@@ -15,19 +15,44 @@ interface LoginResponse {
   accessToken: string;
 }
 
+interface TimeSlot {
+  startTime: string;
+  endTime: string;
+}
+
+interface DaySchedule {
+  weekday: number;
+  slots: TimeSlot[];
+}
+
 interface ScheduleResponse {
-  openDays: boolean[];
+  days: DaySchedule[];
 }
 
 interface TenantScheduleResponse extends ScheduleResponse {
   tenantName: string;
 }
 
-const DEFAULT_SCHEDULE = [true, true, true, true, true, false, false];
+const DEFAULT_WEEKDAY_SLOTS: TimeSlot[] = [
+  { startTime: '09:00', endTime: '13:00' },
+  { startTime: '16:00', endTime: '20:00' },
+];
+
+function closedWeek(): DaySchedule[] {
+  return Array.from({ length: 7 }, (_, weekday) => ({ weekday, slots: [] }));
+}
+
+function defaultWeek(): DaySchedule[] {
+  return Array.from({ length: 7 }, (_, weekday) => ({
+    weekday,
+    slots: weekday <= 4 ? DEFAULT_WEEKDAY_SLOTS : [],
+  }));
+}
+
 const PROFESIONAL_PASSWORD = 'ScheduleTest-Profesional1!';
 const SUPERADMIN_PASSWORD = 'ScheduleTest-Superadmin1!';
 
-describe('Clinic schedule (Configuración)', () => {
+describe('Clinic schedule (Configuración) — time slots', () => {
   let app: INestApplication;
   let server: Server;
   let owner: Pool;
@@ -98,13 +123,18 @@ describe('Clinic schedule (Configuración)', () => {
     await owner.end();
   });
 
-  it('returns the default weekly schedule for a freshly created clinic', async () => {
+  // Not defaultWeek() here on purpose: createTestTenants inserts tenantA
+  // directly via SQL, bypassing PlatformService.createTenant() entirely —
+  // the seeded default only ever gets applied by that service (see the
+  // "seeds the default schedule" test below) or by the ClinicHoursSlots
+  // migration's one-time backfill of tenants that already existed then.
+  it('starts fully closed for a tenant created outside PlatformService', async () => {
     const res = await request(server)
       .get('/settings/schedule')
       .set('Authorization', `Bearer ${tokenA}`);
 
     expect(res.status).toBe(200);
-    expect((res.body as ScheduleResponse).openDays).toEqual(DEFAULT_SCHEDULE);
+    expect((res.body as ScheduleResponse).days).toEqual(closedWeek());
   });
 
   it('blocks profesional from the schedule endpoint entirely', async () => {
@@ -114,35 +144,68 @@ describe('Clinic schedule (Configuración)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('rejects an array of the wrong length', async () => {
+  it('rejects a payload with the wrong number of days', async () => {
     const res = await request(server)
       .patch('/settings/schedule')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ openDays: [true, true, true] });
+      .send({ days: [{ weekday: 0, slots: [] }] });
     expect(res.status).toBe(400);
   });
 
-  it("lets admin update their own clinic's schedule, without touching another tenant's", async () => {
-    const closedSunday = [true, true, true, true, true, true, false];
+  it('rejects overlapping slots on the same day', async () => {
+    const days = closedWeek();
+    days[0].slots = [
+      { startTime: '09:00', endTime: '13:00' },
+      { startTime: '12:00', endTime: '15:00' }, // overlaps the first
+    ];
+    const res = await request(server)
+      .patch('/settings/schedule')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ days });
+    expect(res.status).toBe(400);
+  });
+
+  it("lets admin set multiple slots (morning/afternoon) on their own clinic, without touching another tenant's", async () => {
+    const days = closedWeek();
+    days[0].slots = [
+      { startTime: '10:00', endTime: '13:00' },
+      { startTime: '17:00', endTime: '19:30' },
+    ];
+
     const update = await request(server)
       .patch('/settings/schedule')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ openDays: closedSunday });
+      .send({ days });
     expect(update.status).toBe(200);
-    expect((update.body as ScheduleResponse).openDays).toEqual(closedSunday);
+    expect((update.body as ScheduleResponse).days).toEqual(days);
 
     const reread = await request(server)
       .get('/settings/schedule')
       .set('Authorization', `Bearer ${tokenA}`);
-    expect((reread.body as ScheduleResponse).openDays).toEqual(closedSunday);
+    expect((reread.body as ScheduleResponse).days).toEqual(days);
 
-    // Tenant B was never touched — still the default.
+    // Tenant B was never touched — still fully closed, same as tenant A
+    // was before this test.
     const tenantBSchedule = await request(server)
       .get('/settings/schedule')
       .set('Authorization', `Bearer ${tokenB}`);
-    expect((tenantBSchedule.body as ScheduleResponse).openDays).toEqual(
-      DEFAULT_SCHEDULE,
+    expect((tenantBSchedule.body as ScheduleResponse).days).toEqual(
+      closedWeek(),
     );
+  });
+
+  it('leaves a day closed once every slot is removed from it', async () => {
+    const closeMonday = closedWeek();
+    // Every other day already has whatever tenant A ended up with above —
+    // simplest to just send the fully-closed week here, this test only
+    // cares that "no slots" round-trips as "no slots", not the exact
+    // content of the other six days.
+    const res = await request(server)
+      .patch('/settings/schedule')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ days: closeMonday });
+    expect(res.status).toBe(200);
+    expect((res.body as ScheduleResponse).days).toEqual(closeMonday);
   });
 
   it('blocks admin/profesional from the platform (any-clinic) schedule route', async () => {
@@ -161,28 +224,57 @@ describe('Clinic schedule (Configuración)', () => {
     expect(initial.status).toBe(200);
     const initialBody = initial.body as TenantScheduleResponse;
     expect(initialBody.tenantName).toBe(tenantB.name);
-    expect(initialBody.openDays).toEqual(DEFAULT_SCHEDULE);
+    expect(initialBody.days).toEqual(closedWeek());
 
-    const allClosed = [false, false, false, false, false, false, false];
+    const days = closedWeek();
+    days[6].slots = [{ startTime: '10:00', endTime: '14:00' }]; // Sunday only
+
     const update = await request(server)
       .patch(`/platform/tenants/${tenantB.id}/schedule`)
       .set('Authorization', `Bearer ${superadminToken}`)
-      .send({ openDays: allClosed });
+      .send({ days });
     expect(update.status).toBe(200);
-    expect((update.body as TenantScheduleResponse).openDays).toEqual(allClosed);
+    expect((update.body as TenantScheduleResponse).days).toEqual(days);
 
-    // Tenant A's schedule (already customized by admin above) is untouched.
-    const tenantAStillCustom = await request(server)
+    // Tenant A's schedule (already fully closed by the test above) is
+    // untouched by this.
+    const tenantAStillClosed = await request(server)
       .get('/settings/schedule')
       .set('Authorization', `Bearer ${tokenA}`);
-    expect((tenantAStillCustom.body as ScheduleResponse).openDays).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      false,
+    expect((tenantAStillClosed.body as ScheduleResponse).days).toEqual(
+      closedWeek(),
+    );
+  });
+
+  it('seeds the default schedule for a clinic created through the real superadmin flow', async () => {
+    const newAdminEmail = `schedule-new-admin-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/platform/tenants')
+      .set('Authorization', `Bearer ${superadminToken}`)
+      .send({
+        name: `Schedule-Test-New-Clinic-${Date.now()}`,
+        adminEmail: newAdminEmail,
+        adminFirstName: 'Nueva',
+        adminLastName: 'Clinica',
+        adminPassword: 'ScheduleTest-NewAdmin1!',
+      });
+    expect(created.status).toBe(201);
+    const newTenantId = (created.body as { id: string }).id;
+
+    const schedule = await request(server)
+      .get(`/platform/tenants/${newTenantId}/schedule`)
+      .set('Authorization', `Bearer ${superadminToken}`);
+    expect(schedule.status).toBe(200);
+    expect((schedule.body as TenantScheduleResponse).days).toEqual(
+      defaultWeek(),
+    );
+
+    await owner.query(`DELETE FROM iam.clinic_hours WHERE tenant_id = $1`, [
+      newTenantId,
     ]);
+    await owner.query(`DELETE FROM iam.users WHERE tenant_id = $1`, [
+      newTenantId,
+    ]);
+    await owner.query(`DELETE FROM iam.tenants WHERE id = $1`, [newTenantId]);
   });
 });

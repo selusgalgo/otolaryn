@@ -26,7 +26,7 @@ export default async function SettingsPage() {
           <CardTitle className="text-base">Horario de la clínica</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScheduleForm action={updateScheduleAction} initialOpenDays={schedule.openDays} />
+          <ScheduleForm action={updateScheduleAction} initialDays={schedule.days} />
         </CardContent>
       </Card>
     </div>

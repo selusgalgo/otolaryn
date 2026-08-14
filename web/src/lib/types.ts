@@ -88,9 +88,20 @@ export interface AccountProfile {
   role: Role;
 }
 
-// Weekly recurring, whole-clinic schedule — index 0=Monday..6=Sunday.
+// Weekly recurring, whole-clinic schedule — index 0=Monday..6=Sunday. A day
+// with an empty slots array is closed.
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+}
+
+export interface DaySchedule {
+  weekday: number;
+  slots: TimeSlot[];
+}
+
 export interface Schedule {
-  openDays: boolean[];
+  days: DaySchedule[];
 }
 
 export interface TenantSchedule extends Schedule {

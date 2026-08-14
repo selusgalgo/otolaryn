@@ -18,7 +18,7 @@ export async function updateScheduleAction(
   try {
     await apiFetch<Schedule>("/settings/schedule", {
       method: "PATCH",
-      body: { openDays: scheduleFromFormData(formData) },
+      body: { days: scheduleFromFormData(formData) },
     });
   } catch (err) {
     if (err instanceof ApiError) {

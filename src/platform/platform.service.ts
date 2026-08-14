@@ -6,29 +6,40 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
+import {
+  assertNoOverlap,
+  DaySchedule,
+  defaultScheduleRows,
+  groupByWeekday,
+  toRows,
+} from '../settings/schedule.util';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
 export interface TenantSchedule {
   tenantName: string;
-  openDays: boolean[];
+  days: DaySchedule[];
 }
 
 // Cross-tenant on purpose, unlike every other service in this app: a
 // superadmin has no tenantId to scope through (see User entity comment), so
 // this never touches TenancyContext/TenantContextInterceptor — it talks to
-// iam.tenants/iam.users directly via plain @InjectRepository, the same way
-// AuthService does for login. Both tables carry no RLS, so there's nothing
-// to bypass; there's just genuinely no tenant to set.
+// iam.tenants/iam.users/iam.clinic_hours directly via plain
+// @InjectRepository, the same way AuthService does for login. None of
+// those tables carry RLS, so there's nothing to bypass; there's just
+// genuinely no tenant to set.
 @Injectable()
 export class PlatformService {
   constructor(
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(ClinicHour)
+    private readonly clinicHours: Repository<ClinicHour>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -70,6 +81,13 @@ export class PlatformService {
         throw err;
       }
 
+      // Same default the ClinicHoursSlots migration backfilled onto every
+      // pre-existing tenant — without this, a brand-new clinic would show
+      // up closed every day of the week until someone visits Configuración.
+      await manager
+        .getRepository(ClinicHour)
+        .insert(defaultScheduleRows(tenant.id));
+
       return tenant;
     });
   }
@@ -84,7 +102,8 @@ export class PlatformService {
 
   async getSchedule(id: string): Promise<TenantSchedule> {
     const tenant = await this.findTenant(id);
-    return { tenantName: tenant.name, openDays: tenant.openDays };
+    const rows = await this.clinicHours.find({ where: { tenantId: id } });
+    return { tenantName: tenant.name, days: groupByWeekday(rows) };
   }
 
   async updateSchedule(
@@ -92,8 +111,17 @@ export class PlatformService {
     dto: UpdateScheduleDto,
   ): Promise<TenantSchedule> {
     const tenant = await this.findTenant(id);
-    tenant.openDays = dto.openDays;
-    const saved = await this.tenants.save(tenant);
-    return { tenantName: saved.name, openDays: saved.openDays };
+    assertNoOverlap(dto.days);
+
+    await this.clinicHours.manager.transaction(async (manager) => {
+      await manager.delete(ClinicHour, { tenantId: id });
+      const rows = toRows(id, dto.days);
+      if (rows.length > 0) {
+        await manager.insert(ClinicHour, rows);
+      }
+    });
+
+    const rows = await this.clinicHours.find({ where: { tenantId: id } });
+    return { tenantName: tenant.name, days: groupByWeekday(rows) };
   }
 }

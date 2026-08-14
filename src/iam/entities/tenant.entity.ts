@@ -13,10 +13,8 @@ export class Tenant {
   @Column()
   name: string;
 
-  // Weekly recurring schedule, whole-clinic (not per practitioner), whole
-  // days only (no open/close times yet). Index 0=Monday..6=Sunday.
-  @Column({ name: 'open_days', type: 'boolean', array: true })
-  openDays: boolean[];
+  // Schedule lives in ClinicHour (iam.clinic_hours), one row per open time
+  // slot — see that entity.
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

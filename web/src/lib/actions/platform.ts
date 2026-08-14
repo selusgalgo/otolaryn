@@ -47,7 +47,7 @@ export async function updateTenantScheduleAction(
   try {
     await apiFetch<TenantSchedule>(`/platform/tenants/${tenantId}/schedule`, {
       method: "PATCH",
-      body: { openDays: scheduleFromFormData(formData) },
+      body: { days: scheduleFromFormData(formData) },
     });
   } catch (err) {
     if (err instanceof ApiError) {

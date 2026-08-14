@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { Patient } from '../patients/entities/patient.entity';
@@ -21,7 +22,14 @@ import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entit
         username: config.getOrThrow<string>('DB_APP_USER'),
         password: config.getOrThrow<string>('DB_APP_PASSWORD'),
         database: config.getOrThrow<string>('DB_NAME'),
-        entities: [Tenant, User, Patient, Appointment, ClinicalEntry],
+        entities: [
+          Tenant,
+          User,
+          Patient,
+          Appointment,
+          ClinicalEntry,
+          ClinicHour,
+        ],
         synchronize: false,
         migrationsRun: false,
         extra: {
