@@ -7,26 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
 import { WEEKDAYS, buildGrid, toDateKey } from "@/lib/calendar-grid";
-import { computeDayOccupancy } from "@/lib/occupancy";
-import type { DayOccupancy } from "@/lib/occupancy";
+import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
 import type { Schedule } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const OCCUPANCY_STYLES: Record<DayOccupancy, string> = {
-  // Reuses the same tokens as AppointmentStatusBadge (--success/--destructive)
-  // for verde/rojo; "parcial" has no themed token yet, so it's a plain amber.
-  free: "bg-success/20 hover:bg-success/30",
-  partial: "bg-amber-400/25 hover:bg-amber-400/35",
-  full: "bg-destructive/20 hover:bg-destructive/30",
-  closed: "bg-muted/50 text-muted-foreground/60",
-};
-
-const LEGEND: { key: DayOccupancy; label: string; swatch: string }[] = [
-  { key: "free", label: "Libre", swatch: "bg-success" },
-  { key: "partial", label: "Parcial", swatch: "bg-amber-400" },
-  { key: "full", label: "Completo", swatch: "bg-destructive" },
-  { key: "closed", label: "Cerrado", swatch: "bg-muted-foreground/40" },
-];
 
 interface OccupancyCalendarProps {
   initialYear: number;
@@ -146,7 +129,7 @@ export function OccupancyCalendar({
                 key={key}
                 type="button"
                 onClick={() => router.push(`/appointments?from=${key}&to=${key}`)}
-                title={showOccupancy ? LEGEND.find((l) => l.key === occupancy)?.label : undefined}
+                title={showOccupancy ? OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label : undefined}
                 className={cn(
                   "rounded-md py-1.5 text-sm transition-colors",
                   !showOccupancy && "text-muted-foreground/40",
@@ -161,7 +144,7 @@ export function OccupancyCalendar({
           })}
         </div>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {LEGEND.map((item) => (
+          {OCCUPANCY_LEGEND.map((item) => (
             <span key={item.key} className="flex items-center gap-1.5">
               <span className={cn("size-2.5 rounded-full", item.swatch)} />
               {item.label}

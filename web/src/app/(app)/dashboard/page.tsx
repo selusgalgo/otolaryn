@@ -4,7 +4,8 @@ import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import type { Patient, TodayDashboard } from "@/lib/types";
+import { getPractitionerOptions } from "@/lib/practitioners";
+import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -17,12 +18,16 @@ function formatDateTime(iso: string): string {
 export default async function DashboardPage() {
   const date = todayIso();
   const today = new Date();
-  const [me, dashboard, monthAppointments] = await Promise.all([
+  const [me, dashboard, monthAppointments, practitioners, schedule] = await Promise.all([
     getCurrentUser(),
     apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
     // Feeds the calendar's initial month — see AgendaCalendar, which takes
     // over with its own fetches (getMonthAppointmentsAction) on navigation.
     getMonthAppointmentsAction(today.getFullYear(), today.getMonth()),
+    getPractitionerOptions(),
+    // Read-only for every tenant role here too (see SettingsController) —
+    // needed to color each day by occupancy, same as Agenda's calendar.
+    apiFetch<Schedule>("/settings/schedule"),
   ]);
 
   // clinicalEntries is null (not just empty) for recepcion — that widget
@@ -49,6 +54,8 @@ export default async function DashboardPage() {
         initialYear={today.getFullYear()}
         initialMonth={today.getMonth()}
         initialAppointments={monthAppointments}
+        practitioners={practitioners}
+        schedule={schedule}
       />
 
       {dashboard.clinicalEntries !== null && (

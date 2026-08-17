@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { Appointment, AppointmentStatus, Paginated, Patient } from "@/lib/types";
+import { toDateKey } from "@/lib/calendar-grid";
+import { findNextFreeSlots } from "@/lib/occupancy";
+import type { Appointment, AppointmentStatus, Paginated, Patient, Schedule } from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
@@ -57,6 +59,56 @@ export async function getMonthAppointmentsAction(
       patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
     };
   });
+}
+
+// Backs the "Próximos horarios libres" suggestions in AppointmentForm, for
+// every create flow (Escritorio's "Crear", Agenda's "Nueva cita", the
+// patient detail page's dialog, and the full /appointments/new page).
+// fromDateKey lets a day already selected on a calendar (Escritorio) anchor
+// the search there instead of "right now" — see findNextFreeSlots for how
+// that anchor is actually used (today's own time-of-day only matters on the
+// very first scanned day). Fetches a rolling two-week window starting at
+// the anchor, same date-range endpoint and role-scoping as
+// getMonthAppointmentsAction — "free" here means the same aggregate,
+// all-practitioners occupancy the calendars already color days by, not a
+// per-practitioner search.
+export async function getNextFreeSlotsAction(
+  fromDateKey?: string,
+  count = 5,
+): Promise<string[]> {
+  const now = new Date();
+  const anchorFromKey = fromDateKey ? new Date(`${fromDateKey}T00:00:00`) : now;
+  const from = anchorFromKey > now ? anchorFromKey : now;
+
+  const daysAhead = 14;
+  const to = new Date(from);
+  to.setDate(to.getDate() + daysAhead);
+
+  const [schedule, result] = await Promise.all([
+    apiFetch<Schedule>("/settings/schedule"),
+    apiFetch<Paginated<Appointment>>(
+      // 100 is the API's max pageSize (see ListAppointmentsQueryDto) — same
+      // cap and same "good enough at realistic volume" acceptance as
+      // getMonthAppointmentsAction above, just over 14 days instead of a
+      // whole month.
+      `/appointments?from=${from.toISOString()}&to=${to.toISOString()}&pageSize=100`,
+    ),
+  ]);
+
+  const appointmentsByDay = new Map<string, Appointment[]>();
+  for (const appointment of result.data) {
+    const key = toDateKey(new Date(appointment.scheduledAt));
+    const list = appointmentsByDay.get(key);
+    if (list) {
+      list.push(appointment);
+    } else {
+      appointmentsByDay.set(key, [appointment]);
+    }
+  }
+
+  return findNextFreeSlots(from, appointmentsByDay, schedule, { count, daysAhead }).map((d) =>
+    d.toISOString(),
+  );
 }
 
 function newAppointmentBody(
@@ -177,7 +229,10 @@ async function createPatientAndAppointment(
   }
 }
 
-// Used by /appointments/new (full page, reached from Escritorio's "Crear").
+// Used by /appointments/new — the full-page version, still reachable
+// directly by URL even though both Escritorio's "Crear" and Agenda's
+// "Nueva cita" now go through the dialog (createAppointmentFromAgendaAction)
+// instead.
 export async function createAppointmentForPatientAction(
   _prevState: AppointmentFormState,
   formData: FormData,

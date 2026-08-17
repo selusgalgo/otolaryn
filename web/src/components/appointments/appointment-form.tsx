@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
+import { getNextFreeSlotsAction } from "@/lib/actions/appointments";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
@@ -28,9 +29,14 @@ interface AppointmentFormProps {
   // pick a profesional explicitly — see getPractitionerOptions().
   practitioners?: PractitionerOption[] | null;
   // Pre-fills the date field (YYYY-MM-DD) when there's no initialValues yet
-  // — used when arriving from the Escritorio's calendar with a day already
-  // selected. Ignored once initialValues is set (editing always wins).
+  // — Escritorio's calendar passes the day currently selected. Ignored once
+  // initialValues is set (editing always wins).
   defaultDate?: string;
+  // Shows a row of the next 5 free slots (see getNextFreeSlotsAction),
+  // clicking one fills in Fecha/Hora — only makes sense for a new
+  // appointment, never while editing (initialValues set) even if a caller
+  // passes true.
+  suggestSlots?: boolean;
   // Rendered above the date/time fields — used by /appointments/new to
   // embed <PatientPicker /> inside this same <form> so patient selection
   // (or inline creation) and the appointment details submit together.
@@ -56,6 +62,13 @@ function toTimeInputValue(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+function formatSlotLabel(iso: string): string {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+  const timePart = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  return `${datePart} · ${timePart}`;
+}
+
 export function AppointmentForm({
   action,
   initialValues,
@@ -64,22 +77,75 @@ export function AppointmentForm({
   showStatus,
   practitioners,
   defaultDate,
+  suggestSlots,
   children,
   onSuccess,
 }: AppointmentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
+
+  const showSuggestions = suggestSlots && !initialValues;
+  const [suggestedSlots, setSuggestedSlots] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (state.success) onSuccess?.();
   }, [state.success, onSuccess]);
 
+  useEffect(() => {
+    if (!showSuggestions) return;
+    let cancelled = false;
+    setSuggestedSlots(null);
+    getNextFreeSlotsAction(defaultDate).then((slots) => {
+      if (!cancelled) setSuggestedSlots(slots);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // defaultDate anchors the search (e.g. Escritorio's selected day) —
+    // re-fetch whenever it changes so the suggestions stay relevant to
+    // whichever day the calendar had selected when the dialog opened.
+  }, [showSuggestions, defaultDate]);
+
+  function applySlot(iso: string) {
+    if (dateInputRef.current) dateInputRef.current.value = toDateInputValue(iso);
+    if (timeInputRef.current) timeInputRef.current.value = toTimeInputValue(iso);
+  }
+
   return (
     <form action={formAction} className="grid max-w-md gap-4">
       {children}
+      {showSuggestions && (
+        <div className="space-y-2">
+          <Label>Próximos horarios libres</Label>
+          {suggestedSlots === null ? (
+            <p className="text-sm text-muted-foreground">Buscando horarios libres…</p>
+          ) : suggestedSlots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No se encontraron horarios libres en las próximas dos semanas.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {suggestedSlots.map((iso) => (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => applySlot(iso)}
+                  disabled={pending}
+                  className="rounded-full border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {formatSlotLabel(iso)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="date">Fecha</Label>
           <Input
+            ref={dateInputRef}
             id="date"
             name="date"
             type="date"
@@ -91,6 +157,7 @@ export function AppointmentForm({
         <div className="space-y-2">
           <Label htmlFor="time">Hora</Label>
           <Input
+            ref={timeInputRef}
             id="time"
             name="time"
             type="time"

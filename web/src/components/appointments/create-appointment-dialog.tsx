@@ -35,6 +35,7 @@ export function CreateAppointmentDialog({
           submitLabel="Crear cita"
           submitIcon={<PlusIcon data-icon="inline-start" />}
           practitioners={practitioners}
+          suggestSlots
           onSuccess={() => setOpen(false)}
         />
       </DialogContent>

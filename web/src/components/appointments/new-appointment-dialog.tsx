@@ -13,10 +13,27 @@ import type { PractitionerOption } from "@/lib/practitioners";
 // /appointments/new, since staying on the Agenda list — which just
 // revalidates in place once the cita is created — is a smaller jump than
 // leaving the screen entirely. /appointments/new itself stays as a real
-// page for Escritorio's "Crear" (arrives with a date already picked from
-// that calendar), so this doesn't replace it, just adds a second entry
-// point for Agenda specifically.
-export function NewAppointmentDialog({ practitioners }: { practitioners?: PractitionerOption[] | null }) {
+// page reachable directly by URL, but both Agenda's "Nueva cita" and
+// Escritorio's "Crear" (which arrives with a day already picked from its
+// calendar, via defaultDate) now go through this dialog instead.
+export function NewAppointmentDialog({
+  practitioners,
+  defaultDate,
+  triggerLabel = "Nueva cita",
+  onCreated,
+}: {
+  practitioners?: PractitionerOption[] | null;
+  // Pre-fills the date field — Escritorio passes the day selected on its
+  // mini-calendar; Agenda leaves this unset and lets the user pick.
+  defaultDate?: string;
+  triggerLabel?: string;
+  // Called after a successful create, in addition to closing the dialog —
+  // Escritorio's calendar uses this to re-fetch the visible month so the
+  // "Programado para" list picks up the new cita without a page reload
+  // (the server-side revalidatePath alone doesn't reach into a client
+  // component's own state).
+  onCreated?: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -24,7 +41,7 @@ export function NewAppointmentDialog({ practitioners }: { practitioners?: Practi
       <DialogTrigger asChild>
         <Button>
           <PlusIcon data-icon="inline-start" />
-          Nueva cita
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       {/* max-h + overflow-y: this form is taller than the other dialogs in
@@ -40,7 +57,12 @@ export function NewAppointmentDialog({ practitioners }: { practitioners?: Practi
           submitLabel="Crear cita"
           submitIcon={<PlusIcon data-icon="inline-start" />}
           practitioners={practitioners}
-          onSuccess={() => setOpen(false)}
+          defaultDate={defaultDate}
+          suggestSlots
+          onSuccess={() => {
+            setOpen(false);
+            onCreated?.();
+          }}
         >
           <PatientPicker />
         </AppointmentForm>
