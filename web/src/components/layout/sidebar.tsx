@@ -35,7 +35,7 @@ const NAV_ITEMS: {
 }[] = [
   {
     href: "/dashboard",
-    label: "Escritorio",
+    label: "Inicio",
     icon: LayoutDashboardIcon,
     roles: ["admin", "profesional", "recepcion"],
   },
