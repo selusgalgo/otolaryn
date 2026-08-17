@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
+import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import { apiFetch } from "@/lib/api";
+import { updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
@@ -31,12 +33,13 @@ export default async function UsersPage() {
               <TableHead>Nombre</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Rol</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   No hay usuarios todavía.
                 </TableCell>
               </TableRow>
@@ -48,6 +51,13 @@ export default async function UsersPage() {
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{ROLE_LABELS[user.role] ?? user.role}</TableCell>
+                <TableCell className="text-right">
+                  <EditUserDialog
+                    user={user}
+                    updateAction={updateUserAction.bind(null, user.id)}
+                    resetPasswordAction={resetUserPasswordAction.bind(null, user.id)}
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

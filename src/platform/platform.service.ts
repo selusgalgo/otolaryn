@@ -18,12 +18,29 @@ import {
   toRows,
 } from '../settings/schedule.util';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import type { CreateUserDto } from '../users/dto/create-user.dto';
+import type { ResetPasswordDto } from '../users/dto/reset-password.dto';
+import type { UpdateUserDto } from '../users/dto/update-user.dto';
+import type { SafeUser } from '../users/users.service';
 
 const UNIQUE_VIOLATION = '23505';
 
 export interface TenantSchedule {
   tenantName: string;
   days: DaySchedule[];
+}
+
+function stripPasswordHash(user: User): SafeUser {
+  return {
+    id: user.id,
+    tenantId: user.tenantId,
+    email: user.email,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
 }
 
 // Cross-tenant on purpose, unlike every other service in this app: a
@@ -100,6 +117,14 @@ export class PlatformService {
     return tenant;
   }
 
+  // Backs the clinic overview page (name + creation date header, above the
+  // Pacientes/Usuarios sections) — findTenant() itself stays private since
+  // every other caller already gets the tenant folded into a bigger
+  // response (TenantSchedule, etc.).
+  async getTenant(id: string): Promise<Tenant> {
+    return this.findTenant(id);
+  }
+
   async getSchedule(id: string): Promise<TenantSchedule> {
     const tenant = await this.findTenant(id);
     const rows = await this.clinicHours.find({ where: { tenantId: id } });
@@ -123,5 +148,99 @@ export class PlatformService {
 
     const rows = await this.clinicHours.find({ where: { tenantId: id } });
     return { tenantName: tenant.name, days: groupByWeekday(rows) };
+  }
+
+  // --- Users, scoped to a clinic chosen by superadmin -----------------
+  // Same "iam.users has no RLS, filter by tenantId explicitly" rule as
+  // UsersService, just with the tenant coming from the route instead of
+  // the caller's own JWT.
+
+  async listUsers(tenantId: string): Promise<SafeUser[]> {
+    await this.findTenant(tenantId);
+    const users = await this.users.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return users.map(stripPasswordHash);
+  }
+
+  async createUser(tenantId: string, dto: CreateUserDto): Promise<SafeUser> {
+    await this.findTenant(tenantId);
+    const passwordHash = await argon2.hash(dto.password, {
+      type: argon2.argon2id,
+    });
+    const user = this.users.create({
+      tenantId,
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      role: dto.role,
+      passwordHash,
+    });
+
+    try {
+      const saved = await this.users.save(user);
+      return stripPasswordHash(saved);
+    } catch (err) {
+      if (
+        err instanceof QueryFailedError &&
+        (err as { code?: string }).code === UNIQUE_VIOLATION
+      ) {
+        throw new ConflictException('A user with this email already exists');
+      }
+      throw err;
+    }
+  }
+
+  private async findUserInTenant(
+    tenantId: string,
+    userId: string,
+  ): Promise<User> {
+    const user = await this.users.findOne({
+      where: { id: userId, tenantId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async updateUser(
+    tenantId: string,
+    userId: string,
+    dto: UpdateUserDto,
+  ): Promise<SafeUser> {
+    const user = await this.findUserInTenant(tenantId, userId);
+    if (dto.firstName !== undefined) user.firstName = dto.firstName;
+    if (dto.lastName !== undefined) user.lastName = dto.lastName;
+    if (dto.username !== undefined) user.username = dto.username || null;
+    if (dto.role !== undefined) user.role = dto.role;
+
+    try {
+      const saved = await this.users.save(user);
+      return stripPasswordHash(saved);
+    } catch (err) {
+      if (
+        err instanceof QueryFailedError &&
+        (err as { code?: string }).code === UNIQUE_VIOLATION
+      ) {
+        throw new ConflictException(
+          'A user with this email or username already exists',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async resetPassword(
+    tenantId: string,
+    userId: string,
+    dto: ResetPasswordDto,
+  ): Promise<void> {
+    const user = await this.findUserInTenant(tenantId, userId);
+    user.passwordHash = await argon2.hash(dto.newPassword, {
+      type: argon2.argon2id,
+    });
+    await this.users.save(user);
   }
 }

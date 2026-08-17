@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -13,6 +16,8 @@ import { RolesGuard } from '../iam/roles.guard';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 // Tenant-scoped: manages the users of the caller's own clinic. Creating/
@@ -37,5 +42,18 @@ export class UsersController {
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
+    return this.users.update(id, dto);
+  }
+
+  @Patch(':id/password')
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResetPasswordDto,
+  ) {
+    return this.users.resetPassword(id, dto);
   }
 }

@@ -255,6 +255,52 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(login.status).toBe(200);
   });
 
+  it("lets admin edit and reset the password of a user in their own tenant, but not profesional/recepcion", async () => {
+    const email = `roles-editable-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Original',
+        lastName: 'Apellido',
+        password: 'RolesTest-Editable1!',
+        role: 'recepcion',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    for (const token of [tokenProfesional, tokenRecepcion]) {
+      const blocked = await request(server)
+        .patch(`/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ firstName: 'No deberia aplicar' });
+      expect(blocked.status).toBe(403);
+    }
+
+    const update = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ firstName: 'Editado' });
+    expect(update.status).toBe(200);
+    expect((update.body as UserResponse).firstName).toBe('Editado');
+
+    const reset = await request(server)
+      .patch(`/users/${userId}/password`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ newPassword: 'RolesTest-Reset1!' });
+    expect(reset.status).toBe(200);
+
+    const oldLogin = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password: 'RolesTest-Editable1!' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password: 'RolesTest-Reset1!' });
+    expect(newLogin.status).toBe(200);
+  });
+
   it('hides a patient from profesional until they have an appointment or entry with them, then shows it', async () => {
     const notYetLinked = await request(server)
       .get(`/patients/${tenantA.patientId}`)
