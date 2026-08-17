@@ -3,13 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { ROLE_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  profesional: "Profesional",
-  recepcion: "Recepción",
-};
 
 export default async function UsersPage() {
   const me = await getCurrentUser();
