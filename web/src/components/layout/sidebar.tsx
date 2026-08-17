@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDaysIcon,
+  EllipsisVerticalIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   SettingsIcon,
@@ -11,9 +12,18 @@ import {
   UserIcon,
   UsersIcon,
 } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
-import type { Role } from "@/lib/types";
+import { ROLE_LABELS } from "@/lib/roles";
+import type { Me, Role } from "@/lib/types";
 
 // admin/profesional/recepcion only — superadmin never renders this sidebar
 // at all ((app)/layout.tsx redirects it to /platform first).
@@ -25,7 +35,7 @@ const NAV_ITEMS: {
 }[] = [
   {
     href: "/dashboard",
-    label: "Escritorio",
+    label: "Inicio",
     icon: LayoutDashboardIcon,
     roles: ["admin", "profesional", "recepcion"],
   },
@@ -112,30 +122,58 @@ function MobileBottomNav({ role }: { role: Role }) {
   );
 }
 
-function LogoutForm() {
+// Desktop sidebar footer: avatar + name + role, with a ⋮ menu (Perfil,
+// Configuración for admin, Cerrar sesión) instead of the previous two
+// separately-spelled-out links. logoutAction takes no form to submit here —
+// it's called directly (Server Actions are plain async functions, callable
+// outside a <form> too), which sidesteps DropdownMenuContent's portal ever
+// separating a <form> from its submit button in the DOM.
+function UserMenu({ me }: { me: Me }) {
   return (
     <div className="border-t border-primary-foreground/10 p-3">
-      <Link
-        href="/account"
-        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/70 transition-colors hover:bg-black/10 hover:text-primary-foreground"
-      >
-        <UserIcon className="size-4 shrink-0" />
-        Mi cuenta
-      </Link>
-      <form action={logoutAction}>
-        <button
-          type="submit"
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/70 transition-colors hover:bg-black/10 hover:text-primary-foreground"
-        >
-          <LogOutIcon className="size-4 shrink-0" />
-          Cerrar sesión
-        </button>
-      </form>
+      <DropdownMenu>
+        <div className="flex items-center gap-2 rounded-lg px-1 py-1">
+          <Avatar firstName={me.firstName} lastName={me.lastName} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-primary-foreground">
+              {me.firstName} {me.lastName}
+            </p>
+            <p className="truncate text-xs text-primary-foreground/60">{ROLE_LABELS[me.role]}</p>
+          </div>
+          <DropdownMenuTrigger
+            aria-label="Menú de cuenta"
+            className="rounded-lg p-1.5 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+          >
+            <EllipsisVerticalIcon className="size-4" />
+          </DropdownMenuTrigger>
+        </div>
+        <DropdownMenuContent align="end" side="top">
+          <DropdownMenuItem asChild>
+            <Link href="/account">
+              <UserIcon className="size-4" />
+              Perfil
+            </Link>
+          </DropdownMenuItem>
+          {me.role === "admin" && (
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <SettingsIcon className="size-4" />
+                Configuración
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => void logoutAction()}>
+            <LogOutIcon className="size-4" />
+            Cerrar sesión
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({ me }: { me: Me }) {
   return (
     <>
       {/* Desktop: fixed sidebar, always visible */}
@@ -144,8 +182,8 @@ export function Sidebar({ role }: { role: Role }) {
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
           <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
         </Link>
-        <NavLinks role={role} />
-        <LogoutForm />
+        <NavLinks role={me.role} />
+        <UserMenu me={me} />
       </aside>
 
       {/* Mobile: top bar with logo + logout — navigation itself lives in the
@@ -175,7 +213,7 @@ export function Sidebar({ role }: { role: Role }) {
         </div>
       </header>
 
-      <MobileBottomNav role={role} />
+      <MobileBottomNav role={me.role} />
     </>
   );
 }
