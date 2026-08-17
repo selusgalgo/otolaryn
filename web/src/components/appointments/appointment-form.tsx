@@ -28,8 +28,8 @@ interface AppointmentFormProps {
   // pick a profesional explicitly — see getPractitionerOptions().
   practitioners?: PractitionerOption[] | null;
   // Pre-fills the date field (YYYY-MM-DD) when there's no initialValues yet
-  // — used when arriving from the Escritorio's calendar with a day already
-  // selected. Ignored once initialValues is set (editing always wins).
+  // — Escritorio's calendar passes the day currently selected. Ignored once
+  // initialValues is set (editing always wins).
   defaultDate?: string;
   // Rendered above the date/time fields — used by /appointments/new to
   // embed <PatientPicker /> inside this same <form> so patient selection

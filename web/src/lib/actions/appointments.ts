@@ -177,7 +177,10 @@ async function createPatientAndAppointment(
   }
 }
 
-// Used by /appointments/new (full page, reached from Escritorio's "Crear").
+// Used by /appointments/new — the full-page version, still reachable
+// directly by URL even though both Escritorio's "Crear" and Agenda's
+// "Nueva cita" now go through the dialog (createAppointmentFromAgendaAction)
+// instead.
 export async function createAppointmentForPatientAction(
   _prevState: AppointmentFormState,
   formData: FormData,

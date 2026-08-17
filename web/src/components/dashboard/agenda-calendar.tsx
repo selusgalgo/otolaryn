@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
 import { WEEKDAYS, buildGrid, parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import type { DayCell } from "@/lib/calendar-grid";
+import type { PractitionerOption } from "@/lib/practitioners";
 import { cn } from "@/lib/utils";
 
 function formatTime(iso: string): string {
@@ -20,6 +21,7 @@ interface AgendaCalendarProps {
   initialYear: number;
   initialMonth: number; // 0-indexed, JS Date convention
   initialAppointments: CalendarAppointment[];
+  practitioners?: PractitionerOption[] | null;
 }
 
 // Escritorio's agenda widget: a navigable mini-calendar (dot under any day
@@ -28,7 +30,12 @@ interface AgendaCalendarProps {
 // visible month's appointments are ever fetched — see
 // getMonthAppointmentsAction — so switching months is one round trip, not a
 // full page reload.
-export function AgendaCalendar({ initialYear, initialMonth, initialAppointments }: AgendaCalendarProps) {
+export function AgendaCalendar({
+  initialYear,
+  initialMonth,
+  initialAppointments,
+  practitioners,
+}: AgendaCalendarProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
 
@@ -148,12 +155,12 @@ export function AgendaCalendar({ initialYear, initialMonth, initialAppointments 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">{agendaLabel}</CardTitle>
-          <Button asChild size="sm">
-            <Link href={`/appointments/new?date=${selectedDateKey}`}>
-              <PlusIcon data-icon="inline-start" />
-              Crear
-            </Link>
-          </Button>
+          <NewAppointmentDialog
+            practitioners={practitioners}
+            defaultDate={selectedDateKey}
+            triggerLabel="Crear"
+            onCreated={() => void goToMonth(viewYear, viewMonth)}
+          />
         </CardHeader>
         <CardContent>
           {dayAppointments.length === 0 ? (
