@@ -20,6 +20,7 @@ export default async function NewAppointmentPage({
         submitIcon={<PlusIcon data-icon="inline-start" />}
         practitioners={practitioners}
         defaultDate={date}
+        suggestSlots
       >
         <PatientPicker />
       </AppointmentForm>

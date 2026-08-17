@@ -10,7 +10,9 @@ import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
 import { WEEKDAYS, buildGrid, parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import type { DayCell } from "@/lib/calendar-grid";
+import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
 import type { PractitionerOption } from "@/lib/practitioners";
+import type { Schedule } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function formatTime(iso: string): string {
@@ -22,22 +24,32 @@ interface AgendaCalendarProps {
   initialMonth: number; // 0-indexed, JS Date convention
   initialAppointments: CalendarAppointment[];
   practitioners?: PractitionerOption[] | null;
+  schedule: Schedule;
 }
 
-// Escritorio's agenda widget: a navigable mini-calendar (dot under any day
-// with at least one appointment, selected day highlighted) next to a
+// Escritorio's agenda widget: a navigable mini-calendar next to a
 // "Programado para <día>" list for whichever day is selected. Only the
 // visible month's appointments are ever fetched — see
 // getMonthAppointmentsAction — so switching months is one round trip, not a
-// full page reload.
+// full page reload. Days are colored by occupancy exactly like Agenda's
+// OccupancyCalendar (same verde/amarillo/naranja/rojo/gris palette, same
+// computeDayOccupancy) — see lib/occupancy.ts, the shared source of truth
+// for both. Past days are additionally disabled here (not just muted): this
+// widget's whole purpose is picking a day to book, and a day that's already
+// gone isn't a valid pick — Agenda's calendar keeps past days clickable
+// instead, since it's used to browse history too.
 export function AgendaCalendar({
   initialYear,
   initialMonth,
   initialAppointments,
   practitioners,
+  schedule,
 }: AgendaCalendarProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
+  // Date-only, local midnight — comparing against cell.date (also local
+  // midnight, see buildGrid) so "today" itself never counts as past.
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   const [viewYear, setViewYear] = useState(initialYear);
   const [viewMonth, setViewMonth] = useState(initialMonth);
@@ -77,7 +89,16 @@ export function AgendaCalendar({
   }
 
   const grid = buildGrid(viewYear, viewMonth);
-  const daysWithAppointments = new Set(appointments.map((a) => toDateKey(new Date(a.scheduledAt))));
+  const appointmentsByDay = new Map<string, CalendarAppointment[]>();
+  for (const appointment of appointments) {
+    const key = toDateKey(new Date(appointment.scheduledAt));
+    const list = appointmentsByDay.get(key);
+    if (list) {
+      list.push(appointment);
+    } else {
+      appointmentsByDay.set(key, [appointment]);
+    }
+  }
   const dayAppointments = appointments
     .filter((a) => toDateKey(new Date(a.scheduledAt)) === selectedDateKey)
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
@@ -124,30 +145,37 @@ export function AgendaCalendar({
               const key = toDateKey(cell.date);
               const isSelected = key === selectedDateKey;
               const isToday = key === todayKey;
-              const hasAppointments = daysWithAppointments.has(key);
+              const isPast = cell.date < todayStart;
+              const showOccupancy = cell.inMonth && !isPast;
+              const occupancy = computeDayOccupancy(cell.date, appointmentsByDay.get(key) ?? [], schedule);
               return (
                 <button
                   key={key}
                   type="button"
+                  disabled={isPast}
                   onClick={() => selectDay(cell)}
+                  title={showOccupancy ? OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label : undefined}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 rounded-full py-1 text-sm transition-colors",
-                    !cell.inMonth && "text-muted-foreground/40",
-                    cell.inMonth && !isSelected && "text-foreground hover:bg-muted",
-                    isSelected && "bg-primary text-primary-foreground",
-                    !isSelected && isToday && "ring-1 ring-inset ring-primary",
+                    "rounded-md py-1.5 text-sm transition-colors",
+                    isPast && "cursor-not-allowed text-muted-foreground/30",
+                    !isPast && !showOccupancy && "text-muted-foreground/40",
+                    showOccupancy && OCCUPANCY_STYLES[occupancy],
+                    isSelected && "ring-2 ring-inset ring-primary",
+                    !isSelected && isToday && "ring-1 ring-inset ring-primary/60",
                   )}
                 >
-                  <span>{cell.date.getDate()}</span>
-                  <span
-                    className={cn(
-                      "size-1 rounded-full",
-                      hasAppointments ? (isSelected ? "bg-primary-foreground" : "bg-primary") : "bg-transparent",
-                    )}
-                  />
+                  {cell.date.getDate()}
                 </button>
               );
             })}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {OCCUPANCY_LEGEND.map((item) => (
+              <span key={item.key} className="flex items-center gap-1.5">
+                <span className={cn("size-2.5 rounded-full", item.swatch)} />
+                {item.label}
+              </span>
+            ))}
           </div>
         </CardContent>
       </Card>

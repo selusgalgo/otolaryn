@@ -58,6 +58,7 @@ export function NewAppointmentDialog({
           submitIcon={<PlusIcon data-icon="inline-start" />}
           practitioners={practitioners}
           defaultDate={defaultDate}
+          suggestSlots
           onSuccess={() => {
             setOpen(false);
             onCreated?.();
