@@ -31,6 +31,13 @@ interface PatientResponse {
   lastName: string;
 }
 
+interface PaginatedPatients {
+  data: PatientResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 const PROFESIONAL_PASSWORD = 'ClinicDetail-Profesional1!';
 const SUPERADMIN_PASSWORD = 'ClinicDetail-Superadmin1!';
 
@@ -104,7 +111,7 @@ describe('Platform — clinic detail (patients read-only, users management)', ()
       .get(`/platform/tenants/${tenantA.id}/patients`)
       .set('Authorization', `Bearer ${tokenSuperadmin}`);
     expect(resA.status).toBe(200);
-    const patientIdsA = (resA.body.data as PatientResponse[]).map((p) => p.id);
+    const patientIdsA = (resA.body as PaginatedPatients).data.map((p) => p.id);
     expect(patientIdsA).toContain(tenantA.patientId);
     expect(patientIdsA).not.toContain(tenantB.patientId);
 
@@ -112,7 +119,7 @@ describe('Platform — clinic detail (patients read-only, users management)', ()
       .get(`/platform/tenants/${tenantB.id}/patients`)
       .set('Authorization', `Bearer ${tokenSuperadmin}`);
     expect(resB.status).toBe(200);
-    const patientIdsB = (resB.body.data as PatientResponse[]).map((p) => p.id);
+    const patientIdsB = (resB.body as PaginatedPatients).data.map((p) => p.id);
     expect(patientIdsB).toContain(tenantB.patientId);
     expect(patientIdsB).not.toContain(tenantA.patientId);
   });
@@ -204,12 +211,10 @@ describe('Platform — clinic detail (patients read-only, users management)', ()
       .send({ identifier: tenantA.userEmail, password: tenantA.userPassword });
     expect(oldLogin.status).toBe(401);
 
-    const newLogin = await request(server)
-      .post('/auth/login')
-      .send({
-        identifier: tenantA.userEmail,
-        password: 'ClinicDetail-ResetPassword1!',
-      });
+    const newLogin = await request(server).post('/auth/login').send({
+      identifier: tenantA.userEmail,
+      password: 'ClinicDetail-ResetPassword1!',
+    });
     expect(newLogin.status).toBe(200);
   });
 

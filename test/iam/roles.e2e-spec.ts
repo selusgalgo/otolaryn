@@ -255,7 +255,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(login.status).toBe(200);
   });
 
-  it("lets admin edit and reset the password of a user in their own tenant, but not profesional/recepcion", async () => {
+  it('lets admin edit and reset the password of a user in their own tenant, but not profesional/recepcion', async () => {
     const email = `roles-editable-${Date.now()}@rls-test.local`;
     const created = await request(server)
       .post('/users')
