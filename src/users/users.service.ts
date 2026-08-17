@@ -1,9 +1,15 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { QueryFailedError } from 'typeorm';
 import { User, UserRole } from '../iam/entities/user.entity';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -64,6 +70,50 @@ export class UsersService {
       }
       throw err;
     }
+  }
+
+  // tenantId filter here is load-bearing, same reason as findAll()'s: iam.
+  // users has no RLS, so without it an admin could edit/reset any user in
+  // the whole database by guessing a UUID, not just their own clinic's.
+  private async findInOwnTenant(userId: string): Promise<User> {
+    const user = await this.repo.findOne({
+      where: { id: userId, tenantId: this.tenancyContext.tenantId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async update(userId: string, dto: UpdateUserDto): Promise<SafeUser> {
+    const user = await this.findInOwnTenant(userId);
+    if (dto.firstName !== undefined) user.firstName = dto.firstName;
+    if (dto.lastName !== undefined) user.lastName = dto.lastName;
+    if (dto.username !== undefined) user.username = dto.username || null;
+    if (dto.role !== undefined) user.role = dto.role;
+
+    try {
+      const saved = await this.repo.save(user);
+      return stripPasswordHash(saved);
+    } catch (err) {
+      if (
+        err instanceof QueryFailedError &&
+        (err as { code?: string }).code === UNIQUE_VIOLATION
+      ) {
+        throw new ConflictException(
+          'A user with this email or username already exists',
+        );
+      }
+      throw err;
+    }
+  }
+
+  async resetPassword(userId: string, dto: ResetPasswordDto): Promise<void> {
+    const user = await this.findInOwnTenant(userId);
+    user.passwordHash = await argon2.hash(dto.newPassword, {
+      type: argon2.argon2id,
+    });
+    await this.repo.save(user);
   }
 }
 

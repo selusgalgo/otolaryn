@@ -39,7 +39,11 @@ export default async function PlatformPage() {
             )}
             {tenants.map((tenant) => (
               <TableRow key={tenant.id}>
-                <TableCell>{tenant.name}</TableCell>
+                <TableCell>
+                  <Link href={`/platform/${tenant.id}`} className="hover:underline">
+                    {tenant.name}
+                  </Link>
+                </TableCell>
                 <TableCell>{formatDate(tenant.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="outline" size="sm">

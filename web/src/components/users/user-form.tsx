@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
-import { ROLE_LABELS } from "@/lib/roles";
-import type { Role } from "@/lib/types";
+import { ASSIGNABLE_ROLES, ROLE_LABELS } from "@/lib/roles";
 
 interface UserFormProps {
   action: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
@@ -16,10 +15,6 @@ interface UserFormProps {
 }
 
 const initialState: UserFormState = {};
-
-// superadmin isn't in ROLE_LABELS' scope here — this form only ever creates
-// users scoped to the admin's own tenant.
-const ASSIGNABLE_ROLES: Role[] = ["admin", "profesional", "recepcion"];
 
 export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);

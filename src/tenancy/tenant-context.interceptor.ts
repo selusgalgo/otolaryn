@@ -6,8 +6,9 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
-import { firstValueFrom, from, Observable } from 'rxjs';
+import { from, Observable } from 'rxjs';
 import { DataSource } from 'typeorm';
+import { runInTenantTransaction } from './run-in-tenant-transaction';
 import { TenancyContext } from './tenancy-context';
 
 interface AuthenticatedRequest {
@@ -27,6 +28,11 @@ interface AuthenticatedRequest {
 // Read-only requests go through this too — there is no fast path that
 // skips the transaction, because a fast path is exactly the kind of thing
 // a future PR could accidentally extend to a write.
+//
+// tenantId here comes from the caller's own JWT — trusted because it's
+// the token the auth guard already verified. Compare
+// RouteTenantContextInterceptor, which sources it from a :id route param
+// instead, for superadmin's cross-tenant routes.
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
   constructor(
@@ -42,41 +48,13 @@ export class TenantContextInterceptor implements NestInterceptor {
       throw new ForbiddenException('Missing or invalid tenant context');
     }
 
-    return from(this.runInTenantTransaction(tenantId, next));
-  }
-
-  private async runInTenantTransaction(
-    tenantId: string,
-    next: CallHandler,
-  ): Promise<unknown> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    try {
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
-    } catch (err) {
-      // Transaction never started, so there's nothing to roll back — but
-      // the connection was checked out of the pool and must still go back.
-      await queryRunner.release();
-      throw err;
-    }
-
-    try {
-      await queryRunner.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+    return from(
+      runInTenantTransaction(
+        this.dataSource,
+        this.tenancyContext,
         tenantId,
-      ]);
-
-      const result = await this.tenancyContext.run<Promise<unknown>>(
-        { queryRunner, tenantId },
-        () => firstValueFrom(next.handle()),
-      );
-
-      await queryRunner.commitTransaction();
-      return result;
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
-    }
+        next,
+      ),
+    );
   }
 }
