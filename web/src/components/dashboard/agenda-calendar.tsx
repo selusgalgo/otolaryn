@@ -8,49 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
+import { WEEKDAYS, buildGrid, parseDateKey, toDateKey } from "@/lib/calendar-grid";
+import type { DayCell } from "@/lib/calendar-grid";
 import { cn } from "@/lib/utils";
-
-const WEEKDAYS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
-
-interface DayCell {
-  date: Date;
-  inMonth: boolean;
-}
-
-function toDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function parseDateKey(key: string): Date {
-  const [year, month, day] = key.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-}
-
-// 6 rows worst case (a month that starts on the last weekday slot and spans
-// into a 6th week), filled with the tail of the previous/next month —
-// standard calendar-grid shape, same idea as the reference screenshot.
-function buildGrid(year: number, month: number): DayCell[] {
-  const firstOfMonth = new Date(year, month, 1);
-  const firstWeekday = (firstOfMonth.getDay() + 6) % 7; // 0 = Monday
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-  const cells: DayCell[] = [];
-  for (let i = firstWeekday - 1; i >= 0; i--) {
-    cells.push({ date: new Date(year, month - 1, daysInPrevMonth - i), inMonth: false });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ date: new Date(year, month, d), inMonth: true });
-  }
-  while (cells.length % 7 !== 0) {
-    const last = cells[cells.length - 1].date;
-    cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), inMonth: false });
-  }
-  return cells;
 }
 
 interface AgendaCalendarProps {

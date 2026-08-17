@@ -137,11 +137,17 @@ describe('Clinic schedule (Configuración) — time slots', () => {
     expect((res.body as ScheduleResponse).days).toEqual(closedWeek());
   });
 
-  it('blocks profesional from the schedule endpoint entirely', async () => {
-    const res = await request(server)
+  it('lets profesional read the schedule but not write it', async () => {
+    const read = await request(server)
       .get('/settings/schedule')
       .set('Authorization', `Bearer ${profesionalToken}`);
-    expect(res.status).toBe(403);
+    expect(read.status).toBe(200);
+
+    const write = await request(server)
+      .patch('/settings/schedule')
+      .set('Authorization', `Bearer ${profesionalToken}`)
+      .send({ days: closedWeek() });
+    expect(write.status).toBe(403);
   });
 
   it('rejects a payload with the wrong number of days', async () => {

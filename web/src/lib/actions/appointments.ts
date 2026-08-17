@@ -13,6 +13,7 @@ export interface AppointmentFormState {
 export interface CalendarAppointment {
   id: string;
   scheduledAt: string;
+  durationMinutes: number;
   status: AppointmentStatus;
   patientId: string;
   patientName: string;
@@ -50,6 +51,7 @@ export async function getMonthAppointmentsAction(
     return {
       id: a.id,
       scheduledAt: a.scheduledAt,
+      durationMinutes: a.durationMinutes,
       status: a.status,
       patientId: a.patientId,
       patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
