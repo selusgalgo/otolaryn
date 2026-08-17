@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
 import { apiFetch } from "@/lib/api";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Paginated, Patient, Schedule } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -53,9 +54,10 @@ export default async function AppointmentsPage({
   // for every tenant role (see SettingsController), profesional/recepcion
   // included, since they need it too to make sense of the colors.
   const fromDate = new Date(`${from}T00:00:00`);
-  const [schedule, initialAppointments] = await Promise.all([
+  const [schedule, initialAppointments, practitioners] = await Promise.all([
     apiFetch<Schedule>("/settings/schedule"),
     getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
+    getPractitionerOptions(),
   ]);
   // A day is "selected" on the calendar only when the filter form is
   // pinned to exactly one day (from === to) — the same state a day click
@@ -66,12 +68,7 @@ export default async function AppointmentsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agenda</h1>
-        <Button asChild>
-          <Link href="/appointments/new">
-            <PlusIcon data-icon="inline-start" />
-            Nueva cita
-          </Link>
-        </Button>
+        <NewAppointmentDialog practitioners={practitioners} />
       </div>
 
       <OccupancyCalendar

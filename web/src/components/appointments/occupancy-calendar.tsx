@@ -52,6 +52,9 @@ export function OccupancyCalendar({
   const router = useRouter();
   const today = new Date();
   const todayKey = toDateKey(today);
+  // Date-only, local midnight — comparing against cell.date (also local
+  // midnight, see buildGrid) so "today" itself never counts as past.
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   const [viewYear, setViewYear] = useState(initialYear);
   const [viewMonth, setViewMonth] = useState(initialMonth);
@@ -131,17 +134,23 @@ export function OccupancyCalendar({
             const key = toDateKey(cell.date);
             const isSelected = key === selectedDateKey;
             const isToday = key === todayKey;
+            const isPast = cell.date < todayStart;
+            // Past days read the same as adjacent-month days (muted, no
+            // occupancy color) — a day that's already happened isn't
+            // "libre"/"completo" in any actionable sense, so coloring it
+            // just adds visual noise. Still clickable, same as any other day.
+            const showOccupancy = cell.inMonth && !isPast;
             const occupancy = computeDayOccupancy(cell.date, appointmentsByDay.get(key) ?? [], schedule);
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => router.push(`/appointments?from=${key}&to=${key}`)}
-                title={LEGEND.find((l) => l.key === occupancy)?.label}
+                title={showOccupancy ? LEGEND.find((l) => l.key === occupancy)?.label : undefined}
                 className={cn(
                   "rounded-md py-1.5 text-sm transition-colors",
-                  !cell.inMonth && "text-muted-foreground/40",
-                  cell.inMonth && OCCUPANCY_STYLES[occupancy],
+                  !showOccupancy && "text-muted-foreground/40",
+                  showOccupancy && OCCUPANCY_STYLES[occupancy],
                   isSelected && "ring-2 ring-inset ring-primary",
                   !isSelected && isToday && "ring-1 ring-inset ring-primary/60",
                 )}

@@ -112,17 +112,19 @@ export async function createAppointmentAction(
   return { success: true };
 }
 
-// Used by /appointments/new: the same form lets staff pick an existing
-// patient or fill one in inline (first-time callers who aren't in the
-// system yet). If a new patient is being created, that POST happens first
-// and its id feeds the appointment POST right after — there's no
-// transaction spanning both calls, so a failure on the appointment step
-// after the patient was created leaves an orphan (but valid, reusable)
-// patient record rather than silently losing the patient's details.
-export async function createAppointmentForPatientAction(
-  _prevState: AppointmentFormState,
+// Shared by both "pick or create a patient, then create their appointment"
+// entry points below (the full /appointments/new page and Agenda's dialog)
+// — same form shape (a "mode" toggle between an existing PatientPicker
+// selection and inline new-patient fields), they only differ in what
+// happens once the appointment exists (redirect to it vs. close a dialog
+// and revalidate in place). If a new patient is being created, that POST
+// happens first and its id feeds the appointment POST right after — no
+// transaction spans both calls, so a failure on the appointment step after
+// the patient was created leaves an orphan (but valid, reusable) patient
+// record rather than silently losing the patient's details.
+async function createPatientAndAppointment(
   formData: FormData,
-): Promise<AppointmentFormState> {
+): Promise<{ patientId: string; appointment: Appointment } | { error: string }> {
   const mode = String(formData.get("mode") ?? "existing");
   let patientId: string;
 
@@ -161,22 +163,51 @@ export async function createAppointmentForPatientAction(
     return { error: "Indica fecha y hora de la cita." };
   }
 
-  let appointment: Appointment;
   try {
-    appointment = await apiFetch<Appointment>(`/patients/${patientId}/appointments`, {
+    const appointment = await apiFetch<Appointment>(`/patients/${patientId}/appointments`, {
       method: "POST",
       body,
     });
+    return { patientId, appointment };
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };
     }
     return { error: "No se pudo crear la cita." };
   }
+}
 
-  revalidatePath(`/patients/${patientId}`);
+// Used by /appointments/new (full page, reached from Escritorio's "Crear").
+export async function createAppointmentForPatientAction(
+  _prevState: AppointmentFormState,
+  formData: FormData,
+): Promise<AppointmentFormState> {
+  const result = await createPatientAndAppointment(formData);
+  if ("error" in result) {
+    return { error: result.error };
+  }
+
+  revalidatePath(`/patients/${result.patientId}`);
   revalidatePath("/appointments");
-  redirect(`/appointments/${appointment.id}`);
+  redirect(`/appointments/${result.appointment.id}`);
+}
+
+// Backs the "Nueva cita" dialog on Agenda — revalidates and reports success
+// instead of redirecting, so the dialog just closes and the table
+// underneath refreshes in place rather than navigating to a whole new
+// screen.
+export async function createAppointmentFromAgendaAction(
+  _prevState: AppointmentFormState,
+  formData: FormData,
+): Promise<AppointmentFormState> {
+  const result = await createPatientAndAppointment(formData);
+  if ("error" in result) {
+    return { error: result.error };
+  }
+
+  revalidatePath(`/patients/${result.patientId}`);
+  revalidatePath("/appointments");
+  return { success: true };
 }
 
 // Backs the "Editar" modal on the appointment detail page — revalidates
