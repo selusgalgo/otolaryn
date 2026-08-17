@@ -32,6 +32,10 @@ const NAV_ITEMS: {
   label: string;
   icon: typeof LayoutDashboardIcon;
   roles: Role[];
+  // Configuración lives in the ⋮ menu (UserMenu) on desktop now, not
+  // repeated in the sidebar list too. Mobile's bottom nav has no ⋮ menu
+  // though, so it still needs its own entry here to stay reachable there.
+  hideFromDesktopNav?: boolean;
 }[] = [
   {
     href: "/dashboard",
@@ -62,12 +66,13 @@ const NAV_ITEMS: {
     label: "Configuración",
     icon: SettingsIcon,
     roles: ["admin"],
+    hideFromDesktopNav: true,
   },
 ];
 
 function NavLinks({ role }: { role: Role }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role) && !item.hideFromDesktopNav);
 
   return (
     <nav className="flex-1 space-y-1 p-3">
@@ -132,21 +137,25 @@ function UserMenu({ me }: { me: Me }) {
   return (
     <div className="border-t border-primary-foreground/10 p-3">
       <DropdownMenu>
-        <div className="flex items-center gap-2 rounded-lg px-1 py-1">
-          <Avatar firstName={me.firstName} lastName={me.lastName} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-primary-foreground">
-              {me.firstName} {me.lastName}
-            </p>
-            <p className="truncate text-xs text-primary-foreground/60">{ROLE_LABELS[me.role]}</p>
-          </div>
-          <DropdownMenuTrigger
+        {/* The whole row is the trigger now, not just the ⋮ — asChild
+            hands Radix's trigger behavior to this single <button> instead
+            of nesting a second, separately-clickable button inside it. */}
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
             aria-label="Menú de cuenta"
-            className="rounded-lg p-1.5 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+            className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-black/10"
           >
-            <EllipsisVerticalIcon className="size-4" />
-          </DropdownMenuTrigger>
-        </div>
+            <Avatar firstName={me.firstName} lastName={me.lastName} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-primary-foreground">
+                {me.firstName} {me.lastName}
+              </p>
+              <p className="truncate text-xs text-primary-foreground/60">{ROLE_LABELS[me.role]}</p>
+            </div>
+            <EllipsisVerticalIcon className="size-4 shrink-0 text-primary-foreground/70" />
+          </button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top">
           <DropdownMenuItem asChild>
             <Link href="/account">
