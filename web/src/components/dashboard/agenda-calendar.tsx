@@ -19,6 +19,26 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Common Spain convention, not tied to the clinic's actual tramos (those
+// can be any two times, or more than two) — good enough to split the day's
+// list into "Mañana"/"Tarde" without needing per-day schedule lookups here.
+const AFTERNOON_START_HOUR = 14;
+
+function AppointmentRow({ appointment }: { appointment: CalendarAppointment }) {
+  return (
+    <Link
+      href={`/appointments/${appointment.id}`}
+      className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm hover:bg-muted/50"
+    >
+      <span className="font-medium">{appointment.patientName}</span>
+      <span className="flex shrink-0 items-center gap-2">
+        <span className="text-xs text-muted-foreground">{formatTime(appointment.scheduledAt)}</span>
+        <AppointmentStatusBadge status={appointment.status} />
+      </span>
+    </Link>
+  );
+}
+
 interface AgendaCalendarProps {
   initialYear: number;
   initialMonth: number; // 0-indexed, JS Date convention
@@ -102,6 +122,12 @@ export function AgendaCalendar({
   const dayAppointments = appointments
     .filter((a) => toDateKey(new Date(a.scheduledAt)) === selectedDateKey)
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  const morningAppointments = dayAppointments.filter(
+    (a) => new Date(a.scheduledAt).getHours() < AFTERNOON_START_HOUR,
+  );
+  const afternoonAppointments = dayAppointments.filter(
+    (a) => new Date(a.scheduledAt).getHours() >= AFTERNOON_START_HOUR,
+  );
 
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString("es-ES", {
     month: "long",
@@ -190,25 +216,32 @@ export function AgendaCalendar({
             onCreated={() => void goToMonth(viewYear, viewMonth)}
           />
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {dayAppointments.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin citas para este día.</p>
           ) : (
-            <div className="space-y-2">
-              {dayAppointments.map((appointment) => (
-                <Link
-                  key={appointment.id}
-                  href={`/appointments/${appointment.id}`}
-                  className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm hover:bg-muted/50"
-                >
-                  <span className="font-medium">{appointment.patientName}</span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{formatTime(appointment.scheduledAt)}</span>
-                    <AppointmentStatusBadge status={appointment.status} />
-                  </span>
-                </Link>
-              ))}
-            </div>
+            <>
+              {morningAppointments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Mañana</p>
+                  <div className="space-y-2">
+                    {morningAppointments.map((appointment) => (
+                      <AppointmentRow key={appointment.id} appointment={appointment} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {afternoonAppointments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Tarde</p>
+                  <div className="space-y-2">
+                    {afternoonAppointments.map((appointment) => (
+                      <AppointmentRow key={appointment.id} appointment={appointment} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
