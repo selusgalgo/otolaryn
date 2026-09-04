@@ -79,28 +79,66 @@ function normalizeHeader(value: string): string {
 
 export type ImportRow = Partial<Record<keyof CreatePatientDto, string>>;
 
-export interface ParsePatientsCsvResult {
+export interface ParsePatientsFileResult {
   rows: ImportRow[];
   missingColumns: string[];
 }
 
-// Reuses the xlsx library for CSV too (it parses CSV natively) instead of
-// hand-rolling a parser — quoted commas/newlines inside a field (easy to
-// hit in a "Notas" column) are exactly the kind of thing a bespoke parser
-// gets wrong.
+const CSV_EXTENSIONS = ['.csv'];
+const SPREADSHEET_EXTENSIONS = ['.xls', '.xlsx'];
+
+function extensionOf(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot === -1 ? '' : filename.slice(dot).toLowerCase();
+}
+
+export function isSupportedImportFile(filename: string): boolean {
+  const ext = extensionOf(filename);
+  return CSV_EXTENSIONS.includes(ext) || SPREADSHEET_EXTENSIONS.includes(ext);
+}
+
+// A date-typed cell (real in XLS/XLSX, never in CSV — a CSV cell is always
+// plain text) comes back as a JS Date when read with cellDates: true.
+// Formatted with local getters, not toISOString(): a date stored as a
+// UTC-midnight instant can render one day off in any timezone behind UTC.
+function dateCellToIsoString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function cellToText(value: unknown): string {
+  if (value instanceof Date) return dateCellToIsoString(value);
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  return '';
+}
+
+// Accepts the same formats Exportar produces (CSV, XLSX) plus the legacy
+// XLS binary format, since a clinic's own patient spreadsheets are just as
+// likely to already be in one of those as in a fresh CSV.
 //
-// Decoded to a UTF-8 string ourselves before handing it to XLSX, instead of
-// passing the raw buffer: XLSX.read on a buffer guesses the encoding from
-// the bytes, and without a BOM it mis-decodes accented headers like
-// "Teléfono"/"Dirección" (mojibake) — decoding explicitly here sidesteps
-// that guess entirely, whether or not the file carries a BOM.
-export function parsePatientsCsv(buffer: Buffer): ParsePatientsCsvResult {
-  const text = buffer.toString('utf-8').replace(/^\uFEFF/, '');
-  const workbook = XLSX.read(text, { type: 'string', raw: true });
+// CSV is decoded to a UTF-8 string ourselves before handing it to XLSX,
+// instead of passing the raw buffer: XLSX.read on a buffer guesses the
+// encoding from the bytes, and without a BOM it mis-decodes accented
+// headers like "Teléfono"/"Dirección" (mojibake). XLS/XLSX don't have this
+// problem — those formats carry their own encoding metadata — so they're
+// read directly as a buffer instead; decoding a binary spreadsheet as UTF-8
+// text first would corrupt it.
+export function parsePatientsFile(
+  buffer: Buffer,
+  filename: string,
+): ParsePatientsFileResult {
+  const ext = extensionOf(filename);
+  const workbook = CSV_EXTENSIONS.includes(ext)
+    ? XLSX.read(buffer.toString('utf-8').replace(/^\uFEFF/, ''), {
+        type: 'string',
+        raw: true,
+      })
+    : XLSX.read(buffer, { type: 'buffer', cellDates: true });
+
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     defval: '',
-    raw: false,
+    raw: true,
   });
 
   if (raw.length === 0) {
@@ -132,13 +170,7 @@ export function parsePatientsCsv(buffer: Buffer): ParsePatientsCsvResult {
     for (const { field } of COLUMNS) {
       const actualHeader = actualHeaderByField.get(field);
       if (!actualHeader) continue;
-      const value = sourceRow[actualHeader];
-      let text = '';
-      if (typeof value === 'string') {
-        text = value.trim();
-      } else if (typeof value === 'number') {
-        text = String(value);
-      }
+      const text = cellToText(sourceRow[actualHeader]);
       // An empty optional cell must become undefined, not "" — email
       // (and any future @IsOptional field) is only actually skipped by
       // class-validator when the property is undefined; an empty string

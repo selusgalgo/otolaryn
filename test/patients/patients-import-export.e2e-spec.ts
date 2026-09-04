@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { Pool } from 'pg';
+import * as XLSX from 'xlsx';
 import { createTestApp } from '../rls/support/app';
 import { ownerPool } from '../rls/support/pools';
 import {
@@ -267,6 +268,78 @@ describe('Patients — export/import CSV/XLSX', () => {
       .set('Authorization', `Bearer ${tokenA}`);
 
     expect(res.status).toBe(400);
+  });
+
+  it('rejects a file whose extension is not csv/xls/xlsx', async () => {
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from('not a spreadsheet'), 'pacientes.pdf');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('imports valid rows from an XLSX workbook (with a real date-typed cell)', async () => {
+    const sheet = XLSX.utils.json_to_sheet([
+      {
+        Nombre: 'Xlsx',
+        Apellidos: 'Uno',
+        Documento: 'IMP-XLSX-001',
+        'Fecha de nacimiento': new Date(1988, 5, 15), // real Date cell, not text
+        Teléfono: '+34622333444',
+      },
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Pacientes');
+    const buffer = XLSX.write(workbook, {
+      type: 'buffer',
+      bookType: 'xlsx',
+    }) as Buffer;
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', buffer, 'pacientes.xlsx');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(0);
+
+    const list = await request(server)
+      .get('/patients?search=IMP-XLSX-001')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patients = (list.body as PaginatedPatients).data;
+    expect(patients).toHaveLength(1);
+    expect(patients[0].documentId).toBe('IMP-XLSX-001');
+  });
+
+  it('imports valid rows from a legacy XLS workbook', async () => {
+    const sheet = XLSX.utils.json_to_sheet([
+      {
+        Nombre: 'Xls',
+        Apellidos: 'Uno',
+        Documento: 'IMP-XLS-001',
+        'Fecha de nacimiento': '1992-02-02',
+        Teléfono: '+34622333555',
+      },
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Pacientes');
+    const buffer = XLSX.write(workbook, {
+      type: 'buffer',
+      bookType: 'biff8',
+    }) as Buffer;
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', buffer, 'pacientes.xls');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(0);
   });
 
   it('imported patients are isolated per tenant', async () => {

@@ -30,7 +30,11 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { ExportPatientsQueryDto } from './dto/export-patients-query.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
-import { buildPatientsExport, parsePatientsCsv } from './patients-csv.util';
+import {
+  buildPatientsExport,
+  isSupportedImportFile,
+  parsePatientsFile,
+} from './patients-csv.util';
 import { PatientsService } from './patients.service';
 
 @Controller('patients')
@@ -93,10 +97,18 @@ export class PatientsController {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
     }
-    const { rows, missingColumns } = parsePatientsCsv(file.buffer);
+    if (!isSupportedImportFile(file.originalname)) {
+      throw new BadRequestException(
+        'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
+      );
+    }
+    const { rows, missingColumns } = parsePatientsFile(
+      file.buffer,
+      file.originalname,
+    );
     if (missingColumns.length > 0) {
       throw new BadRequestException(
-        `Faltan columnas obligatorias en el CSV: ${missingColumns.join(', ')}`,
+        `Faltan columnas obligatorias en el fichero: ${missingColumns.join(', ')}`,
       );
     }
     return this.patients.bulkImport(rows);
