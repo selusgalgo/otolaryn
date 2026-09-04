@@ -9,6 +9,10 @@ interface FileDropzoneProps {
   accept?: string;
   disabled?: boolean;
   hint?: string;
+  // Fired whenever a file is dropped or picked — lets a parent that needs
+  // the actual File object (e.g. to kick off an upload-and-preview call)
+  // get it without reaching into this component's own DOM/state.
+  onFileSelected?: (file: File) => void;
 }
 
 // A styled drag-and-drop area over a real (visually hidden, not display:none
@@ -19,7 +23,7 @@ interface FileDropzoneProps {
 // pushed into the input via a synthetic DataTransfer, the same trick the
 // browser itself uses internally — assigning a FileList literal isn't
 // possible any other way.
-export function FileDropzone({ name, accept, disabled, hint }: FileDropzoneProps) {
+export function FileDropzone({ name, accept, disabled, hint, onFileSelected }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -33,6 +37,7 @@ export function FileDropzone({ name, accept, disabled, hint }: FileDropzoneProps
       transfer.items.add(file);
       inputRef.current.files = transfer.files;
     }
+    onFileSelected?.(file);
   }
 
   return (

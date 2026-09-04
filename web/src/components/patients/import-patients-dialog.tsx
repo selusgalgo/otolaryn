@@ -6,18 +6,38 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { FileDropzone } from "@/components/patients/file-dropzone";
-import { importPatientsAction } from "@/lib/actions/patients";
-import type { ImportPatientsState } from "@/lib/actions/patients";
+import { ImportColumnMapping } from "@/components/patients/import-column-mapping";
+import { importPatientsAction, previewPatientsImportAction } from "@/lib/actions/patients";
+import type { ColumnMapping, ImportPatientsState, ImportPreview } from "@/lib/actions/patients";
 
 const initialState: ImportPatientsState = {};
 
 const ACCEPT =
   ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-// Doesn't auto-close on success like the other dialogs (CreatePatientDialog
-// etc.) — a partial import (some rows skipped) is the expected common
-// case here, not an error, and the user needs to actually read which rows
-// and why before dismissing it themselves.
+const REQUIRED_FIELDS: (keyof ColumnMapping)[] = [
+  "firstName",
+  "lastName",
+  "documentId",
+  "dateOfBirth",
+  "phone",
+];
+
+function isMappingComplete(mapping: ColumnMapping): boolean {
+  return REQUIRED_FIELDS.every((field) => !!mapping[field]);
+}
+
+// Two steps: 1) pick a file, read its real columns (previewPatientsImportAction,
+// no patient created yet); 2) confirm/fix which column feeds which field,
+// then actually import (importPatientsAction). A file from another system
+// — the legacy OTOLARYN desktop app's own NUMHISTORIA as this app's
+// Documento, say — won't match the suggested mapping at all, which is
+// exactly why this step exists instead of importing on a silent guess.
+//
+// Doesn't auto-close on a successful import like the other dialogs
+// (CreatePatientDialog etc.) — a partial import (some rows skipped) is the
+// expected common case here, not an error, and the user needs to actually
+// read which rows and why before dismissing it themselves.
 export function ImportPatientsDialog() {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(importPatientsAction, initialState);
@@ -26,15 +46,46 @@ export function ImportPatientsDialog() {
   // underlying <input>, but not the dropzone's own "selected file" label.
   const [dropzoneKey, setDropzoneKey] = useState(0);
 
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [mapping, setMapping] = useState<ColumnMapping>({});
+
+  function reset() {
+    formRef.current?.reset();
+    setDropzoneKey((k) => k + 1);
+    setPreview(null);
+    setPreviewError(null);
+    setPreviewLoading(false);
+    setMapping({});
+  }
+
+  async function handleFileSelected(file: File) {
+    setPreview(null);
+    setPreviewError(null);
+    setMapping({});
+    setPreviewLoading(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file, file.name);
+      const result = await previewPatientsImportAction(fd);
+      if (result.error) {
+        setPreviewError(result.error);
+      } else if (result.preview) {
+        setPreview(result.preview);
+        setMapping(result.preview.suggestedMapping);
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) {
-          formRef.current?.reset();
-          setDropzoneKey((k) => k + 1);
-        }
+        if (!next) reset();
       }}
     >
       <DialogTrigger asChild>
@@ -43,7 +94,7 @@ export function ImportPatientsDialog() {
           Importar
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar pacientes</DialogTitle>
         </DialogHeader>
@@ -54,16 +105,33 @@ export function ImportPatientsDialog() {
               key={dropzoneKey}
               name="file"
               accept={ACCEPT}
-              disabled={pending}
+              disabled={pending || previewLoading}
               hint="CSV, XLS o XLSX"
+              onFileSelected={(file) => void handleFileSelected(file)}
             />
-            <p className="text-xs text-muted-foreground">
-              Mismas columnas que la exportación: Nombre, Apellidos, Documento, Fecha de nacimiento
-              (AAAA-MM-DD), Teléfono, Email, Dirección, Notas. Nombre, Apellidos, Documento, Fecha de
-              nacimiento y Teléfono son obligatorios; un documento ya existente se omite en vez de
-              duplicarse.
-            </p>
+            {!preview && (
+              <p className="text-xs text-muted-foreground">
+                Se leerán primero las columnas del fichero para que confirmes a qué campo corresponde
+                cada una — por ejemplo, un NUMHISTORIA de otro programa puede ser el Documento aquí.
+              </p>
+            )}
           </div>
+
+          {previewLoading && <p className="text-sm text-muted-foreground">Leyendo el fichero…</p>}
+          {previewError && <p className="text-sm text-destructive">{previewError}</p>}
+
+          {preview && (
+            <>
+              <ImportColumnMapping
+                preview={preview}
+                mapping={mapping}
+                onChange={setMapping}
+                disabled={pending}
+              />
+              {/* The form action reads this, not React state — see importPatientsAction. */}
+              <input type="hidden" name="mapping" value={JSON.stringify(mapping)} />
+            </>
+          )}
 
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
@@ -91,16 +159,22 @@ export function ImportPatientsDialog() {
             </div>
           )}
 
-          <Button type="submit" disabled={pending} className="w-fit">
-            {pending ? (
-              "Importando..."
-            ) : (
-              <>
-                <UploadIcon data-icon="inline-start" />
-                Importar
-              </>
-            )}
-          </Button>
+          {preview && (
+            <Button
+              type="submit"
+              disabled={pending || !isMappingComplete(mapping)}
+              className="w-fit"
+            >
+              {pending ? (
+                "Importando..."
+              ) : (
+                <>
+                  <UploadIcon data-icon="inline-start" />
+                  Importar
+                </>
+              )}
+            </Button>
+          )}
         </form>
       </DialogContent>
     </Dialog>

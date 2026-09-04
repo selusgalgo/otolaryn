@@ -30,10 +30,12 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { ExportPatientsQueryDto } from './dto/export-patients-query.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import type { FieldMapping } from './patients-csv.util';
 import {
   buildPatientsExport,
   isSupportedImportFile,
   parsePatientsFile,
+  previewPatientsFile,
 } from './patients-csv.util';
 import { PatientsService } from './patients.service';
 
@@ -91,9 +93,16 @@ export class PatientsController {
     return this.patients.create(dto);
   }
 
-  @Post('import')
+  // Paso 1 del asistente de importación: no crea nada — solo lee las
+  // cabeceras reales del fichero, unas filas de muestra y un mapeo
+  // sugerido, para que la persona confirme (o corrija) a qué campo
+  // nuestro corresponde cada columna antes de importar de verdad. Un
+  // fichero de otro sistema (p. ej. NUMHISTORIA del programa legado) no
+  // encaja con ninguna sugerencia, que es justo el caso que este paso
+  // existe para cubrir.
+  @Post('import/preview')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  import(@UploadedFile() file?: Express.Multer.File) {
+  preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
     }
@@ -102,9 +111,43 @@ export class PatientsController {
         'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
       );
     }
+    return previewPatientsFile(file.buffer, file.originalname);
+  }
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  import(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('mapping') mappingJson?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No se ha recibido ningún fichero');
+    }
+    if (!isSupportedImportFile(file.originalname)) {
+      throw new BadRequestException(
+        'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
+      );
+    }
+
+    // Sin mapeo explícito, parsePatientsFile recae en la detección
+    // automática de siempre — mantiene la llamada retrocompatible para
+    // quien no pase por el asistente (tests existentes, una futura
+    // integración sin UI).
+    let mapping: FieldMapping | undefined;
+    if (mappingJson) {
+      try {
+        mapping = JSON.parse(mappingJson) as FieldMapping;
+      } catch {
+        throw new BadRequestException(
+          'El mapeo de columnas no es un JSON válido',
+        );
+      }
+    }
+
     const { rows, missingColumns } = parsePatientsFile(
       file.buffer,
       file.originalname,
+      mapping,
     );
     if (missingColumns.length > 0) {
       throw new BadRequestException(

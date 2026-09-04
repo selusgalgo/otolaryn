@@ -342,6 +342,100 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(body.skipped).toHaveLength(0);
   });
 
+  it('previews a file without importing anything, with headers/sample/suggested mapping', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({ firstName: 'Preview', lastName: 'Uno', documentId: 'PREV-001' }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import/preview')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as {
+      headers: string[];
+      sampleRows: Record<string, string>[];
+      suggestedMapping: Record<string, string>;
+    };
+    expect(body.headers).toContain('Documento');
+    expect(body.sampleRows).toHaveLength(1);
+    expect(body.sampleRows[0]['Documento']).toBe('PREV-001');
+    expect(body.suggestedMapping.documentId).toBe('Documento');
+    expect(body.suggestedMapping.firstName).toBe('Nombre');
+
+    // Nothing should have actually been imported by a preview call.
+    const list = await request(server)
+      .get('/patients?search=PREV-001')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((list.body as PaginatedPatients).total).toBe(0);
+  });
+
+  it('imports using an explicit column mapping instead of the auto-detected one', async () => {
+    // Columns named like the legacy OTOLARYN desktop export — none of
+    // these match the suggested Spanish labels, which is exactly the
+    // scenario the mapping step exists for.
+    const csv = [
+      'NUMHISTORIA,NOMBRE,APELLIDOS,FNACIMIENTO,TEL',
+      'MAP-001,Mapeado,Uno,1993-04-04,+34611000111',
+    ].join('\n');
+
+    const mapping = {
+      documentId: 'NUMHISTORIA',
+      firstName: 'NOMBRE',
+      lastName: 'APELLIDOS',
+      dateOfBirth: 'FNACIMIENTO',
+      phone: 'TEL',
+    };
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .field('mapping', JSON.stringify(mapping))
+      .attach('file', Buffer.from(csv, 'utf-8'), 'legacy-export.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(0);
+
+    const list = await request(server)
+      .get('/patients?search=MAP-001')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patients = (list.body as PaginatedPatients).data;
+    expect(patients).toHaveLength(1);
+    expect(patients[0].documentId).toBe('MAP-001');
+  });
+
+  it('rejects an import whose explicit mapping is missing a required field', async () => {
+    const csv = ['NUMHISTORIA,NOMBRE', 'MAP-002,Incompleto'].join('\n');
+    const mapping = { documentId: 'NUMHISTORIA', firstName: 'NOMBRE' };
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .field('mapping', JSON.stringify(mapping))
+      .attach('file', Buffer.from(csv, 'utf-8'), 'legacy-export.csv');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an import whose mapping field is not valid JSON', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({ firstName: 'X', lastName: 'Y', documentId: 'MAP-003' }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .field('mapping', '{not valid json')
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(400);
+  });
+
   it('imported patients are isolated per tenant', async () => {
     const csv = [
       CSV_HEADER,
