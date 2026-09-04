@@ -38,6 +38,14 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  // NUMHISTORIA from the legacy OTOLARYN desktop app — only set for
+  // patients brought in by the historical data migration.
+  @Column({ name: 'legacy_id', type: 'text', nullable: true })
+  legacyId: string | null;
+
+  @Column({ name: 'insurance_entity_id', type: 'uuid', nullable: true })
+  insuranceEntityId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

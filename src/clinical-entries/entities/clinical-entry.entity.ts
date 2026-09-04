@@ -39,6 +39,12 @@ export class ClinicalEntry {
   @Column({ name: 'follow_up_notes', type: 'text', nullable: true })
   followUpNotes: string | null;
 
+  // A patient's insurer can change between visits — this is the entry's
+  // own ENTIDAD from the legacy consultas.xls, independent of whichever
+  // insurer is currently set on the patient record.
+  @Column({ name: 'insurance_entity_id', type: 'uuid', nullable: true })
+  insuranceEntityId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
