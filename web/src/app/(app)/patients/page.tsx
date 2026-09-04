@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreatePatientDialog } from "@/components/patients/create-patient-dialog";
+import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
+import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { apiFetch } from "@/lib/api";
 import type { Paginated, Patient } from "@/lib/types";
@@ -33,7 +35,11 @@ export default async function PatientsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pacientes</h1>
-        <CreatePatientDialog />
+        <div className="flex items-center gap-2">
+          <ImportPatientsDialog />
+          <ExportPatientsMenu search={search} />
+          <CreatePatientDialog />
+        </div>
       </div>
 
       <form className="flex items-end gap-4" action="/patients">

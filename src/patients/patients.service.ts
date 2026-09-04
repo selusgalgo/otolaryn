@@ -3,14 +3,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { Patient } from './entities/patient.entity';
+import type { ImportRow } from './patients-csv.util';
 
 const UNIQUE_VIOLATION = '23505';
+
+export interface ImportPatientsResult {
+  totalRows: number;
+  created: number;
+  skipped: { row: number; reason: string }[];
+}
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -75,6 +84,25 @@ export class PatientsService {
     return { data, total, page, pageSize };
   }
 
+  // Same visibility rule as findAll, unpaginated — exporting is "give me
+  // everything I can already see", not a separate permission.
+  async findAllForExport(
+    user: CurrentUserPayload,
+    search?: string,
+  ): Promise<Patient[]> {
+    const qb = this.repo.createQueryBuilder('p').orderBy('p.createdAt', 'DESC');
+    this.restrictToOwnPatients(qb, user);
+
+    if (search) {
+      qb.andWhere(
+        '(p.firstName ILIKE :search OR p.lastName ILIKE :search OR p.documentId ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    return qb.getMany();
+  }
+
   async findOne(id: string, user?: CurrentUserPayload): Promise<Patient> {
     const qb = this.repo.createQueryBuilder('p').where('p.id = :id', { id });
     if (user) {
@@ -97,6 +125,58 @@ export class PatientsService {
     } catch (err) {
       throw this.mapWriteError(err);
     }
+  }
+
+  // Each row runs through the exact same CreatePatientDto validation as a
+  // single POST /patients (plainToInstance + validate, not the global
+  // ValidationPipe — this isn't a request body) — a bad row is skipped and
+  // reported, it never aborts the whole file. Sequential, not batched: a
+  // spreadsheet-sized import (dozens to low hundreds of rows) doesn't need
+  // the complexity of a bulk insert, and sequential inserts are what let a
+  // duplicate documentId within the same file surface as a normal
+  // "already exists" skip on the second occurrence instead of a DB error.
+  async bulkImport(rows: ImportRow[]): Promise<ImportPatientsResult> {
+    const skipped: { row: number; reason: string }[] = [];
+    let created = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 1;
+      const dto = plainToInstance(CreatePatientDto, rows[i]);
+      const errors = await validate(dto);
+      if (errors.length > 0) {
+        const reason = errors
+          .flatMap((e) => Object.values(e.constraints ?? {}))
+          .join('; ');
+        skipped.push({ row: rowNumber, reason });
+        continue;
+      }
+
+      // The whole request already runs inside one transaction
+      // (TenantContextInterceptor) — without a SAVEPOINT per row, one
+      // row's unique-constraint violation aborts that shared transaction
+      // at the Postgres level, and every row after it fails with
+      // "current transaction is aborted" (25P02) even though nothing is
+      // wrong with them. Rolling back to the savepoint instead of the
+      // whole transaction is what lets the loop keep going.
+      await this.repo.query('SAVEPOINT row_import');
+      try {
+        await this.create(dto);
+        await this.repo.query('RELEASE SAVEPOINT row_import');
+        created++;
+      } catch (err) {
+        await this.repo.query('ROLLBACK TO SAVEPOINT row_import');
+        if (err instanceof ConflictException) {
+          skipped.push({
+            row: rowNumber,
+            reason: `Ya existe un paciente con el documento "${dto.documentId}"`,
+          });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    return { totalRows: rows.length, created, skipped };
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
 import type { Patient } from "@/lib/types";
 
 export interface PatientFormState {
@@ -81,6 +81,46 @@ export async function deletePatientAction(id: string): Promise<void> {
   await apiFetch(`/patients/${id}`, { method: "DELETE" });
   revalidatePath("/patients");
   redirect("/patients");
+}
+
+export interface ImportPatientsResult {
+  totalRows: number;
+  created: number;
+  skipped: { row: number; reason: string }[];
+}
+
+export interface ImportPatientsState {
+  error?: string;
+  result?: ImportPatientsResult;
+}
+
+// Bulk-creates patients from an uploaded CSV — see ImportPatientsDialog.
+// Unlike the create/update actions above, a successful call still reports
+// through `result` (not just `success: true`): a partial import (some
+// rows skipped) is the expected common case, not an error, and the user
+// needs to see which rows and why before the dialog closes.
+export async function importPatientsAction(
+  _prevState: ImportPatientsState,
+  formData: FormData,
+): Promise<ImportPatientsState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecciona un fichero CSV." };
+  }
+
+  const upstream = new FormData();
+  upstream.set("file", file, file.name);
+
+  try {
+    const result = await apiFetchMultipart<ImportPatientsResult>("/patients/import", upstream);
+    revalidatePath("/patients");
+    return { result };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo importar el fichero." };
+  }
 }
 
 // Called imperatively from PatientPicker (a client component), not bound
