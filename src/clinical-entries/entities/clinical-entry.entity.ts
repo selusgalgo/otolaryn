@@ -45,6 +45,12 @@ export class ClinicalEntry {
   @Column({ name: 'insurance_entity_id', type: 'uuid', nullable: true })
   insuranceEntityId: string | null;
 
+  // 1-based row index within consultas.xls for entries created by the
+  // historical data migration — not NUMHISTORIA (see migration comment).
+  // null for entries created normally through the app.
+  @Column({ name: 'legacy_id', type: 'text', nullable: true })
+  legacyId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

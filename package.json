@@ -22,7 +22,8 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:generate": "npm run typeorm -- migration:generate",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "migrate:legacy": "ts-node -r tsconfig-paths/register src/database/migrate-legacy.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -43,7 +44,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.31",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
