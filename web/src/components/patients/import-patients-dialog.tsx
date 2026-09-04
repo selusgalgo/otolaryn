@@ -15,10 +15,12 @@ const initialState: ImportPatientsState = {};
 const ACCEPT =
   ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+// documentId excluded on purpose — see the matching REQUIRED_FIELDS
+// comment in patients-csv.util.ts: a row with no mapped documentId gets
+// one generated automatically instead of blocking the import.
 const REQUIRED_FIELDS: (keyof ColumnMapping)[] = [
   "firstName",
   "lastName",
-  "documentId",
   "dateOfBirth",
   "phone",
 ];

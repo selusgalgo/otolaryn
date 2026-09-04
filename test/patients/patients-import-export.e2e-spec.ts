@@ -251,6 +251,52 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(body.skipped[0].reason).toContain('IMP-020');
   });
 
+  it('imports a row with no Documento column at all, generating a placeholder', async () => {
+    const csv = [
+      'Nombre,Apellidos,Fecha de nacimiento,Teléfono',
+      'SinDoc,Uno,1990-06-15,+34600222333',
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(0);
+
+    const list = await request(server)
+      .get('/patients?search=SinDoc')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patients = (list.body as PaginatedPatients).data;
+    expect(patients).toHaveLength(1);
+    expect(patients[0].documentId).toMatch(/^SIN-DOC-/);
+  });
+
+  it('accepts a day-first (DD/MM/AAAA) date of birth', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'DiaPrimero',
+        lastName: 'Uno',
+        documentId: 'DATE-001',
+        dateOfBirth: '05/11/1978',
+      }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(0);
+  });
+
   it('rejects a CSV missing a required column', async () => {
     const csv = 'Nombre,Apellidos\nIncompleto,Fila';
 

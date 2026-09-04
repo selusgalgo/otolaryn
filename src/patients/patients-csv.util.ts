@@ -1,6 +1,19 @@
+import { randomBytes } from 'node:crypto';
 import * as XLSX from 'xlsx';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { Patient } from './entities/patient.entity';
+
+// xlsx's own type declarations give SSF a bare `any` — narrowed here to the
+// one function actually used, so that stays the only unsafe-cast in the
+// file instead of every call site needing its own.
+interface DateCode {
+  y: number;
+  m: number;
+  d: number;
+}
+const SSF = XLSX.SSF as unknown as {
+  parse_date_code(value: number): DateCode | undefined;
+};
 
 // One column list drives every direction — export writes these headers,
 // the mapping wizard suggests them as the default guess, and import looks
@@ -18,18 +31,44 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'notes', label: 'Notas' },
 ];
 
+// documentId is deliberately not required here even though
+// CreatePatientDto itself requires it — a real-world import (this app's
+// own legacy OTOLARYN migration included) often has no equivalent column
+// at all, and forcing one to be mapped would either block the import or
+// invite mapping some unrelated column to it by mistake. A row with no
+// documentId gets a generated placeholder instead — see
+// generatePlaceholderDocumentId below.
 const REQUIRED_FIELDS: (keyof CreatePatientDto)[] = [
   'firstName',
   'lastName',
-  'documentId',
   'dateOfBirth',
   'phone',
 ];
+
+// Short, prefixed so it reads as an intentional placeholder rather than a
+// real document number, and random rather than row-indexed so it stays
+// unique against every other patient in the tenant (not just within this
+// one import) without needing to check the database first.
+function generatePlaceholderDocumentId(): string {
+  return `SIN-DOC-${randomBytes(4).toString('hex')}`;
+}
 
 export interface ExportedFile {
   buffer: Buffer;
   contentType: string;
   filename: string;
+}
+
+// DB storage (and the wire format everywhere else in this app) is ISO —
+// this is purely a display convention for the exported file, matching the
+// DD/MM/AAAA the import side treats as native (see cellToDateOfBirth
+// below), so a fresh export already round-trips back in without anyone
+// having to convert anything by hand.
+function isoToDayFirst(iso: string): string {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return iso;
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
 }
 
 export function buildPatientsExport(
@@ -40,7 +79,8 @@ export function buildPatientsExport(
     const row: Record<string, string> = {};
     for (const { field, label } of COLUMNS) {
       const value = p[field as keyof Patient];
-      row[label] = value == null ? '' : String(value);
+      const text = value == null ? '' : String(value);
+      row[label] = field === 'dateOfBirth' && text ? isoToDayFirst(text) : text;
     }
     return row;
   });
@@ -112,6 +152,55 @@ function cellToText(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (typeof value === 'number') return String(value);
   return '';
+}
+
+// dateOfBirth gets its own conversion instead of the generic cellToText
+// above, because a real spreadsheet hands this field two shapes that
+// aren't already ISO and would otherwise fail CreatePatientDto's
+// @IsDateString() outright:
+//  - Day-first text, e.g. "21/08/1976" — the format a person types by
+//    hand, or that a legacy system (this app's own OTOLARYN migration
+//    included) exports as plain text.
+//  - A bare Excel date serial number, e.g. 45520 — happens when the
+//    source cell is formatted as "General" instead of an actual date
+//    type, so XLSX.read's cellDates:true never turns it into a real
+//    Date the way a properly-formatted cell would.
+// Anything else (already ISO, or simply not a date) passes through
+// unchanged, so validation still reports it plainly instead of this
+// function silently inventing a value.
+function cellToDateOfBirth(value: unknown): string {
+  if (value instanceof Date) return dateCellToIsoString(value);
+
+  if (typeof value === 'number') {
+    const parsed = SSF.parse_date_code(value);
+    if (parsed) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
+    return String(value);
+  }
+
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+  const dayFirst = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dayFirst) {
+    const day = Number(dayFirst[1]);
+    const month = Number(dayFirst[2]);
+    const year = Number(dayFirst[3]);
+    const date = new Date(year, month - 1, day);
+    // Rejects e.g. 31/02/2020 — new Date() would otherwise silently roll
+    // it into March, hiding a bad source value instead of reporting it.
+    if (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    ) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return text;
 }
 
 interface RawSheet {
@@ -219,12 +308,19 @@ export function parsePatientsFile(
     for (const { field } of COLUMNS) {
       const actualHeader = effectiveMapping[field];
       if (!actualHeader) continue;
-      const text = cellToText(sourceRow[actualHeader]);
+      const rawValue = sourceRow[actualHeader];
+      const text =
+        field === 'dateOfBirth'
+          ? cellToDateOfBirth(rawValue)
+          : cellToText(rawValue);
       // An empty optional cell must become undefined, not "" — email
       // (and any future @IsOptional field) is only actually skipped by
       // class-validator when the property is undefined; an empty string
       // still runs through @IsEmail and fails.
       if (text) row[field] = text;
+    }
+    if (!row.documentId) {
+      row.documentId = generatePlaceholderDocumentId();
     }
     return row;
   });

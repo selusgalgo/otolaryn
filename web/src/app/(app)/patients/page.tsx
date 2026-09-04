@@ -9,6 +9,7 @@ import { ImportPatientsDialog } from "@/components/patients/import-patients-dial
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { apiFetch } from "@/lib/api";
 import type { Paginated, Patient } from "@/lib/types";
+import { formatDateOnly } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -85,7 +86,7 @@ export default async function PatientsPage({
                 </TableCell>
                 <TableCell>{patient.documentId}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
-                <TableCell>{patient.dateOfBirth}</TableCell>
+                <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

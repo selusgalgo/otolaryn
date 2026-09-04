@@ -6,7 +6,7 @@ import type { ColumnMapping, ImportPreview } from "@/lib/actions/patients";
 const FIELDS: { field: keyof ColumnMapping; label: string; required: boolean }[] = [
   { field: "firstName", label: "Nombre", required: true },
   { field: "lastName", label: "Apellidos", required: true },
-  { field: "documentId", label: "Documento", required: true },
+  { field: "documentId", label: "Documento", required: false },
   { field: "dateOfBirth", label: "Fecha de nacimiento", required: true },
   { field: "phone", label: "Teléfono", required: true },
   { field: "email", label: "Email", required: false },
@@ -18,8 +18,14 @@ const FIELDS: { field: keyof ColumnMapping; label: string; required: boolean }[]
 // shown right under its select — the whole point of this step is letting
 // someone see "column X actually holds these values" before committing,
 // not just picking a name off a list blind.
-function sampleFor(preview: ImportPreview, header: string | undefined): string {
-  if (!header) return "";
+function sampleFor(preview: ImportPreview, field: keyof ColumnMapping, header: string | undefined): string {
+  if (!header) {
+    // documentId is the one field this app can fill in on its own when
+    // the file simply doesn't have an equivalent column — worth saying
+    // so here, otherwise leaving it unmapped looks like an oversight
+    // rather than a deliberate, supported choice.
+    return field === "documentId" ? "Se generará un identificador automáticamente" : "";
+  }
   const values = preview.sampleRows
     .map((row) => row[header])
     .filter((v): v is string => !!v)
@@ -50,6 +56,9 @@ export function ImportColumnMapping({ preview, mapping, onChange, disabled }: Im
             <div key={field} className="space-y-1">
               <Label htmlFor={`mapping-${field}`}>
                 {label}
+                {field === "dateOfBirth" && (
+                  <span className="text-muted-foreground"> (DD/MM/AAAA)</span>
+                )}
                 {required && <span className="text-destructive"> *</span>}
               </Label>
               <select
@@ -66,7 +75,9 @@ export function ImportColumnMapping({ preview, mapping, onChange, disabled }: Im
                   </option>
                 ))}
               </select>
-              <p className="min-h-4 truncate text-xs text-muted-foreground">{sampleFor(preview, selected)}</p>
+              <p className="min-h-4 truncate text-xs text-muted-foreground">
+                {sampleFor(preview, field, selected)}
+              </p>
             </div>
           );
         })}
