@@ -165,7 +165,7 @@ export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
                     {patient.firstName} {patient.lastName}
                   </Link>
                 </TableCell>
-                <TableCell>{patient.documentId}</TableCell>
+                <TableCell>{patient.documentId || "-"}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
               </TableRow>
