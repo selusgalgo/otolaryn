@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-muted/30">
       <Sidebar me={me} />
       <main className="pb-16 md:pb-0 md:pl-60">
-        <div className="mx-auto max-w-5xl px-4 py-6">{children}</div>
+        <div className="px-4 py-6">{children}</div>
       </main>
     </div>
   );
