@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
 import type { Patient } from "@/lib/types";
-import { formatDateOnly } from "@/lib/utils";
+import { formatDateOnly, formatDocumentId } from "@/lib/utils";
 
 interface PatientsTableProps {
   patients: Patient[];
@@ -165,7 +165,7 @@ export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
                     {patient.firstName} {patient.lastName}
                   </Link>
                 </TableCell>
-                <TableCell>{patient.documentId || "-"}</TableCell>
+                <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
               </TableRow>
