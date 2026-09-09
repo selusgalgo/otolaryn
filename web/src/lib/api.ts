@@ -1,6 +1,10 @@
 import { getSessionToken } from "./session";
 
-const API_URL = process.env.API_URL ?? "http://localhost:3000";
+// Exported (not just module-private) so a Route Handler that has to
+// stream a raw file response — export/download, something apiFetch's
+// JSON-only contract can't express — can still reuse the same base URL
+// instead of re-deriving it.
+export const API_URL = process.env.API_URL ?? "http://localhost:3000";
 
 export class ApiError extends Error {
   status: number;
@@ -54,11 +58,44 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const data: unknown = contentType?.includes("application/json") ? await res.json() : undefined;
 
   if (!res.ok) {
-    const body = (data ?? {}) as NestErrorBody;
-    const message = Array.isArray(body.message)
-      ? body.message.join(", ")
-      : (body.message ?? `Request failed with status ${res.status}`);
-    throw new ApiError(res.status, message, data);
+    throw errorFromResponse(res.status, data);
+  }
+
+  return data as T;
+}
+
+function errorFromResponse(status: number, data: unknown): ApiError {
+  const body = (data ?? {}) as NestErrorBody;
+  const message = Array.isArray(body.message)
+    ? body.message.join(", ")
+    : (body.message ?? `Request failed with status ${status}`);
+  return new ApiError(status, message, data);
+}
+
+// For a multipart/form-data body (a file upload) — apiFetch always
+// JSON.stringifies its body, which a File can't survive. No explicit
+// Content-Type header here on purpose: fetch sets the multipart boundary
+// itself from the FormData, and overriding it manually is the classic way
+// to send a boundary-less body the server can't parse.
+export async function apiFetchMultipart<T>(path: string, formData: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = await getSessionToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+    cache: "no-store",
+  });
+
+  const contentType = res.headers.get("content-type");
+  const data: unknown = contentType?.includes("application/json") ? await res.json() : undefined;
+
+  if (!res.ok) {
+    throw errorFromResponse(res.status, data);
   }
 
   return data as T;

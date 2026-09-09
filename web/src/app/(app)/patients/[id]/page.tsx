@@ -12,6 +12,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
+import { formatDateOnly } from "@/lib/utils";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
@@ -83,7 +84,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
             </div>
             <div>
               <div className="text-muted-foreground">Fecha de nacimiento</div>
-              <div>{patient.dateOfBirth}</div>
+              <div>{formatDateOnly(patient.dateOfBirth)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Teléfono</div>

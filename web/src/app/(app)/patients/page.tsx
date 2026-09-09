@@ -2,10 +2,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreatePatientDialog } from "@/components/patients/create-patient-dialog";
-import { PatientAvatar } from "@/components/patients/patient-avatar";
+import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
+import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
+import { PatientsTable } from "@/components/patients/patients-table";
 import { apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import type { Paginated, Patient } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -24,7 +26,10 @@ export default async function PatientsPage({
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
 
-  const result = await apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`);
+  const [result, me] = await Promise.all([
+    apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
+    getCurrentUser(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) =>
     `/patients?page=${p}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
@@ -33,7 +38,11 @@ export default async function PatientsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pacientes</h1>
-        <CreatePatientDialog />
+        <div className="flex items-center gap-2">
+          <ImportPatientsDialog />
+          <ExportPatientsMenu search={search} />
+          <CreatePatientDialog />
+        </div>
       </div>
 
       <form className="flex items-end gap-4" action="/patients">
@@ -51,40 +60,19 @@ export default async function PatientsPage({
         )}
       </form>
 
-      <div className="rounded-md border bg-background">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Documento</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Fecha de nacimiento</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.data.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  {search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
-                </TableCell>
-              </TableRow>
-            )}
-            {result.data.map((patient) => (
-              <TableRow key={patient.id}>
-                <TableCell>
-                  <Link href={`/patients/${patient.id}`} className="flex items-center gap-3 hover:underline">
-                    <PatientAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
-                    {patient.firstName} {patient.lastName}
-                  </Link>
-                </TableCell>
-                <TableCell>{patient.documentId}</TableCell>
-                <TableCell>{patient.phone}</TableCell>
-                <TableCell>{patient.dateOfBirth}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {/* Keyed by page+search so navigating (a new page, a new filter) mounts
+          a fresh table instead of keeping a stale selection made against a
+          different set of rows. */}
+      <PatientsTable
+        key={`${page}-${search}`}
+        patients={result.data}
+        emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
+        // recepcion puede crear/editar pacientes para dar citas, pero
+        // archivar (dar de baja) es una decisión clínica/administrativa —
+        // el backend ya devuelve 403 para ese rol en ambas rutas de baja,
+        // esto solo evita ofrecer un botón que siempre fallaría.
+        canArchive={me.role !== "recepcion"}
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
