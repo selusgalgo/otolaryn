@@ -7,6 +7,7 @@ import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
 import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
 import { PatientsTable } from "@/components/patients/patients-table";
 import { apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import type { Paginated, Patient } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -25,7 +26,10 @@ export default async function PatientsPage({
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
 
-  const result = await apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`);
+  const [result, me] = await Promise.all([
+    apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
+    getCurrentUser(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) =>
     `/patients?page=${p}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
@@ -63,6 +67,11 @@ export default async function PatientsPage({
         key={`${page}-${search}`}
         patients={result.data}
         emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
+        // recepcion puede crear/editar pacientes para dar citas, pero
+        // archivar (dar de baja) es una decisión clínica/administrativa —
+        // el backend ya devuelve 403 para ese rol en ambas rutas de baja,
+        // esto solo evita ofrecer un botón que siempre fallaría.
+        canArchive={me.role !== "recepcion"}
       />
 
       {totalPages > 1 && (

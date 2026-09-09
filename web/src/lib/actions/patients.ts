@@ -83,6 +83,29 @@ export async function deletePatientAction(id: string): Promise<void> {
   redirect("/patients");
 }
 
+export interface ArchivePatientState {
+  error?: string;
+  success?: boolean;
+}
+
+// Same endpoint as deletePatientAction (a "dar de baja"/soft-delete, never
+// a real delete — the clinical history has to be kept for years), but
+// called from a row menu on the list itself: redirecting to a bare
+// "/patients" like the detail-page version does would drop whatever page
+// or search filter was showing, so this just revalidates and stays put.
+export async function archivePatientAction(id: string): Promise<ArchivePatientState> {
+  try {
+    await apiFetch(`/patients/${id}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo archivar el paciente." };
+  }
+  revalidatePath("/patients");
+  return { success: true };
+}
+
 export interface BulkDeletePatientsResult {
   deleted: number;
   skipped: { id: string; reason: string }[];

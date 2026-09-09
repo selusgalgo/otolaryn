@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PatientAvatar } from "@/components/patients/patient-avatar";
+import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
 import type { Patient } from "@/lib/types";
 import { formatDateOnly, formatDocumentId } from "@/lib/utils";
@@ -22,6 +23,10 @@ import { formatDateOnly, formatDocumentId } from "@/lib/utils";
 interface PatientsTableProps {
   patients: Patient[];
   emptyMessage: string;
+  // recepcion can't archive (see the comment where this table is called) —
+  // hides both the bulk "Dar de baja" path and the row menu's "Archivar",
+  // since the checkboxes/selection UI exists only to feed that action.
+  canArchive: boolean;
 }
 
 // Selection lives entirely in this Client Component's own state — the page
@@ -29,7 +34,7 @@ interface PatientsTableProps {
 // changes the visible rows (page number, search term) from the parent, so
 // navigating resets the selection instead of leaving stale ids selected
 // against a different set of rows.
-export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
+export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -76,7 +81,7 @@ export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
 
   return (
     <div className="space-y-3">
-      {selectedCount > 0 && (
+      {canArchive && selectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-sm">
           <span>
             {selectedCount} paciente{selectedCount === 1 ? "" : "s"} seleccionado{selectedCount === 1 ? "" : "s"}
@@ -128,37 +133,42 @@ export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                  onCheckedChange={toggleAll}
-                  disabled={patients.length === 0}
-                  aria-label="Seleccionar todos los pacientes de esta página"
-                />
-              </TableHead>
+              {canArchive && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleAll}
+                    disabled={patients.length === 0}
+                    aria-label="Seleccionar todos los pacientes de esta página"
+                  />
+                </TableHead>
+              )}
               <TableHead>Nombre</TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Fecha de nacimiento</TableHead>
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={canArchive ? 6 : 5} className="text-center text-muted-foreground">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
             {patients.map((patient) => (
               <TableRow key={patient.id} data-state={selected.has(patient.id) ? "selected" : undefined}>
-                <TableCell>
-                  <Checkbox
-                    checked={selected.has(patient.id)}
-                    onCheckedChange={() => toggleOne(patient.id)}
-                    aria-label={`Seleccionar ${patient.firstName} ${patient.lastName}`}
-                  />
-                </TableCell>
+                {canArchive && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(patient.id)}
+                      onCheckedChange={() => toggleOne(patient.id)}
+                      aria-label={`Seleccionar ${patient.firstName} ${patient.lastName}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Link href={`/patients/${patient.id}`} className="flex items-center gap-3 hover:underline">
                     <PatientAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
@@ -168,6 +178,9 @@ export function PatientsTable({ patients, emptyMessage }: PatientsTableProps) {
                 <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
+                <TableCell>
+                  <PatientRowActions patient={patient} canArchive={canArchive} />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
