@@ -28,6 +28,11 @@ export interface PaginatedResult<T> {
   pageSize: number;
 }
 
+export interface BulkDeleteResult {
+  deleted: number;
+  skipped: { id: string; reason: string }[];
+}
+
 @Injectable()
 export class PatientsService {
   constructor(private readonly tenancyContext: TenancyContext) {}
@@ -192,6 +197,35 @@ export class PatientsService {
   async softDelete(id: string, user: CurrentUserPayload): Promise<void> {
     await this.findOne(id, user);
     await this.repo.softDelete(id);
+  }
+
+  // Backs the patients list's bulk "Dar de baja" — reuses softDelete's own
+  // visibility check (findOne, RLS + restrictToOwnPatients) per id instead
+  // of a single multi-row UPDATE, so an id a profesional can't see (or
+  // that's already gone) is reported back as skipped rather than the
+  // whole selection failing or silently affecting fewer rows than
+  // expected.
+  async bulkSoftDelete(
+    ids: string[],
+    user: CurrentUserPayload,
+  ): Promise<BulkDeleteResult> {
+    const skipped: { id: string; reason: string }[] = [];
+    let deleted = 0;
+
+    for (const id of ids) {
+      try {
+        await this.softDelete(id, user);
+        deleted++;
+      } catch (err) {
+        if (err instanceof NotFoundException) {
+          skipped.push({ id, reason: 'Paciente no encontrado' });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    return { deleted, skipped };
   }
 
   private mapWriteError(err: unknown): Error {

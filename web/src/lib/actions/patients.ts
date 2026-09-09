@@ -83,6 +83,38 @@ export async function deletePatientAction(id: string): Promise<void> {
   redirect("/patients");
 }
 
+export interface BulkDeletePatientsResult {
+  deleted: number;
+  skipped: { id: string; reason: string }[];
+}
+
+export interface BulkDeletePatientsState {
+  error?: string;
+  result?: BulkDeletePatientsResult;
+}
+
+// Unlike deletePatientAction above, doesn't redirect — this runs from the
+// list itself (PatientsTable), which needs to stay put and show how many
+// of the selection actually went through, since "some ids skipped" is a
+// real outcome (someone else already discharged one, a profesional
+// selected a patient outside their own visibility) and not just success
+// or failure.
+export async function bulkDeletePatientsAction(ids: string[]): Promise<BulkDeletePatientsState> {
+  try {
+    const result = await apiFetch<BulkDeletePatientsResult>("/patients/bulk-delete", {
+      method: "POST",
+      body: { ids },
+    });
+    revalidatePath("/patients");
+    return { result };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo completar la baja masiva." };
+  }
+}
+
 export interface ImportPatientsResult {
   totalRows: number;
   created: number;

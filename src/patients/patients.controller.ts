@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
+import { BulkDeletePatientsDto } from './dto/bulk-delete-patients.dto';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { ExportPatientsQueryDto } from './dto/export-patients-query.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
@@ -163,6 +164,21 @@ export class PatientsController {
     @Body() dto: UpdatePatientDto,
   ) {
     return this.patients.update(id, dto);
+  }
+
+  // Bulk version of the same "dar de baja" below (a POST, not DELETE — a
+  // DELETE carrying a body is poorly supported by proxies/clients, and
+  // this is a list-selection action, not addressing one resource by URL).
+  // Same role restriction, same per-id visibility check, reused as-is —
+  // see PatientsService.bulkSoftDelete.
+  @Post('bulk-delete')
+  @Roles('admin', 'profesional')
+  @HttpCode(HttpStatus.OK)
+  bulkRemove(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: BulkDeletePatientsDto,
+  ) {
+    return this.patients.bulkSoftDelete(dto.ids, user);
   }
 
   // recepcion excluded on purpose — it can create/edit patients to book
