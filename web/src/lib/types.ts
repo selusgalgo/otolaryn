@@ -9,6 +9,9 @@ export interface Patient {
   email: string | null;
   address: string | null;
   notes: string | null;
+  insuranceEntityId: string | null;
+  firstConsultationDate: string | null;
+  assignedPractitionerId: string | null;
   createdAt: string;
   deletedAt: string | null;
 }
@@ -106,4 +109,30 @@ export interface Schedule {
 
 export interface TenantSchedule extends Schedule {
   tenantName: string;
+}
+
+export interface AntecedenteType {
+  id: string;
+  tenantId: string;
+  name: string;
+  active: boolean;
+  displayOrder: number;
+}
+
+// The row's mere presence in a patient's list means "marcado" — see the
+// backend entity comment (patient-antecedente.entity.ts).
+export interface PatientAntecedente {
+  id: string;
+  tenantId: string;
+  patientId: string;
+  antecedenteTypeId: string;
+  detalle: string | null;
+  createdAt: string;
+}
+
+export interface InsuranceEntity {
+  id: string;
+  tenantId: string;
+  name: string;
+  createdAt: string;
 }

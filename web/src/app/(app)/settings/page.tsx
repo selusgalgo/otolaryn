@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AntecedenteTypesForm } from "@/components/settings/antecedente-types-form";
+import { InsuranceEntitiesForm } from "@/components/settings/insurance-entities-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { updateScheduleAction } from "@/lib/actions/settings";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import type { Schedule } from "@/lib/types";
+import type { AntecedenteType, InsuranceEntity, Schedule } from "@/lib/types";
 
 export default async function SettingsPage() {
   const me = await getCurrentUser();
@@ -15,7 +17,11 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const schedule = await apiFetch<Schedule>("/settings/schedule");
+  const [schedule, antecedenteTypes, insuranceEntities] = await Promise.all([
+    apiFetch<Schedule>("/settings/schedule"),
+    apiFetch<AntecedenteType[]>("/antecedente-types"),
+    apiFetch<InsuranceEntity[]>("/insurance-entities"),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -27,6 +33,24 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ScheduleForm action={updateScheduleAction} initialDays={schedule.days} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Antecedentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AntecedenteTypesForm initialTypes={antecedenteTypes} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Compañías de seguros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InsuranceEntitiesForm initialEntities={insuranceEntities} />
         </CardContent>
       </Card>
     </div>
