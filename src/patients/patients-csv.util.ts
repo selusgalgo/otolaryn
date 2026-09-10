@@ -20,6 +20,13 @@ const SSF = XLSX.SSF as unknown as {
 // for them (case/accent-insensitively) when no explicit mapping is given —
 // so a file exported from here round-trips back in without the user ever
 // having to map anything by hand.
+//
+// legacyId/firstConsultationDate are plain scalar fields like the rest —
+// insuranceEntityId/antecedentes are deliberately NOT in this list: the
+// legacy file carries an aseguradora *name* and antecedente columns, not
+// ids, so those two need their own resolution step (name/value -> id) in
+// bulkImport rather than a straight column->field copy. See
+// FieldMapping/ImportRow below.
 const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'firstName', label: 'Nombre' },
   { field: 'lastName', label: 'Apellidos' },
@@ -29,7 +36,14 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'email', label: 'Email' },
   { field: 'address', label: 'Dirección' },
   { field: 'notes', label: 'Notas' },
+  { field: 'legacyId', label: 'Nº de historia' },
+  { field: 'firstConsultationDate', label: 'Fecha de la primera cita' },
 ];
+
+// The mapping target for the aseguradora column — resolved to
+// insurance_entity_id (get-or-create by name) in bulkImport, not copied
+// as-is the way COLUMNS fields are.
+const INSURANCE_NAME_LABEL = 'Aseguradora';
 
 // documentId is deliberately not required here even though
 // CreatePatientDto itself requires it — a real-world import (this app's
@@ -114,12 +128,40 @@ export function buildPatientsExport(
   };
 }
 
-function normalizeHeader(value: string): string {
-  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+function stripAccents(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-export type FieldMapping = Partial<Record<keyof CreatePatientDto, string>>;
-export type ImportRow = Partial<Record<keyof CreatePatientDto, string>>;
+function normalizeHeader(value: string): string {
+  return stripAccents(value).trim().toLowerCase();
+}
+
+// Antecedente catalog entry, as returned by GET /antecedente-types — only
+// id/name matter for mapping purposes.
+export interface AntecedenteTypeOption {
+  id: string;
+  name: string;
+}
+
+export type FieldMapping = Partial<Record<keyof CreatePatientDto, string>> & {
+  // The file's own column header for the aseguradora name (ENTIDAD in the
+  // legacy file) — a name, resolved to insuranceEntityId in bulkImport.
+  insuranceEntityName?: string;
+  // antecedenteTypeId -> the file's own column header for that antecedente
+  // (e.g. the "Tabaco" type's id -> "TABACO"). One target per type passed
+  // to suggestMapping/parsePatientsFile, since the legacy file has one
+  // column per antecedente rather than a single "antecedentes" column.
+  antecedentes?: Record<string, string>;
+};
+
+export interface ImportRow extends Partial<
+  Record<keyof CreatePatientDto, string>
+> {
+  // Raw name, not yet resolved to an id — bulkImport does the
+  // get-or-create lookup right before creating the patient.
+  insuranceEntityName?: string;
+  antecedentes?: { antecedenteTypeId: string; detalle: string | null }[];
+}
 
 export interface ParsePatientsFileResult {
   rows: ImportRow[];
@@ -246,13 +288,32 @@ function readSheet(buffer: Buffer, filename: string): RawSheet {
 // NUMHISTORIA, not "Documento") won't match anything here, which is
 // exactly why the import wizard lets a person confirm or override it
 // instead of importing blind on a silent mismatch.
-export function suggestMapping(headers: string[]): FieldMapping {
+// antecedenteTypes is optional and defaults to none — every existing
+// caller (tests, a plain patients-only import) keeps working with zero
+// antecedente targets offered, same backward-compatible spirit as mapping
+// itself being optional below.
+export function suggestMapping(
+  headers: string[],
+  antecedenteTypes: AntecedenteTypeOption[] = [],
+): FieldMapping {
   const byNormalized = new Map(headers.map((h) => [normalizeHeader(h), h]));
   const mapping: FieldMapping = {};
   for (const { field, label } of COLUMNS) {
     const actual = byNormalized.get(normalizeHeader(label));
     if (actual) mapping[field] = actual;
   }
+  const insuranceHeader = byNormalized.get(
+    normalizeHeader(INSURANCE_NAME_LABEL),
+  );
+  if (insuranceHeader) mapping.insuranceEntityName = insuranceHeader;
+
+  const antecedentes: Record<string, string> = {};
+  for (const type of antecedenteTypes) {
+    const actual = byNormalized.get(normalizeHeader(type.name));
+    if (actual) antecedentes[type.id] = actual;
+  }
+  if (Object.keys(antecedentes).length > 0) mapping.antecedentes = antecedentes;
+
   return mapping;
 }
 
@@ -270,6 +331,7 @@ export interface ImportPreview {
 export function previewPatientsFile(
   buffer: Buffer,
   filename: string,
+  antecedenteTypes: AntecedenteTypeOption[] = [],
 ): ImportPreview {
   const { headers, rows } = readSheet(buffer, filename);
   const sampleRows = rows.slice(0, PREVIEW_ROW_COUNT).map((row) => {
@@ -277,7 +339,35 @@ export function previewPatientsFile(
     for (const header of headers) display[header] = cellToText(row[header]);
     return display;
   });
-  return { headers, sampleRows, suggestedMapping: suggestMapping(headers) };
+  return {
+    headers,
+    sampleRows,
+    suggestedMapping: suggestMapping(headers, antecedenteTypes),
+  };
+}
+
+// "no" (any accent/case) never counts as marked, regardless of what else
+// is in the cell — matches the exact rule already validated against this
+// same legacy data (see the historical migrate-legacy.ts script this
+// import wizard supersedes).
+function isNegative(raw: string): boolean {
+  return stripAccents(raw.trim().toLowerCase()) === 'no';
+}
+
+// A bare "sí"/"si" carries no extra information worth keeping as detalle —
+// anything else that isn't negative does (e.g. "4-5" cigarrillos/día,
+// "Alérgico al melocotón").
+function isAffirmative(raw: string): boolean {
+  return stripAccents(raw.trim().toLowerCase()) === 'si';
+}
+
+function cellToAntecedenteMark(value: unknown): {
+  marked: boolean;
+  detalle: string | null;
+} {
+  const text = cellToText(value).trim();
+  if (!text || isNegative(text)) return { marked: false, detalle: null };
+  return { marked: true, detalle: isAffirmative(text) ? null : text };
 }
 
 // Step 2: the actual import, using the mapping the user confirmed in the
@@ -289,9 +379,10 @@ export function parsePatientsFile(
   buffer: Buffer,
   filename: string,
   mapping?: FieldMapping,
+  antecedenteTypes: AntecedenteTypeOption[] = [],
 ): ParsePatientsFileResult {
   const { headers, rows } = readSheet(buffer, filename);
-  const effectiveMapping = mapping ?? suggestMapping(headers);
+  const effectiveMapping = mapping ?? suggestMapping(headers, antecedenteTypes);
 
   const missingColumns: string[] = [];
   for (const { field, label } of COLUMNS) {
@@ -310,7 +401,7 @@ export function parsePatientsFile(
       if (!actualHeader) continue;
       const rawValue = sourceRow[actualHeader];
       const text =
-        field === 'dateOfBirth'
+        field === 'dateOfBirth' || field === 'firstConsultationDate'
           ? cellToDateOfBirth(rawValue)
           : cellToText(rawValue);
       // An empty optional cell must become undefined, not "" — email
@@ -322,6 +413,28 @@ export function parsePatientsFile(
     if (!row.documentId) {
       row.documentId = generatePlaceholderDocumentId();
     }
+
+    if (effectiveMapping.insuranceEntityName) {
+      const name = cellToText(
+        sourceRow[effectiveMapping.insuranceEntityName],
+      ).trim();
+      if (name) row.insuranceEntityName = name;
+    }
+
+    if (effectiveMapping.antecedentes) {
+      const marked: { antecedenteTypeId: string; detalle: string | null }[] =
+        [];
+      for (const [antecedenteTypeId, header] of Object.entries(
+        effectiveMapping.antecedentes,
+      )) {
+        const { marked: isMarked, detalle } = cellToAntecedenteMark(
+          sourceRow[header],
+        );
+        if (isMarked) marked.push({ antecedenteTypeId, detalle });
+      }
+      if (marked.length > 0) row.antecedentes = marked;
+    }
+
     return row;
   });
 

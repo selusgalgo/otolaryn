@@ -77,4 +77,12 @@ export class CreatePatientDto {
   @IsOptional()
   @IsUUID()
   assignedPractitionerId?: string;
+
+  // NUMHISTORIA del programa legado — solo lo rellena el asistente de
+  // importación de Pacientes, nunca el formulario normal.
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(50)
+  legacyId?: string;
 }

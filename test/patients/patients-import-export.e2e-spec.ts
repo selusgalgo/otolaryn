@@ -33,8 +33,17 @@ interface ImportResult {
   skipped: { row: number; reason: string }[];
 }
 
+// Used to build *upload* fixtures paired with csvRow() below — deliberately
+// stays at the original 8 columns; a file simply not having "Nº de
+// historia"/"Fecha de la primera cita" at all is a normal, valid case
+// (those targets just go unmapped), unrelated to what a fresh export
+// writes (see EXPORT_CSV_HEADER).
 const CSV_HEADER =
   'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Email,Dirección,Notas';
+
+// What GET /patients/export actually writes now that patients-csv.util's
+// COLUMNS also carries legacyId/firstConsultationDate.
+const EXPORT_CSV_HEADER = `${CSV_HEADER},Nº de historia,Fecha de la primera cita`;
 
 function csvRow(fields: {
   firstName: string;
@@ -67,9 +76,46 @@ describe('Patients — export/import CSV/XLSX', () => {
   let tokenA: string;
   let tokenB: string;
 
+  let tabacoTypeId: string;
+  let alcoholTypeId: string;
+
   beforeAll(async () => {
     owner = ownerPool();
     [tenantA, tenantB] = await createTestTenants(owner);
+
+    // createTestTenants inserts tenants with raw SQL, bypassing
+    // PlatformService.createTenant, so tenantA gets none of the 13
+    // default antecedente_types a real tenant would — seed just the two
+    // this file's legacy-import tests need. antecedente_types has FORCE
+    // ROW LEVEL SECURITY, hence set_config first (same as
+    // antecedentes.e2e-spec.ts).
+    const client = await owner.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+        tenantA.id,
+      ]);
+      const {
+        rows: [tabaco],
+      } = await client.query<{ id: string }>(
+        `INSERT INTO public.antecedente_types (tenant_id, name, display_order) VALUES ($1, 'Tabaco', 0) RETURNING id`,
+        [tenantA.id],
+      );
+      const {
+        rows: [alcohol],
+      } = await client.query<{ id: string }>(
+        `INSERT INTO public.antecedente_types (tenant_id, name, display_order) VALUES ($1, 'Alcohol', 1) RETURNING id`,
+        [tenantA.id],
+      );
+      tabacoTypeId = tabaco.id;
+      alcoholTypeId = alcohol.id;
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     app = await createTestApp();
     server = app.getHttpServer() as Server;
@@ -114,7 +160,7 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(res.headers['content-disposition']).toContain('pacientes.csv');
     // The leading char is the UTF-8 BOM — strip it before matching the header.
     const text = res.text.replace(/^\uFEFF/, '');
-    expect(text.split('\n')[0].trim()).toBe(CSV_HEADER);
+    expect(text.split('\n')[0].trim()).toBe(EXPORT_CSV_HEADER);
     expect(text).toContain('Export,Uno,EXP-001');
   });
 
@@ -501,5 +547,112 @@ describe('Patients — export/import CSV/XLSX', () => {
       .get('/patients?search=TenantB')
       .set('Authorization', `Bearer ${tokenA}`);
     expect((listA.body as PaginatedPatients).total).toBe(0);
+  });
+
+  // Legacy-import fields: NUMHISTORIA -> legacy_id, aseguradora by name
+  // (get-or-create), antecedentes from legacy-style columns. Headers here
+  // match COLUMNS'/the seeded types' labels exactly, so suggestMapping
+  // picks all of it up with no explicit mapping — same as a real
+  // pacientes.xls column named exactly "Aseguradora"/"Tabaco" would.
+  it('maps legacy fields: Nº de historia, aseguradora by name, and antecedentes with detalle', async () => {
+    const csv = [
+      'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia,Aseguradora,Tabaco,Alcohol',
+      'Legado,Uno,LEG-001,1990-01-01,+34600000030,NH-100,ASISA,Sí,No',
+      'Legado,Dos,LEG-002,1990-01-01,+34600000031,NH-101,ASISA,4-5,',
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(2);
+    expect(body.skipped).toHaveLength(0);
+
+    const list = await request(server)
+      .get('/patients?search=Legado')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patients = (list.body as PaginatedPatients).data;
+    const uno = patients.find((p) => p.documentId === 'LEG-001')!;
+    const dos = patients.find((p) => p.documentId === 'LEG-002')!;
+
+    const [unoFull, dosFull] = await Promise.all([
+      request(server)
+        .get(`/patients/${uno.id}`)
+        .set('Authorization', `Bearer ${tokenA}`),
+      request(server)
+        .get(`/patients/${dos.id}`)
+        .set('Authorization', `Bearer ${tokenA}`),
+    ]);
+    const unoBody = unoFull.body as {
+      legacyId: string;
+      insuranceEntityId: string;
+    };
+    const dosBody = dosFull.body as {
+      legacyId: string;
+      insuranceEntityId: string;
+    };
+    expect(unoBody.legacyId).toBe('NH-100');
+    expect(dosBody.legacyId).toBe('NH-101');
+    // Same aseguradora name in both rows -> one insurance_entities row,
+    // not one per row.
+    expect(unoBody.insuranceEntityId).toBeTruthy();
+    expect(unoBody.insuranceEntityId).toBe(dosBody.insuranceEntityId);
+
+    const [unoAntecedentes, dosAntecedentes] = await Promise.all([
+      request(server)
+        .get(`/patients/${uno.id}/antecedentes`)
+        .set('Authorization', `Bearer ${tokenA}`),
+      request(server)
+        .get(`/patients/${dos.id}/antecedentes`)
+        .set('Authorization', `Bearer ${tokenA}`),
+    ]);
+    type Marked = { antecedenteTypeId: string; detalle: string | null }[];
+    const unoMarked = unoAntecedentes.body as Marked;
+    const dosMarked = dosAntecedentes.body as Marked;
+    // "Sí" -> marked, no detalle (a bare affirmative carries no nuance);
+    // Alcohol="No" -> not marked at all, so only Tabaco is in the list.
+    expect(unoMarked).toHaveLength(1);
+    expect(unoMarked[0]).toMatchObject({
+      antecedenteTypeId: tabacoTypeId,
+      detalle: null,
+    });
+    expect(unoMarked.map((m) => m.antecedenteTypeId)).not.toContain(
+      alcoholTypeId,
+    );
+    // "4-5" -> marked, with the text kept as detalle; Alcohol left blank
+    // -> not marked.
+    expect(dosMarked).toHaveLength(1);
+    expect(dosMarked[0]).toMatchObject({
+      antecedenteTypeId: tabacoTypeId,
+      detalle: '4-5',
+    });
+    expect(dosMarked.map((m) => m.antecedenteTypeId)).not.toContain(
+      alcoholTypeId,
+    );
+  });
+
+  it('skips a row on re-import once its Nº de historia already exists', async () => {
+    const csv = [
+      'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia',
+      'Repetido,Import,LEG-REPEAT,1990-01-01,+34600000032,NH-200',
+    ].join('\n');
+
+    const first = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    expect((first.body as ImportResult).created).toBe(1);
+
+    const second = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const secondBody = second.body as ImportResult;
+    expect(secondBody.created).toBe(0);
+    expect(secondBody.skipped).toHaveLength(1);
+    expect(secondBody.skipped[0].reason).toContain('NH-200');
   });
 });

@@ -20,18 +20,20 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
+import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
 import { CurrentUser } from '../iam/current-user.decorator';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
+import { TenancyContext } from '../tenancy/tenancy-context';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
 import { BulkDeletePatientsDto } from './dto/bulk-delete-patients.dto';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { ExportPatientsQueryDto } from './dto/export-patients-query.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
-import type { FieldMapping } from './patients-csv.util';
+import type { AntecedenteTypeOption, FieldMapping } from './patients-csv.util';
 import {
   buildPatientsExport,
   isSupportedImportFile,
@@ -45,7 +47,24 @@ import { PatientsService } from './patients.service';
 @UseInterceptors(TenantContextInterceptor)
 @Roles('admin', 'profesional', 'recepcion')
 export class PatientsController {
-  constructor(private readonly patients: PatientsService) {}
+  constructor(
+    private readonly patients: PatientsService,
+    private readonly tenancyContext: TenancyContext,
+  ) {}
+
+  // Read directly via TenancyContext rather than injecting
+  // AntecedentesService — AntecedentesModule already imports
+  // PatientsModule (for PatientsService), so the other direction would be
+  // a circular module dependency. Only active types are offered as import
+  // targets, same as the patient-facing checklist (see
+  // PatientAntecedentesCard) — a deactivated antecedente shouldn't be
+  // newly assigned via import either.
+  private async activeAntecedenteTypes(): Promise<AntecedenteTypeOption[]> {
+    const types = await this.tenancyContext.manager
+      .getRepository(AntecedenteType)
+      .find({ where: { active: true } });
+    return types.map((t) => ({ id: t.id, name: t.name }));
+  }
 
   @Get()
   findAll(
@@ -103,7 +122,7 @@ export class PatientsController {
   // existe para cubrir.
   @Post('import/preview')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  preview(@UploadedFile() file?: Express.Multer.File) {
+  async preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
     }
@@ -112,12 +131,16 @@ export class PatientsController {
         'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
       );
     }
-    return previewPatientsFile(file.buffer, file.originalname);
+    return previewPatientsFile(
+      file.buffer,
+      file.originalname,
+      await this.activeAntecedenteTypes(),
+    );
   }
 
   @Post('import')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  import(
+  async import(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,
   ) {
@@ -149,6 +172,7 @@ export class PatientsController {
       file.buffer,
       file.originalname,
       mapping,
+      await this.activeAntecedenteTypes(),
     );
     if (missingColumns.length > 0) {
       throw new BadRequestException(
