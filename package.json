@@ -22,8 +22,7 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:generate": "npm run typeorm -- migration:generate",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
-    "migrate:legacy": "ts-node -r tsconfig-paths/register src/database/migrate-legacy.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
