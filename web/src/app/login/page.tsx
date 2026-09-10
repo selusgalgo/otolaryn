@@ -40,10 +40,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/30 p-4">
+    // Flat interface throughout, except here: the one screen with no dense
+    // data and an actual backdrop for the blurred blobs to justify — but
+    // the form itself stays the plain opaque card, not glass.
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden bg-gradient-to-br from-[#12335a] via-primary to-secondary p-4">
+      <div aria-hidden className="pointer-events-none absolute -top-24 -left-24 size-80 rounded-full bg-accent/50 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -right-20 -bottom-32 size-96 rounded-full bg-secondary/60 blur-3xl" />
       {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-      <img src="/logo.svg" alt="Eiduo" className="h-10 w-auto" />
-      <Card className="w-full max-w-sm">
+      <img src="/logo-on-dark.svg" alt="Otolaryn" className="relative h-8 w-auto" />
+      <Card className="relative w-full max-w-sm">
         <CardContent>
           <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
