@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
+import { defaultAntecedenteTypeRows } from '../antecedentes/default-antecedente-types';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
@@ -104,6 +106,18 @@ export class PlatformService {
       await manager
         .getRepository(ClinicHour)
         .insert(defaultScheduleRows(tenant.id));
+
+      // Same idea for antecedente_types (see PatientAntecedentes1733900000000,
+      // which did this same seeding for every tenant that already existed
+      // at the time) — but that table has FORCE ROW LEVEL SECURITY, unlike
+      // iam.clinic_hours, so the insert needs app.tenant_id set for this
+      // transaction first or the RLS policy's WITH CHECK rejects every row.
+      await manager.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+        tenant.id,
+      ]);
+      await manager
+        .getRepository(AntecedenteType)
+        .insert(defaultAntecedenteTypeRows(tenant.id));
 
       return tenant;
     });

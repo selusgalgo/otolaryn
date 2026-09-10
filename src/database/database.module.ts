@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
+import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
+import { InsuranceEntity } from '../insurance/entities/insurance-entity.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
@@ -29,6 +32,9 @@ import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entit
           Appointment,
           ClinicalEntry,
           ClinicHour,
+          InsuranceEntity,
+          AntecedenteType,
+          PatientAntecedente,
         ],
         synchronize: false,
         migrationsRun: false,
