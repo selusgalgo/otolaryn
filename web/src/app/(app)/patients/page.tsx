@@ -8,6 +8,8 @@ import { ImportPatientsDialog } from "@/components/patients/import-patients-dial
 import { PatientsTable } from "@/components/patients/patients-table";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { getInsuranceOptions } from "@/lib/insurance";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Paginated, Patient } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -26,9 +28,11 @@ export default async function PatientsPage({
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
 
-  const [result, me] = await Promise.all([
+  const [result, me, insuranceOptions, practitionerOptions] = await Promise.all([
     apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
     getCurrentUser(),
+    getInsuranceOptions(),
+    getPractitionerOptions(),
   ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) =>
@@ -41,7 +45,10 @@ export default async function PatientsPage({
         <div className="flex items-center gap-2">
           <ImportPatientsDialog />
           <ExportPatientsMenu search={search} />
-          <CreatePatientDialog />
+          <CreatePatientDialog
+            insuranceOptions={insuranceOptions}
+            practitionerOptions={practitionerOptions}
+          />
         </div>
       </div>
 
@@ -72,6 +79,8 @@ export default async function PatientsPage({
         // el backend ya devuelve 403 para ese rol en ambas rutas de baja,
         // esto solo evita ofrecer un botón que siempre fallaría.
         canArchive={me.role !== "recepcion"}
+        insuranceOptions={insuranceOptions}
+        practitionerOptions={practitionerOptions}
       />
 
       {totalPages > 1 && (

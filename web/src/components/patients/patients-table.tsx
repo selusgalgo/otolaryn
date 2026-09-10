@@ -17,6 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
+import type { InsuranceOption } from "@/lib/insurance";
+import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 import { formatDateOnly, formatDocumentId } from "@/lib/utils";
 
@@ -27,6 +29,8 @@ interface PatientsTableProps {
   // hides both the bulk "Dar de baja" path and the row menu's "Archivar",
   // since the checkboxes/selection UI exists only to feed that action.
   canArchive: boolean;
+  insuranceOptions?: InsuranceOption[];
+  practitionerOptions?: PractitionerOption[] | null;
 }
 
 // Selection lives entirely in this Client Component's own state — the page
@@ -34,7 +38,13 @@ interface PatientsTableProps {
 // changes the visible rows (page number, search term) from the parent, so
 // navigating resets the selection instead of leaving stale ids selected
 // against a different set of rows.
-export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTableProps) {
+export function PatientsTable({
+  patients,
+  emptyMessage,
+  canArchive,
+  insuranceOptions,
+  practitionerOptions,
+}: PatientsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -179,7 +189,12 @@ export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTa
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
                 <TableCell>
-                  <PatientRowActions patient={patient} canArchive={canArchive} />
+                  <PatientRowActions
+                    patient={patient}
+                    canArchive={canArchive}
+                    insuranceOptions={insuranceOptions}
+                    practitionerOptions={practitionerOptions}
+                  />
                 </TableCell>
               </TableRow>
             ))}

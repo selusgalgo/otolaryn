@@ -7,11 +7,20 @@ import { AppointmentStatusBadge } from "@/components/appointments/appointment-st
 import { CreateAppointmentDialog } from "@/components/appointments/create-appointment-dialog";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
 import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
+import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { getInsuranceOptions } from "@/lib/insurance";
 import { getPractitionerOptions } from "@/lib/practitioners";
-import type { Appointment, ClinicalEntry, Paginated, Patient } from "@/lib/types";
+import type {
+  AntecedenteType,
+  Appointment,
+  ClinicalEntry,
+  Paginated,
+  Patient,
+  PatientAntecedente,
+} from "@/lib/types";
 import { formatDateOnly } from "@/lib/utils";
 
 function formatDate(iso: string): string {
@@ -38,14 +47,28 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   const me = await getCurrentUser();
   // recepcion has no access to clinical history at all — the backend 403s
   // this endpoint for that role, so it's skipped entirely rather than
-  // fetched and hidden.
-  const [entries, appointments, practitioners] = await Promise.all([
-    me.role === "recepcion"
-      ? null
-      : apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
-    apiFetch<Paginated<Appointment>>(`/appointments?patientId=${id}&pageSize=50`),
-    getPractitionerOptions(),
-  ]);
+  // fetched and hidden. Antecedentes are clinical data too, same
+  // exclusion.
+  const [entries, appointments, practitioners, insuranceOptions, antecedentes] =
+    await Promise.all([
+      me.role === "recepcion"
+        ? null
+        : apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
+      apiFetch<Paginated<Appointment>>(`/appointments?patientId=${id}&pageSize=50`),
+      getPractitionerOptions(),
+      getInsuranceOptions(),
+      me.role === "recepcion"
+        ? null
+        : Promise.all([
+            apiFetch<AntecedenteType[]>("/antecedente-types"),
+            apiFetch<PatientAntecedente[]>(`/patients/${id}/antecedentes`),
+          ]),
+    ]);
+
+  const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
+  const assignedPractitionerName = practitioners?.find(
+    (p) => p.id === patient.assignedPractitionerId,
+  )?.label;
 
   return (
     <div className="space-y-4">
@@ -57,7 +80,11 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           </h1>
         </div>
         <div className="flex gap-2">
-          <EditPatientDialog patient={patient} />
+          <EditPatientDialog
+            patient={patient}
+            insuranceOptions={insuranceOptions}
+            practitionerOptions={practitioners}
+          />
           {/* recepcion can create/edit patients but not discharge one —
               backend already 403s this for that role (see PatientsController),
               hidden here too so the button isn't there to click in the first place. */}
@@ -101,6 +128,20 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
             <div className="col-span-2">
               <div className="text-muted-foreground">Notas</div>
               <div>{patient.notes ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Aseguradora</div>
+              <div>{insuranceName ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Fecha de la primera cita</div>
+              <div>
+                {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : "—"}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-muted-foreground">Médico habitual</div>
+              <div>{assignedPractitionerName ?? "—"}</div>
             </div>
           </CardContent>
         </Card>
@@ -166,6 +207,14 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
               )}
             </CardContent>
           </Card>
+        )}
+
+        {antecedentes !== null && (
+          <PatientAntecedentesCard
+            patientId={id}
+            types={antecedentes[0]}
+            initialMarked={antecedentes[1]}
+          />
         )}
       </div>
     </div>

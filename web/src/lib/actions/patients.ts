@@ -14,6 +14,9 @@ function patientPayloadFromFormData(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
+  const firstConsultationDate = String(formData.get("firstConsultationDate") ?? "").trim();
+  const assignedPractitionerId = String(formData.get("assignedPractitionerId") ?? "").trim();
 
   return {
     // Trimmed here too so the UI doesn't round-trip to the API just to
@@ -28,6 +31,9 @@ function patientPayloadFromFormData(formData: FormData) {
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(notes ? { notes } : {}),
+    ...(insuranceEntityId ? { insuranceEntityId } : {}),
+    ...(firstConsultationDate ? { firstConsultationDate } : {}),
+    ...(assignedPractitionerId ? { assignedPractitionerId } : {}),
   };
 }
 
