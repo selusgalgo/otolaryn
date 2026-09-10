@@ -155,10 +155,34 @@ export interface ImportPatientsState {
   result?: ImportPatientsResult;
 }
 
-// field -> the file's own header text, e.g. { documentId: "NUMHISTORIA" }.
+// field -> the file's own header text, e.g. { legacyId: "NUMHISTORIA" }.
+// insuranceEntityName/antecedentes aren't plain fields — they need
+// resolution (name/value -> id) on the backend, not a straight copy, so
+// they're modeled separately from the Partial<Record<...>> below (mirrors
+// FieldMapping in patients-csv.util.ts).
 export type ColumnMapping = Partial<
-  Record<"firstName" | "lastName" | "documentId" | "dateOfBirth" | "phone" | "email" | "address" | "notes", string>
->;
+  Record<
+    | "firstName"
+    | "lastName"
+    | "documentId"
+    | "dateOfBirth"
+    | "phone"
+    | "email"
+    | "address"
+    | "notes"
+    | "legacyId"
+    | "firstConsultationDate",
+    string
+  >
+> & {
+  insuranceEntityName?: string;
+  // antecedenteTypeId -> the file's own column header for that antecedente.
+  // Value is string | undefined (not a plain Record<string,string>) so a
+  // cleared select can set a key to undefined instead of needing its own
+  // delete — JSON.stringify drops undefined values when this is actually
+  // sent, same as every other optional field here.
+  antecedentes?: Record<string, string | undefined>;
+};
 
 export interface ImportPreview {
   headers: string[];

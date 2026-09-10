@@ -6,6 +6,7 @@ import { CreatePatientDialog } from "@/components/patients/create-patient-dialog
 import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
 import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
 import { PatientsTable } from "@/components/patients/patients-table";
+import { getActiveAntecedenteTypes } from "@/lib/antecedentes";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
@@ -28,12 +29,14 @@ export default async function PatientsPage({
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
 
-  const [result, me, insuranceOptions, practitionerOptions] = await Promise.all([
-    apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
-    getCurrentUser(),
-    getInsuranceOptions(),
-    getPractitionerOptions(),
-  ]);
+  const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes] =
+    await Promise.all([
+      apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
+      getCurrentUser(),
+      getInsuranceOptions(),
+      getPractitionerOptions(),
+      getActiveAntecedenteTypes(),
+    ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) =>
     `/patients?page=${p}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
@@ -43,7 +46,7 @@ export default async function PatientsPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pacientes</h1>
         <div className="flex items-center gap-2">
-          <ImportPatientsDialog />
+          <ImportPatientsDialog antecedenteTypes={antecedenteTypes ?? undefined} />
           <ExportPatientsMenu search={search} />
           <CreatePatientDialog
             insuranceOptions={insuranceOptions}
