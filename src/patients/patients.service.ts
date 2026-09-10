@@ -125,6 +125,15 @@ export class PatientsService {
     return patient;
   }
 
+  // Used by the Consultas importer to resolve NUMHISTORIA -> patient,
+  // relating rows by legacy_id rather than by name (the whole reason that
+  // importer exists instead of matching on "Nombre Apellidos", which is
+  // ambiguous). null (not a thrown 404) on no match — the caller reports
+  // that specific row as skipped instead of failing the whole import.
+  async findByLegacyId(legacyId: string): Promise<Patient | null> {
+    return this.repo.findOne({ where: { legacyId } });
+  }
+
   async create(dto: CreatePatientDto): Promise<Patient> {
     const patient = this.repo.create({
       ...dto,
