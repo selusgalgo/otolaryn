@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -61,4 +62,19 @@ export class CreatePatientDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  @IsOptional()
+  @IsUUID()
+  insuranceEntityId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  firstConsultationDate?: string;
+
+  // "Médico habitual" — nunca lo manda el asistente de importación de
+  // Pacientes (el legado no tiene esa columna), pero sí lo puede fijar un
+  // admin/profesional a mano desde la ficha del paciente.
+  @IsOptional()
+  @IsUUID()
+  assignedPractitionerId?: string;
 }
