@@ -59,13 +59,19 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
   }
 
   return (
-    <form action={formAction} className="grid max-w-md gap-4">
-      <div className="space-y-4">
+    <form action={formAction} className="grid max-w-2xl gap-4">
+      <div className="divide-y">
         {days.map((day, dayIndex) => {
           const open = day.slots.length > 0;
           return (
-            <div key={day.weekday} className="space-y-2">
-              <div className="flex items-center gap-2">
+            <div
+              key={day.weekday}
+              className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:gap-4"
+            >
+              {/* Día a la izquierda, tramos a la derecha desde sm — en
+                  móvil (donde ambos no caben en una fila) se apilan, día
+                  arriba y tramos debajo, que es como funcionaba siempre. */}
+              <div className="flex shrink-0 items-center gap-2 sm:w-36 sm:pt-2">
                 <Checkbox
                   id={`day-${day.weekday}`}
                   checked={open}
@@ -76,8 +82,8 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                   {WEEKDAY_LABELS[day.weekday]}
                 </Label>
               </div>
-              {open && (
-                <div className="ml-6 space-y-2">
+              {open ? (
+                <div className="ml-6 space-y-2 sm:ml-0 sm:flex-1">
                   {day.slots.map((slot, slotIndex) => (
                     <div key={slotIndex} className="flex items-center gap-2">
                       <input
@@ -116,6 +122,8 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                     Añadir tramo
                   </button>
                 </div>
+              ) : (
+                <p className="ml-6 text-sm text-muted-foreground sm:ml-0 sm:flex-1 sm:pt-2">Cerrado</p>
               )}
               {/* The Server Action reads this, not the Checkbox/inputs above
                   directly — same "state mirrored into a hidden input" pattern
