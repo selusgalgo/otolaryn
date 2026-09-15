@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImportClinicalEntriesDialog } from "@/components/clinical-entries/import-clinical-entries-dialog";
 import { CreatePatientDialog } from "@/components/patients/create-patient-dialog";
 import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
 import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
@@ -47,6 +48,12 @@ export default async function PatientsPage({
         <h1 className="text-2xl font-bold">Pacientes</h1>
         <div className="flex items-center gap-2">
           <ImportPatientsDialog antecedenteTypes={antecedenteTypes ?? undefined} />
+          {/* Historia clínica es territorio clínico, igual que la propia
+              importación de antecedentes — recepcion no tiene acceso
+              (el backend ya devuelve 403 en /clinical-entries/import). */}
+          {me.role !== "recepcion" && (
+            <ImportClinicalEntriesDialog practitioners={practitionerOptions} />
+          )}
           <ExportPatientsMenu search={search} />
           <CreatePatientDialog
             insuranceOptions={insuranceOptions}
