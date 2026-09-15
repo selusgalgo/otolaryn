@@ -10,6 +10,7 @@ export interface Patient {
   address: string | null;
   notes: string | null;
   profession: string | null;
+  legacyId: string | null;
   insuranceEntityId: string | null;
   firstConsultationDate: string | null;
   assignedPractitionerId: string | null;

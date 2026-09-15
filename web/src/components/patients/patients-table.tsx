@@ -154,6 +154,12 @@ export function PatientsTable({
                 </TableHead>
               )}
               <TableHead>Nombre</TableHead>
+              {/* Comprobación temporal de la migración: Nº de historia es el
+                  legacy_id que relaciona este paciente con sus filas en
+                  pacientes.xls/consultas.xls — el id interno (uuid) no
+                  aparece en el legado y no sirve para contrastar nada.
+                  Quitar esta columna cuando la migración quede verificada. */}
+              <TableHead>Nº de historia</TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Fecha de nacimiento</TableHead>
@@ -163,7 +169,7 @@ export function PatientsTable({
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canArchive ? 6 : 5} className="text-center text-muted-foreground">
+                <TableCell colSpan={canArchive ? 7 : 6} className="text-center text-muted-foreground">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -185,6 +191,7 @@ export function PatientsTable({
                     {patient.firstName} {patient.lastName}
                   </Link>
                 </TableCell>
+                <TableCell className="font-mono text-xs">{patient.legacyId ?? "—"}</TableCell>
                 <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>

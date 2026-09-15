@@ -45,7 +45,13 @@ export default async function PatientsPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Pacientes</h1>
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-bold">Pacientes</h1>
+          {/* Comprobación temporal de la migración: contraste rápido contra
+              el nº de filas de pacientes.xls sin tener que contar páginas.
+              Quitar cuando la migración quede verificada. */}
+          <span className="text-sm text-muted-foreground">({result.total} en total)</span>
+        </div>
         <div className="flex items-center gap-2">
           <ImportPatientsDialog antecedenteTypes={antecedenteTypes ?? undefined} />
           {/* Historia clínica es territorio clínico, igual que la propia
