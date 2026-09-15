@@ -6,7 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
-import { WEEKDAYS, buildGrid, toDateKey } from "@/lib/calendar-grid";
+import { WEEKDAYS, buildGrid, formatMonthLabel, toDateKey } from "@/lib/calendar-grid";
 import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
 import type { Schedule } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -80,10 +80,7 @@ export function OccupancyCalendar({
     }
   }
 
-  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = formatMonthLabel(viewYear, viewMonth);
 
   return (
     <Card>
@@ -97,7 +94,7 @@ export function OccupancyCalendar({
           >
             <ChevronLeftIcon className="size-4" />
           </button>
-          <span className="text-sm font-medium capitalize">{monthLabel}</span>
+          <span className="text-sm font-medium">{monthLabel}</span>
           <button
             type="button"
             onClick={() => shiftMonth(1)}

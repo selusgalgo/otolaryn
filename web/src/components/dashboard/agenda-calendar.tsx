@@ -8,7 +8,7 @@ import { AppointmentStatusBadge } from "@/components/appointments/appointment-st
 import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
-import { WEEKDAYS, buildGrid, parseDateKey, toDateKey } from "@/lib/calendar-grid";
+import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import type { DayCell } from "@/lib/calendar-grid";
 import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
 import type { PractitionerOption } from "@/lib/practitioners";
@@ -129,10 +129,7 @@ export function AgendaCalendar({
     (a) => new Date(a.scheduledAt).getHours() >= AFTERNOON_START_HOUR,
   );
 
-  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = formatMonthLabel(viewYear, viewMonth);
   const agendaLabel =
     selectedDateKey === todayKey
       ? "Programado para hoy"
@@ -151,7 +148,7 @@ export function AgendaCalendar({
             >
               <ChevronLeftIcon className="size-4" />
             </button>
-            <span className="text-sm font-medium capitalize">{monthLabel}</span>
+            <span className="text-sm font-medium">{monthLabel}</span>
             <button
               type="button"
               onClick={() => shiftMonth(1)}
