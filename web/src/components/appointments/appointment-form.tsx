@@ -32,10 +32,22 @@ interface AppointmentFormProps {
   // — Escritorio's calendar passes the day currently selected. Ignored once
   // initialValues is set (editing always wins).
   defaultDate?: string;
+  // Pre-fills the time field (HH:MM) — Agenda's "horas disponibles" popover
+  // passes the exact slot clicked. Same initialValues precedence as
+  // defaultDate.
+  defaultTime?: string;
+  // Pre-selects the Profesional field — Agenda's calendar passes whichever
+  // profesional its own filter is scoped to, so a slot picked from that
+  // profesional's free-hours popover arrives with them already chosen.
+  defaultPractitionerId?: string;
   // Shows a row of the next 5 free slots (see getNextFreeSlotsAction),
   // clicking one fills in Fecha/Hora — only makes sense for a new
   // appointment, never while editing (initialValues set) even if a caller
-  // passes true.
+  // passes true. For admin/recepcion (practitioners != null) these are
+  // specific to one profesional, so nothing is fetched until one is
+  // chosen — two different profesionales' free hours are two different
+  // answers, never a combined "anyone's free" list a person could safely
+  // click without then also picking who it's actually free for.
   suggestSlots?: boolean;
   // Rendered above the date/time fields — used by /appointments/new to
   // embed <PatientPicker /> inside this same <form> so patient selection
@@ -77,6 +89,8 @@ export function AppointmentForm({
   showStatus,
   practitioners,
   defaultDate,
+  defaultTime,
+  defaultPractitionerId,
   suggestSlots,
   children,
   onSuccess,
@@ -85,7 +99,20 @@ export function AppointmentForm({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
 
+  // Controlled (not defaultValue): admin/recepcion's suggestions below need
+  // to know which profesional is picked *right now* to fetch that specific
+  // person's free hours, not just whatever was there on mount.
+  const [practitionerId, setPractitionerId] = useState(
+    initialValues?.practitionerId ?? defaultPractitionerId ?? "",
+  );
+  // admin/recepcion see one profesional's schedule at a time here — a
+  // profesional (practitioners == null) has no picker at all and is
+  // already scoped to themselves server-side, so this gate never applies
+  // to them.
+  const needsPractitionerFirst = practitioners != null;
+
   const showSuggestions = suggestSlots && !initialValues;
+  const canFetchSuggestions = showSuggestions && (!needsPractitionerFirst || practitionerId !== "");
   const [suggestedSlots, setSuggestedSlots] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -93,19 +120,19 @@ export function AppointmentForm({
   }, [state.success, onSuccess]);
 
   useEffect(() => {
-    if (!showSuggestions) return;
+    if (!canFetchSuggestions) return;
     let cancelled = false;
     setSuggestedSlots(null);
-    getNextFreeSlotsAction(defaultDate).then((slots) => {
+    getNextFreeSlotsAction(defaultDate, 5, practitionerId || undefined).then((slots) => {
       if (!cancelled) setSuggestedSlots(slots);
     });
     return () => {
       cancelled = true;
     };
-    // defaultDate anchors the search (e.g. Escritorio's selected day) —
-    // re-fetch whenever it changes so the suggestions stay relevant to
-    // whichever day the calendar had selected when the dialog opened.
-  }, [showSuggestions, defaultDate]);
+    // defaultDate anchors the search (e.g. Escritorio's selected day) and
+    // practitionerId scopes it — re-fetch whenever either changes so the
+    // suggestions stay relevant to whichever day/profesional is selected.
+  }, [canFetchSuggestions, defaultDate, practitionerId]);
 
   function applySlot(iso: string) {
     if (dateInputRef.current) dateInputRef.current.value = toDateInputValue(iso);
@@ -115,10 +142,40 @@ export function AppointmentForm({
   return (
     <form action={formAction} className="grid max-w-md gap-4">
       {children}
+      {/* Antes de las horas libres, no después: para admin/recepcion, qué
+          horas están libres depende de qué profesional se elige — sin
+          escogerlo primero no hay una respuesta única que ofrecer. */}
+      {practitioners != null && (
+        <div className="space-y-2">
+          <Label htmlFor="practitionerId">Profesional</Label>
+          <select
+            id="practitionerId"
+            name="practitionerId"
+            required
+            value={practitionerId}
+            onChange={(e) => setPractitionerId(e.target.value)}
+            disabled={pending}
+            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+          >
+            <option value="" disabled>
+              Selecciona un profesional
+            </option>
+            {practitioners.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {showSuggestions && (
         <div className="space-y-2">
           <Label>Próximos horarios libres</Label>
-          {suggestedSlots === null ? (
+          {needsPractitionerFirst && practitionerId === "" ? (
+            <p className="text-sm text-muted-foreground">
+              Selecciona un profesional para ver sus horarios libres.
+            </p>
+          ) : suggestedSlots === null ? (
             <p className="text-sm text-muted-foreground">Buscando horarios libres…</p>
           ) : suggestedSlots.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -161,34 +218,12 @@ export function AppointmentForm({
             id="time"
             name="time"
             type="time"
-            defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : undefined}
+            defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : defaultTime}
             required
             disabled={pending}
           />
         </div>
       </div>
-      {practitioners != null && (
-        <div className="space-y-2">
-          <Label htmlFor="practitionerId">Profesional</Label>
-          <select
-            id="practitionerId"
-            name="practitionerId"
-            required
-            defaultValue={initialValues?.practitionerId ?? ""}
-            disabled={pending}
-            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
-          >
-            <option value="" disabled>
-              Selecciona un profesional
-            </option>
-            {practitioners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       <div className="space-y-2">
         <Label htmlFor="durationMinutes">Duración (minutos)</Label>
         <Input

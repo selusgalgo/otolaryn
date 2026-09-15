@@ -21,7 +21,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PatientForm } from "@/components/patients/patient-form";
 import { archivePatientAction, updatePatientAction } from "@/lib/actions/patients";
+import type { InsuranceOption } from "@/lib/insurance";
+import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
+
+interface PatientRowActionsProps {
+  patient: Patient;
+  canArchive: boolean;
+  insuranceOptions?: InsuranceOption[];
+  practitionerOptions?: PractitionerOption[] | null;
+}
 
 // Both dialogs live outside DropdownMenuContent (as siblings, not nested
 // inside it) specifically so each keeps its own open state independent of
@@ -29,7 +38,12 @@ import type { Patient } from "@/lib/types";
 // preventDefault: that call tells Radix to keep the *menu* open, which is
 // not what's wanted here and previously left it stuck open) while the
 // dialog it triggered stays open on top.
-export function PatientRowActions({ patient, canArchive }: { patient: Patient; canArchive: boolean }) {
+export function PatientRowActions({
+  patient,
+  canArchive,
+  insuranceOptions,
+  practitionerOptions,
+}: PatientRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -93,6 +107,8 @@ export function PatientRowActions({ patient, canArchive }: { patient: Patient; c
             initialValues={patient}
             submitLabel="Guardar cambios"
             onSuccess={() => setEditOpen(false)}
+            insuranceOptions={insuranceOptions}
+            practitionerOptions={practitionerOptions}
           />
         </DialogContent>
       </Dialog>

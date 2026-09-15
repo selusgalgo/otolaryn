@@ -9,6 +9,7 @@ import { FileDropzone } from "@/components/patients/file-dropzone";
 import { ImportColumnMapping } from "@/components/patients/import-column-mapping";
 import { importPatientsAction, previewPatientsImportAction } from "@/lib/actions/patients";
 import type { ColumnMapping, ImportPatientsState, ImportPreview } from "@/lib/actions/patients";
+import type { AntecedenteType } from "@/lib/types";
 
 const initialState: ImportPatientsState = {};
 
@@ -40,7 +41,11 @@ function isMappingComplete(mapping: ColumnMapping): boolean {
 // (CreatePatientDialog etc.) — a partial import (some rows skipped) is the
 // expected common case here, not an error, and the user needs to actually
 // read which rows and why before dismissing it themselves.
-export function ImportPatientsDialog() {
+interface ImportPatientsDialogProps {
+  antecedenteTypes?: AntecedenteType[];
+}
+
+export function ImportPatientsDialog({ antecedenteTypes }: ImportPatientsDialogProps) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(importPatientsAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -129,6 +134,7 @@ export function ImportPatientsDialog() {
                 mapping={mapping}
                 onChange={setMapping}
                 disabled={pending}
+                antecedenteTypes={antecedenteTypes}
               />
               {/* The form action reads this, not React state — see importPatientsAction. */}
               <input type="hidden" name="mapping" value={JSON.stringify(mapping)} />

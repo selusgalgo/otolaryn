@@ -1,7 +1,7 @@
 import { toDateKey } from "@/lib/calendar-grid";
 import type { AppointmentStatus, Schedule } from "@/lib/types";
 
-export type DayOccupancy = "closed" | "free" | "partial" | "busy" | "full";
+export type DayOccupancy = "closed" | "free" | "full";
 
 interface OccupancyAppointment {
   scheduledAt: string;
@@ -13,12 +13,6 @@ interface MinuteRange {
   start: number;
   end: number;
 }
-
-// At or above this share of the day's open minutes booked (but below
-// 100%), a day reads as "casi completo" (orange) instead of just "parcial"
-// (yellow) — a nudge that the day is filling up fast, without waiting
-// until it's literally unbookable to warn for it.
-const NEAR_FULL_THRESHOLD = 0.8;
 
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
@@ -54,12 +48,14 @@ function overlapMinutes(a: MinuteRange, b: MinuteRange): number {
   return Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start));
 }
 
-// Rojo/amarillo/verde is about how much of the clinic's *open* hours that
-// day are covered by appointments — not a raw appointment count, since one
-// long appointment can fill a whole tramo just as much as several short
-// ones. Cancelled appointments free their slot back up and don't count;
-// everything else (scheduled, completed, no_show) reserved the time, so it
-// still counts as occupied even after the fact.
+// Verde/rojo/gris, nada de matices intermedios: verde en cuanto queda
+// algún hueco reservable ese día (recién abierto o casi lleno, da igual),
+// rojo solo cuando no queda ninguno, gris cuando la clínica no atiende ese
+// día (cerrado o vacaciones — sin tramos configurados). Se mide contra las
+// horas *abiertas* de la clínica, no un recuento de citas — una cita larga
+// llena un tramo tanto como varias cortas. Las citas canceladas liberan su
+// hueco y no cuentan; el resto (scheduled, completed, no_show) sigue
+// contando como ocupado aunque ya haya pasado.
 export function computeDayOccupancy(
   date: Date,
   appointmentsThatDay: OccupancyAppointment[],
@@ -94,33 +90,79 @@ export function computeDayOccupancy(
     }
   }
 
-  if (busyWithinOpenMinutes <= 0) return "free";
-  if (busyWithinOpenMinutes >= openMinutes) return "full";
-  if (busyWithinOpenMinutes >= openMinutes * NEAR_FULL_THRESHOLD) return "busy";
-  return "partial";
+  return busyWithinOpenMinutes >= openMinutes ? "full" : "free";
+}
+
+function minutesToTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+// Every bookable "HH:MM" start time on one specific day — backs the
+// calendars' "click a day, see its free hours" popover. Unlike
+// findNextFreeSlots (which scans forward across many days hunting for a
+// fixed count), this always returns the *whole* day's remaining slots, so
+// clicking today mid-afternoon shows only what's still actually bookable
+// and clicking a full day correctly shows none, rather than skipping ahead
+// to tomorrow.
+export function computeDayFreeSlots(
+  date: Date,
+  appointmentsThatDay: OccupancyAppointment[],
+  schedule: Schedule,
+  slotMinutes = 30,
+): string[] {
+  const daySchedule = schedule.days.find((d) => d.weekday === weekdayOf(date));
+  if (!daySchedule || daySchedule.slots.length === 0) return [];
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // A day already gone has no "free hours" in any bookable sense — without
+  // this, a fully-past day would wrongly list its whole schedule as open
+  // (only *today* gets clamped to the current time below).
+  if (date < todayStart) return [];
+
+  const busyRanges = mergeRanges(
+    appointmentsThatDay
+      .filter((a) => a.status !== "cancelled")
+      .map((a) => {
+        const start = new Date(a.scheduledAt);
+        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        return { start: startMinutes, end: startMinutes + a.durationMinutes };
+      }),
+  );
+
+  const isToday = date.toDateString() === now.toDateString();
+  const nowMinutes = isToday ? Math.ceil((now.getHours() * 60 + now.getMinutes()) / slotMinutes) * slotMinutes : 0;
+
+  const slots: string[] = [];
+  for (const openSlot of daySchedule.slots) {
+    const openEnd = timeToMinutes(openSlot.endTime);
+    let cursor = Math.max(timeToMinutes(openSlot.startTime), nowMinutes);
+    while (cursor + slotMinutes <= openEnd) {
+      const candidate = { start: cursor, end: cursor + slotMinutes };
+      if (!busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0)) {
+        slots.push(minutesToTime(cursor));
+      }
+      cursor += slotMinutes;
+    }
+  }
+  return slots;
 }
 
 // Shared by both calendars that color days by occupancy (Agenda's
 // OccupancyCalendar and Escritorio's AgendaCalendar) — one source of truth
-// for the verde/amarillo/naranja/rojo/gris palette and its legend labels,
-// so the two calendars can't drift out of sync with each other.
+// for the verde/rojo/gris palette and its legend labels, so the two
+// calendars can't drift out of sync with each other.
 export const OCCUPANCY_STYLES: Record<DayOccupancy, string> = {
-  // Reuses the same tokens as AppointmentStatusBadge (--success/--destructive)
-  // for verde/rojo; "parcial"/"casi completo" have no themed token yet, so
-  // they're plain amber/orange.
+  // Reuses the same tokens as AppointmentStatusBadge.
   free: "bg-success/20 hover:bg-success/30",
-  partial: "bg-amber-400/25 hover:bg-amber-400/35",
-  busy: "bg-orange-500/25 hover:bg-orange-500/35",
   full: "bg-destructive/20 hover:bg-destructive/30",
   closed: "bg-muted/50 text-muted-foreground/60",
 };
 
 export const OCCUPANCY_LEGEND: { key: DayOccupancy; label: string; swatch: string }[] = [
-  { key: "free", label: "Libre", swatch: "bg-success" },
-  { key: "partial", label: "Parcial", swatch: "bg-amber-400" },
-  { key: "busy", label: "Casi completo", swatch: "bg-orange-500" },
+  { key: "free", label: "Con huecos libres", swatch: "bg-success" },
   { key: "full", label: "Completo", swatch: "bg-destructive" },
-  { key: "closed", label: "Cerrado", swatch: "bg-muted-foreground/40" },
+  { key: "closed", label: "Cerrado / vacaciones", swatch: "bg-muted-foreground/40" },
 ];
 
 export interface FreeSlotOptions {

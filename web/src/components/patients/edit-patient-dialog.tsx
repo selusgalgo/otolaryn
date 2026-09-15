@@ -6,9 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PatientForm } from "@/components/patients/patient-form";
 import { updatePatientAction } from "@/lib/actions/patients";
+import type { InsuranceOption } from "@/lib/insurance";
+import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 
-export function EditPatientDialog({ patient }: { patient: Patient }) {
+interface EditPatientDialogProps {
+  patient: Patient;
+  insuranceOptions?: InsuranceOption[];
+  practitionerOptions?: PractitionerOption[] | null;
+}
+
+export function EditPatientDialog({
+  patient,
+  insuranceOptions,
+  practitionerOptions,
+}: EditPatientDialogProps) {
   const [open, setOpen] = useState(false);
   const boundAction = updatePatientAction.bind(null, patient.id);
 
@@ -29,6 +41,8 @@ export function EditPatientDialog({ patient }: { patient: Patient }) {
           initialValues={patient}
           submitLabel="Guardar cambios"
           onSuccess={() => setOpen(false)}
+          insuranceOptions={insuranceOptions}
+          practitionerOptions={practitionerOptions}
         />
       </DialogContent>
     </Dialog>

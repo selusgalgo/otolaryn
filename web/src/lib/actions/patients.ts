@@ -14,6 +14,10 @@ function patientPayloadFromFormData(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const profession = String(formData.get("profession") ?? "").trim();
+  const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
+  const firstConsultationDate = String(formData.get("firstConsultationDate") ?? "").trim();
+  const assignedPractitionerId = String(formData.get("assignedPractitionerId") ?? "").trim();
 
   return {
     // Trimmed here too so the UI doesn't round-trip to the API just to
@@ -28,6 +32,10 @@ function patientPayloadFromFormData(formData: FormData) {
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(notes ? { notes } : {}),
+    ...(profession ? { profession } : {}),
+    ...(insuranceEntityId ? { insuranceEntityId } : {}),
+    ...(firstConsultationDate ? { firstConsultationDate } : {}),
+    ...(assignedPractitionerId ? { assignedPractitionerId } : {}),
   };
 }
 
@@ -149,10 +157,35 @@ export interface ImportPatientsState {
   result?: ImportPatientsResult;
 }
 
-// field -> the file's own header text, e.g. { documentId: "NUMHISTORIA" }.
+// field -> the file's own header text, e.g. { legacyId: "NUMHISTORIA" }.
+// insuranceEntityName/antecedentes aren't plain fields — they need
+// resolution (name/value -> id) on the backend, not a straight copy, so
+// they're modeled separately from the Partial<Record<...>> below (mirrors
+// FieldMapping in patients-csv.util.ts).
 export type ColumnMapping = Partial<
-  Record<"firstName" | "lastName" | "documentId" | "dateOfBirth" | "phone" | "email" | "address" | "notes", string>
->;
+  Record<
+    | "firstName"
+    | "lastName"
+    | "documentId"
+    | "dateOfBirth"
+    | "phone"
+    | "email"
+    | "address"
+    | "notes"
+    | "profession"
+    | "legacyId"
+    | "firstConsultationDate",
+    string
+  >
+> & {
+  insuranceEntityName?: string;
+  // antecedenteTypeId -> the file's own column header for that antecedente.
+  // Value is string | undefined (not a plain Record<string,string>) so a
+  // cleared select can set a key to undefined instead of needing its own
+  // delete — JSON.stringify drops undefined values when this is actually
+  // sent, same as every other optional field here.
+  antecedentes?: Record<string, string | undefined>;
+};
 
 export interface ImportPreview {
   headers: string[];

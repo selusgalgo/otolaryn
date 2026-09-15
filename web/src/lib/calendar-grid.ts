@@ -18,6 +18,16 @@ export function parseDateKey(key: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// "Septiembre 2026", not "Septiembre de 2026" — es-ES's combined
+// {month:"long", year:"numeric"} format inserts "de" between them
+// (CLDR's "MMMM 'de' y" skeleton), which then reads as "Septiembre De
+// 2026" once the "capitalize" class title-cases every word. Formatting
+// the month alone sidesteps that "de" entirely.
+export function formatMonthLabel(year: number, month: number): string {
+  const name = new Date(year, month, 1).toLocaleDateString("es-ES", { month: "long" });
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
+}
+
 // 6 rows worst case (a month that starts on the last weekday slot and spans
 // into a 6th week), filled with the tail of the previous/next month —
 // standard calendar-grid shape.

@@ -6,7 +6,9 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { QueryFailedError, SelectQueryBuilder } from 'typeorm';
+import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
+import { InsuranceService } from '../insurance/insurance.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -35,7 +37,10 @@ export interface BulkDeleteResult {
 
 @Injectable()
 export class PatientsService {
-  constructor(private readonly tenancyContext: TenancyContext) {}
+  constructor(
+    private readonly tenancyContext: TenancyContext,
+    private readonly insurance: InsuranceService,
+  ) {}
 
   private get repo() {
     // No explicit WHERE tenant_id anywhere in this service on purpose: RLS
@@ -120,6 +125,15 @@ export class PatientsService {
     return patient;
   }
 
+  // Used by the Consultas importer to resolve NUMHISTORIA -> patient,
+  // relating rows by legacy_id rather than by name (the whole reason that
+  // importer exists instead of matching on "Nombre Apellidos", which is
+  // ambiguous). null (not a thrown 404) on no match — the caller reports
+  // that specific row as skipped instead of failing the whole import.
+  async findByLegacyId(legacyId: string): Promise<Patient | null> {
+    return this.repo.findOne({ where: { legacyId } });
+  }
+
   async create(dto: CreatePatientDto): Promise<Patient> {
     const patient = this.repo.create({
       ...dto,
@@ -146,7 +160,20 @@ export class PatientsService {
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 1;
-      const dto = plainToInstance(CreatePatientDto, rows[i]);
+      const { insuranceEntityName, antecedentes, ...fields } = rows[i];
+
+      // Resolved (and created if new) before validation, outside any
+      // SAVEPOINT — an aseguradora added to the catalog this way is real
+      // catalog data, not tied to whether this particular row ends up
+      // skipped for an unrelated reason.
+      const insuranceEntityId = insuranceEntityName
+        ? await this.insurance.findOrCreateByName(insuranceEntityName)
+        : undefined;
+
+      const dto = plainToInstance(CreatePatientDto, {
+        ...fields,
+        ...(insuranceEntityId ? { insuranceEntityId } : {}),
+      });
       const errors = await validate(dto);
       if (errors.length > 0) {
         const reason = errors
@@ -165,7 +192,18 @@ export class PatientsService {
       // whole transaction is what lets the loop keep going.
       await this.repo.query('SAVEPOINT row_import');
       try {
-        await this.create(dto);
+        const patient = await this.create(dto);
+        if (antecedentes && antecedentes.length > 0) {
+          await this.repo.manager.insert(
+            PatientAntecedente,
+            antecedentes.map((a) => ({
+              tenantId: this.tenancyContext.tenantId,
+              patientId: patient.id,
+              antecedenteTypeId: a.antecedenteTypeId,
+              detalle: a.detalle,
+            })),
+          );
+        }
         await this.repo.query('RELEASE SAVEPOINT row_import');
         created++;
       } catch (err) {
@@ -173,7 +211,9 @@ export class PatientsService {
         if (err instanceof ConflictException) {
           skipped.push({
             row: rowNumber,
-            reason: `Ya existe un paciente con el documento "${dto.documentId}"`,
+            reason: dto.legacyId
+              ? `Ya existe un paciente con el nº de historia "${dto.legacyId}"`
+              : `Ya existe un paciente con el documento "${dto.documentId}"`,
           });
         } else {
           throw err;
@@ -233,6 +273,17 @@ export class PatientsService {
       err instanceof QueryFailedError &&
       (err as { code?: string }).code === UNIQUE_VIOLATION
     ) {
+      // Two different unique indexes can fire here (document_id, and now
+      // tenant_id+legacy_id from PatientsLegacyId) — telling them apart
+      // matters for the legacy import specifically: re-running the same
+      // file should report "ya importado" per row, not the misleading
+      // "documento duplicado" every other import conflict uses.
+      const constraint = (err as { constraint?: string }).constraint;
+      if (constraint === 'patients_tenant_legacy_id_idx') {
+        return new ConflictException(
+          'A patient with this legacy id has already been imported',
+        );
+      }
       return new ConflictException(
         'A patient with this document ID already exists',
       );

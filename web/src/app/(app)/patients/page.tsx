@@ -2,12 +2,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImportClinicalEntriesDialog } from "@/components/clinical-entries/import-clinical-entries-dialog";
 import { CreatePatientDialog } from "@/components/patients/create-patient-dialog";
 import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
 import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
 import { PatientsTable } from "@/components/patients/patients-table";
+import { getActiveAntecedenteTypes } from "@/lib/antecedentes";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { getInsuranceOptions } from "@/lib/insurance";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Paginated, Patient } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -26,10 +30,14 @@ export default async function PatientsPage({
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
 
-  const [result, me] = await Promise.all([
-    apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
-    getCurrentUser(),
-  ]);
+  const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes] =
+    await Promise.all([
+      apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
+      getCurrentUser(),
+      getInsuranceOptions(),
+      getPractitionerOptions(),
+      getActiveAntecedenteTypes(),
+    ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) =>
     `/patients?page=${p}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
@@ -37,11 +45,26 @@ export default async function PatientsPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Pacientes</h1>
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-bold">Pacientes</h1>
+          {/* Comprobación temporal de la migración: contraste rápido contra
+              el nº de filas de pacientes.xls sin tener que contar páginas.
+              Quitar cuando la migración quede verificada. */}
+          <span className="text-sm text-muted-foreground">({result.total} en total)</span>
+        </div>
         <div className="flex items-center gap-2">
-          <ImportPatientsDialog />
+          <ImportPatientsDialog antecedenteTypes={antecedenteTypes ?? undefined} />
+          {/* Historia clínica es territorio clínico, igual que la propia
+              importación de antecedentes — recepcion no tiene acceso
+              (el backend ya devuelve 403 en /clinical-entries/import). */}
+          {me.role !== "recepcion" && (
+            <ImportClinicalEntriesDialog practitioners={practitionerOptions} />
+          )}
           <ExportPatientsMenu search={search} />
-          <CreatePatientDialog />
+          <CreatePatientDialog
+            insuranceOptions={insuranceOptions}
+            practitionerOptions={practitionerOptions}
+          />
         </div>
       </div>
 
@@ -72,6 +95,8 @@ export default async function PatientsPage({
         // el backend ya devuelve 403 para ese rol en ambas rutas de baja,
         // esto solo evita ofrecer un botón que siempre fallaría.
         canArchive={me.role !== "recepcion"}
+        insuranceOptions={insuranceOptions}
+        practitionerOptions={practitionerOptions}
       />
 
       {totalPages > 1 && (

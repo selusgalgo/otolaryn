@@ -17,6 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PatientAvatar } from "@/components/patients/patient-avatar";
 import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
+import type { InsuranceOption } from "@/lib/insurance";
+import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 import { formatDateOnly, formatDocumentId } from "@/lib/utils";
 
@@ -27,6 +29,8 @@ interface PatientsTableProps {
   // hides both the bulk "Dar de baja" path and the row menu's "Archivar",
   // since the checkboxes/selection UI exists only to feed that action.
   canArchive: boolean;
+  insuranceOptions?: InsuranceOption[];
+  practitionerOptions?: PractitionerOption[] | null;
 }
 
 // Selection lives entirely in this Client Component's own state — the page
@@ -34,7 +38,13 @@ interface PatientsTableProps {
 // changes the visible rows (page number, search term) from the parent, so
 // navigating resets the selection instead of leaving stale ids selected
 // against a different set of rows.
-export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTableProps) {
+export function PatientsTable({
+  patients,
+  emptyMessage,
+  canArchive,
+  insuranceOptions,
+  practitionerOptions,
+}: PatientsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -144,6 +154,12 @@ export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTa
                 </TableHead>
               )}
               <TableHead>Nombre</TableHead>
+              {/* Comprobación temporal de la migración: Nº de historia es el
+                  legacy_id que relaciona este paciente con sus filas en
+                  pacientes.xls/consultas.xls — el id interno (uuid) no
+                  aparece en el legado y no sirve para contrastar nada.
+                  Quitar esta columna cuando la migración quede verificada. */}
+              <TableHead>Nº de historia</TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Fecha de nacimiento</TableHead>
@@ -153,7 +169,7 @@ export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTa
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canArchive ? 6 : 5} className="text-center text-muted-foreground">
+                <TableCell colSpan={canArchive ? 7 : 6} className="text-center text-muted-foreground">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -175,11 +191,17 @@ export function PatientsTable({ patients, emptyMessage, canArchive }: PatientsTa
                     {patient.firstName} {patient.lastName}
                   </Link>
                 </TableCell>
+                <TableCell className="font-mono text-xs">{patient.legacyId ?? "—"}</TableCell>
                 <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
                 <TableCell>{patient.phone}</TableCell>
                 <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
                 <TableCell>
-                  <PatientRowActions patient={patient} canArchive={canArchive} />
+                  <PatientRowActions
+                    patient={patient}
+                    canArchive={canArchive}
+                    insuranceOptions={insuranceOptions}
+                    practitionerOptions={practitionerOptions}
+                  />
                 </TableCell>
               </TableRow>
             ))}

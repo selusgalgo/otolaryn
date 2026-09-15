@@ -111,6 +111,14 @@ export async function destroyTestTenants(
         `DELETE FROM public.appointments WHERE tenant_id = $1`,
         [tenant.id],
       );
+      // patient_antecedentes.patient_id -> patients.id has no ON DELETE
+      // CASCADE (see PatientAntecedentes1733900000000) — has to go before
+      // patients or that delete fails with a foreign-key violation for any
+      // test that marked antecedentes on this tenant's patient.
+      await client.query(
+        `DELETE FROM public.patient_antecedentes WHERE tenant_id = $1`,
+        [tenant.id],
+      );
       await client.query(`DELETE FROM public.patients WHERE tenant_id = $1`, [
         tenant.id,
       ]);

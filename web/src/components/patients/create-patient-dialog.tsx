@@ -6,8 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PatientForm } from "@/components/patients/patient-form";
 import { createPatientAction } from "@/lib/actions/patients";
+import type { InsuranceOption } from "@/lib/insurance";
+import type { PractitionerOption } from "@/lib/practitioners";
 
-export function CreatePatientDialog() {
+interface CreatePatientDialogProps {
+  insuranceOptions?: InsuranceOption[];
+  practitionerOptions?: PractitionerOption[] | null;
+}
+
+export function CreatePatientDialog({
+  insuranceOptions,
+  practitionerOptions,
+}: CreatePatientDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -27,6 +37,8 @@ export function CreatePatientDialog() {
           submitLabel="Crear paciente"
           submitIcon={<PlusIcon data-icon="inline-start" />}
           onSuccess={() => setOpen(false)}
+          insuranceOptions={insuranceOptions}
+          practitionerOptions={practitionerOptions}
         />
       </DialogContent>
     </Dialog>
