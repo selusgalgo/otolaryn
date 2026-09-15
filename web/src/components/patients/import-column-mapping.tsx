@@ -15,6 +15,7 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "email", label: "Email", required: false },
   { field: "address", label: "Dirección", required: false },
   { field: "notes", label: "Notas", required: false },
+  { field: "profession", label: "Profesión", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
   { field: "firstConsultationDate", label: "Fecha de la primera cita", required: false },
 ];

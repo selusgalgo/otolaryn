@@ -14,6 +14,7 @@ function patientPayloadFromFormData(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const profession = String(formData.get("profession") ?? "").trim();
   const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
   const firstConsultationDate = String(formData.get("firstConsultationDate") ?? "").trim();
   const assignedPractitionerId = String(formData.get("assignedPractitionerId") ?? "").trim();
@@ -31,6 +32,7 @@ function patientPayloadFromFormData(formData: FormData) {
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(notes ? { notes } : {}),
+    ...(profession ? { profession } : {}),
     ...(insuranceEntityId ? { insuranceEntityId } : {}),
     ...(firstConsultationDate ? { firstConsultationDate } : {}),
     ...(assignedPractitionerId ? { assignedPractitionerId } : {}),
@@ -170,6 +172,7 @@ export type ColumnMapping = Partial<
     | "email"
     | "address"
     | "notes"
+    | "profession"
     | "legacyId"
     | "firstConsultationDate",
     string

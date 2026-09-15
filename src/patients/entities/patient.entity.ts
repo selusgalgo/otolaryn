@@ -55,6 +55,10 @@ export class Patient {
   @Column({ name: 'assigned_practitioner_id', type: 'uuid', nullable: true })
   assignedPractitionerId: string | null;
 
+  // PROFESION from the legacy app.
+  @Column({ type: 'text', nullable: true })
+  profession: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

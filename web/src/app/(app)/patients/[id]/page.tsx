@@ -121,13 +121,17 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
               <div className="text-muted-foreground">Email</div>
               <div>{patient.email ?? "—"}</div>
             </div>
-            <div className="col-span-2">
+            <div>
               <div className="text-muted-foreground">Dirección</div>
               <div>{patient.address ?? "—"}</div>
             </div>
+            <div>
+              <div className="text-muted-foreground">Profesión</div>
+              <div>{patient.profession ?? "—"}</div>
+            </div>
             <div className="col-span-2">
               <div className="text-muted-foreground">Notas</div>
-              <div>{patient.notes ?? "—"}</div>
+              <div className="whitespace-pre-line">{patient.notes ?? "—"}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Aseguradora</div>

@@ -57,11 +57,21 @@ export class CreatePatientDto {
   @MaxLength(300)
   address?: string;
 
+  // 2000 no basta para el legado: la columna HISTORIA de pacientes.xls (que
+  // se mapea aquí) llega hasta 11.548 caracteres en algunas filas reales.
   @IsOptional()
   @Transform(trim)
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(20000)
   notes?: string;
+
+  // PROFESION del programa legado — solo lo rellena el asistente de
+  // importación de Pacientes; también editable a mano desde la ficha.
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(200)
+  profession?: string;
 
   @IsOptional()
   @IsUUID()

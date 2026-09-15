@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
@@ -90,13 +91,27 @@ export function PatientForm({
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" defaultValue={initialValues?.email ?? ""} disabled={pending} />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="address">Dirección</Label>
-        <Input id="address" name="address" defaultValue={initialValues?.address ?? ""} disabled={pending} />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="address">Dirección</Label>
+          <Input id="address" name="address" defaultValue={initialValues?.address ?? ""} disabled={pending} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="profession">Profesión</Label>
+          <Input id="profession" name="profession" defaultValue={initialValues?.profession ?? ""} disabled={pending} />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="notes">Notas</Label>
-        <Input id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} />
+        {/* Textarea, no Input: la importación de pacientes legados puede
+            volcar aquí historias clínicas de varios miles de caracteres. */}
+        <Textarea
+          id="notes"
+          name="notes"
+          rows={4}
+          defaultValue={initialValues?.notes ?? ""}
+          disabled={pending}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

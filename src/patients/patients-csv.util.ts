@@ -34,6 +34,7 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'email', label: 'Email' },
   { field: 'address', label: 'Dirección' },
   { field: 'notes', label: 'Notas' },
+  { field: 'profession', label: 'Profesión' },
   { field: 'legacyId', label: 'Nº de historia' },
   { field: 'firstConsultationDate', label: 'Fecha de la primera cita' },
 ];
