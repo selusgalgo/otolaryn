@@ -77,6 +77,7 @@ export default async function AppointmentsPage({
         initialAppointments={initialAppointments}
         schedule={schedule}
         selectedDateKey={selectedDateKey}
+        practitioners={practitioners}
       />
 
       <form className="flex items-end gap-4" action="/appointments">

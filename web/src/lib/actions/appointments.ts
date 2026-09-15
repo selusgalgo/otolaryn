@@ -26,16 +26,21 @@ export interface CalendarAppointment {
 // searchPatientsAction for PatientPicker) rather than a page reload. Reuses
 // the existing GET /appointments date-range filter — already scoped
 // correctly per role server-side (profesional forced to their own,
-// admin/recepcion see the whole clinic), nothing extra to enforce here.
+// admin/recepcion see the whole clinic unless practitionerId narrows it).
+// practitionerId is what turns the calendar's occupancy colors/free-slot
+// popover from "is anyone at all busy" into "is this specific profesional
+// busy" — irrelevant (and unused) for a profesional caller, who's already
+// scoped server-side regardless of what's passed here.
 export async function getMonthAppointmentsAction(
   year: number,
   month: number,
+  practitionerId?: string,
 ): Promise<CalendarAppointment[]> {
   const from = new Date(Date.UTC(year, month, 1)).toISOString();
   const to = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999)).toISOString();
 
   const result = await apiFetch<Paginated<Appointment>>(
-    `/appointments?from=${from}&to=${to}&pageSize=100`,
+    `/appointments?from=${from}&to=${to}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ""}`,
   );
 
   // Same name-resolution pattern as the rest of Escritorio: the API only
@@ -69,12 +74,14 @@ export async function getMonthAppointmentsAction(
 // that anchor is actually used (today's own time-of-day only matters on the
 // very first scanned day). Fetches a rolling two-week window starting at
 // the anchor, same date-range endpoint and role-scoping as
-// getMonthAppointmentsAction — "free" here means the same aggregate,
-// all-practitioners occupancy the calendars already color days by, not a
-// per-practitioner search.
+// getMonthAppointmentsAction. practitionerId scopes "free" to that
+// profesional specifically — for admin/recepcion, AppointmentForm only
+// calls this once one is picked (see showSuggestions there); a profesional
+// caller is already scoped to themselves server-side regardless.
 export async function getNextFreeSlotsAction(
   fromDateKey?: string,
   count = 5,
+  practitionerId?: string,
 ): Promise<string[]> {
   const now = new Date();
   const anchorFromKey = fromDateKey ? new Date(`${fromDateKey}T00:00:00`) : now;
@@ -91,7 +98,7 @@ export async function getNextFreeSlotsAction(
       // cap and same "good enough at realistic volume" acceptance as
       // getMonthAppointmentsAction above, just over 14 days instead of a
       // whole month.
-      `/appointments?from=${from.toISOString()}&to=${to.toISOString()}&pageSize=100`,
+      `/appointments?from=${from.toISOString()}&to=${to.toISOString()}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ""}`,
     ),
   ]);
 

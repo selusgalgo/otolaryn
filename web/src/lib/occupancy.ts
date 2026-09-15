@@ -93,6 +93,61 @@ export function computeDayOccupancy(
   return busyWithinOpenMinutes >= openMinutes ? "full" : "free";
 }
 
+function minutesToTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+// Every bookable "HH:MM" start time on one specific day — backs the
+// calendars' "click a day, see its free hours" popover. Unlike
+// findNextFreeSlots (which scans forward across many days hunting for a
+// fixed count), this always returns the *whole* day's remaining slots, so
+// clicking today mid-afternoon shows only what's still actually bookable
+// and clicking a full day correctly shows none, rather than skipping ahead
+// to tomorrow.
+export function computeDayFreeSlots(
+  date: Date,
+  appointmentsThatDay: OccupancyAppointment[],
+  schedule: Schedule,
+  slotMinutes = 30,
+): string[] {
+  const daySchedule = schedule.days.find((d) => d.weekday === weekdayOf(date));
+  if (!daySchedule || daySchedule.slots.length === 0) return [];
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // A day already gone has no "free hours" in any bookable sense — without
+  // this, a fully-past day would wrongly list its whole schedule as open
+  // (only *today* gets clamped to the current time below).
+  if (date < todayStart) return [];
+
+  const busyRanges = mergeRanges(
+    appointmentsThatDay
+      .filter((a) => a.status !== "cancelled")
+      .map((a) => {
+        const start = new Date(a.scheduledAt);
+        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        return { start: startMinutes, end: startMinutes + a.durationMinutes };
+      }),
+  );
+
+  const isToday = date.toDateString() === now.toDateString();
+  const nowMinutes = isToday ? Math.ceil((now.getHours() * 60 + now.getMinutes()) / slotMinutes) * slotMinutes : 0;
+
+  const slots: string[] = [];
+  for (const openSlot of daySchedule.slots) {
+    const openEnd = timeToMinutes(openSlot.endTime);
+    let cursor = Math.max(timeToMinutes(openSlot.startTime), nowMinutes);
+    while (cursor + slotMinutes <= openEnd) {
+      const candidate = { start: cursor, end: cursor + slotMinutes };
+      if (!busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0)) {
+        slots.push(minutesToTime(cursor));
+      }
+      cursor += slotMinutes;
+    }
+  }
+  return slots;
+}
+
 // Shared by both calendars that color days by occupancy (Agenda's
 // OccupancyCalendar and Escritorio's AgendaCalendar) — one source of truth
 // for the verde/rojo/gris palette and its legend labels, so the two

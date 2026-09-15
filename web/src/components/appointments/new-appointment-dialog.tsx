@@ -19,13 +19,27 @@ import type { PractitionerOption } from "@/lib/practitioners";
 export function NewAppointmentDialog({
   practitioners,
   defaultDate,
+  defaultTime,
+  defaultPractitionerId,
   triggerLabel = "Nueva cita",
   onCreated,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  hideTrigger = false,
 }: {
   practitioners?: PractitionerOption[] | null;
   // Pre-fills the date field — Escritorio passes the day selected on its
   // mini-calendar; Agenda leaves this unset and lets the user pick.
   defaultDate?: string;
+  // Pre-fills the time field too — Agenda's "horas disponibles" popover
+  // passes the exact slot clicked. Suppresses "Próximos horarios libres"
+  // below (see suggestSlots): with a slot already chosen there's nothing
+  // left to suggest, and a suggestion's own click would just overwrite it.
+  defaultTime?: string;
+  // Pre-selects the Profesional field — Agenda's calendar passes whichever
+  // profesional its own filter is scoped to, since that's exactly who the
+  // popover's free hours were computed for.
+  defaultPractitionerId?: string;
   triggerLabel?: string;
   // Called after a successful create, in addition to closing the dialog —
   // Escritorio's calendar uses this to re-fetch the visible month so the
@@ -33,17 +47,31 @@ export function NewAppointmentDialog({
   // (the server-side revalidatePath alone doesn't reach into a client
   // component's own state).
   onCreated?: () => void;
+  // Controlled open state — Agenda's popover opens this dialog itself
+  // (picking an hour), so it needs to drive `open` from outside instead of
+  // this component's own trigger button. Uncontrolled (internal state) by
+  // default, so every existing call site is unaffected.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // Skips rendering the built-in trigger button — pairs with controlled
+  // `open` above, since a dialog opened programmatically has no button of
+  // its own to click.
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChangeProp ?? setOpenState;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <PlusIcon data-icon="inline-start" />
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button>
+            <PlusIcon data-icon="inline-start" />
+            {triggerLabel}
+          </Button>
+        </DialogTrigger>
+      )}
       {/* max-h + overflow-y: this form is taller than the other dialogs in
           the app (appointment fields + the full PatientPicker, including
           its inline new-patient fields) — tall enough to clip against the
@@ -58,7 +86,9 @@ export function NewAppointmentDialog({
           submitIcon={<PlusIcon data-icon="inline-start" />}
           practitioners={practitioners}
           defaultDate={defaultDate}
-          suggestSlots
+          defaultTime={defaultTime}
+          defaultPractitionerId={defaultPractitionerId}
+          suggestSlots={!defaultTime}
           onSuccess={() => {
             setOpen(false);
             onCreated?.();
