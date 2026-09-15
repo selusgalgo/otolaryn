@@ -70,6 +70,36 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     (p) => p.id === patient.assignedPractitionerId,
   )?.label;
 
+  const agendaCard = (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-base">Agenda</CardTitle>
+        <CreateAppointmentDialog patientId={id} practitioners={practitioners} />
+      </CardHeader>
+      <CardContent>
+        {appointments.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin citas todavía.</p>
+        ) : (
+          <ul className="divide-y">
+            {appointments.data.map((appointment) => (
+              <li key={appointment.id} className="py-2">
+                <Link
+                  href={`/appointments/${appointment.id}`}
+                  className="flex items-center justify-between gap-4 hover:underline"
+                >
+                  <span className="text-sm">{formatDateTime(appointment.scheduledAt)}</span>
+                  <span className="shrink-0">
+                    <AppointmentStatusBadge status={appointment.status} />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -92,13 +122,14 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* Datos del paciente (60%) + Agenda (40%) side by side on desktop —
-          keeps both "quick facts" widgets above the fold instead of
-          stacking three cards full-width, which pushed Historia clínica
-          well below the fold on any real patient. Historia clínica goes
-          full-width underneath, spanning both columns, since entries are
-          usually the longest list of the three. Below md they all stack
-          single-column in the same top-to-bottom order. */}
+      {/* Datos del paciente (60%) a la izquierda; a la derecha, Antecedentes
+          para admin/profesional — es lo primero que quiere ver un
+          clínico al abrir a un paciente, más que la agenda — o Agenda
+          para recepcion, que no tiene acceso clínico y para quien sigue
+          siendo lo más relevante ahí. Debajo, a ancho completo: Historia
+          clínica y, cerrando la página, Agenda (recepcion ya la vio
+          arriba, así que no se repite). Below md todo se apila en una
+          columna en este mismo orden de arriba a abajo. */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[3fr_2fr]">
         <Card>
           <CardHeader>
@@ -150,33 +181,15 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Agenda</CardTitle>
-            <CreateAppointmentDialog patientId={id} practitioners={practitioners} />
-          </CardHeader>
-          <CardContent>
-            {appointments.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin citas todavía.</p>
-            ) : (
-              <ul className="divide-y">
-                {appointments.data.map((appointment) => (
-                  <li key={appointment.id} className="py-2">
-                    <Link
-                      href={`/appointments/${appointment.id}`}
-                      className="flex items-center justify-between gap-4 hover:underline"
-                    >
-                      <span className="text-sm">{formatDateTime(appointment.scheduledAt)}</span>
-                      <span className="shrink-0">
-                        <AppointmentStatusBadge status={appointment.status} />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        {antecedentes !== null ? (
+          <PatientAntecedentesCard
+            patientId={id}
+            types={antecedentes[0]}
+            initialMarked={antecedentes[1]}
+          />
+        ) : (
+          agendaCard
+        )}
 
         {entries !== null && (
           <Card className="md:col-span-2">
@@ -213,13 +226,10 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           </Card>
         )}
 
-        {antecedentes !== null && (
-          <PatientAntecedentesCard
-            patientId={id}
-            types={antecedentes[0]}
-            initialMarked={antecedentes[1]}
-          />
-        )}
+        {/* recepcion ya vio su Agenda arriba, en el hueco de la derecha —
+            para admin/profesional (antecedentes ocupó ese hueco) va aquí
+            debajo, a ancho completo. */}
+        {antecedentes !== null && <div className="md:col-span-2">{agendaCard}</div>}
       </div>
     </div>
   );

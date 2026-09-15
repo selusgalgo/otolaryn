@@ -80,7 +80,9 @@ export function PatientAntecedentesCard({
   }
 
   return (
-    <Card className="md:col-span-2">
+    // Sin col-span: vive en el hueco de la derecha junto a Datos del
+    // paciente (ver patients/[id]/page.tsx), no a ancho completo.
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Antecedentes</CardTitle>
         <Button size="sm" onClick={save} disabled={pending}>
@@ -93,7 +95,10 @@ export function PatientAntecedentesCard({
             No hay antecedentes configurados — añádelos desde Configuración.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+          // Una sola columna: la tarjeta vive ahora en el hueco estrecho de
+          // la derecha (junto a Datos del paciente), donde dos columnas
+          // dejaban la etiqueta cortada y el campo de detalle sin sitio.
+          <div className="grid grid-cols-1 gap-y-2">
             {visibleTypes.map((type) => {
               const row = rows.get(type.id)!;
               return (
