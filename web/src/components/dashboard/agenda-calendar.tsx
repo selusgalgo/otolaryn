@@ -136,7 +136,7 @@ export function AgendaCalendar({
       : `Programado para el ${parseDateKey(selectedDateKey).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`;
 
   return (
-    <div className="grid gap-4 md:grid-cols-[300px_1fr]">
+    <div className="grid gap-4 md:grid-cols-[5fr_7fr]">
       <Card>
         <CardContent className="px-3">
           <div className="mb-2 flex items-center justify-between">
@@ -206,10 +206,12 @@ export function AgendaCalendar({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">{agendaLabel}</CardTitle>
+          {/* Sin triggerLabel: se queda con el "Nueva cita" por defecto de
+              NewAppointmentDialog — "Crear" a secas no dejaba claro qué se
+              estaba creando. */}
           <NewAppointmentDialog
             practitioners={practitioners}
             defaultDate={selectedDateKey}
-            triggerLabel="Crear"
             onCreated={() => void goToMonth(viewYear, viewMonth)}
           />
         </CardHeader>
