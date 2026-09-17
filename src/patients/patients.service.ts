@@ -157,6 +157,13 @@ export class PatientsService {
   async bulkImport(rows: ImportRow[]): Promise<ImportPatientsResult> {
     const skipped: { row: number; reason: string }[] = [];
     let created = 0;
+    // A real legacy file repeats the same handful of aseguradora names
+    // across thousands of rows — resolving each occurrence with its own
+    // DB round trip is most of a large import's total time for no reason,
+    // since the answer for a given name can't change mid-request. Keyed
+    // lower-cased, matching findOrCreateByName's own case-insensitive
+    // lookup, so "ASISA" and "Asisa" share one cache entry.
+    const insuranceCache = new Map<string, string>();
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 1;
@@ -166,9 +173,16 @@ export class PatientsService {
       // SAVEPOINT — an aseguradora added to the catalog this way is real
       // catalog data, not tied to whether this particular row ends up
       // skipped for an unrelated reason.
-      const insuranceEntityId = insuranceEntityName
-        ? await this.insurance.findOrCreateByName(insuranceEntityName)
-        : undefined;
+      let insuranceEntityId: string | undefined;
+      if (insuranceEntityName) {
+        const cacheKey = insuranceEntityName.trim().toLowerCase();
+        insuranceEntityId = insuranceCache.get(cacheKey);
+        if (!insuranceEntityId) {
+          insuranceEntityId =
+            await this.insurance.findOrCreateByName(insuranceEntityName);
+          insuranceCache.set(cacheKey, insuranceEntityId);
+        }
+      }
 
       const dto = plainToInstance(CreatePatientDto, {
         ...fields,
