@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { InsuranceService } from '../insurance/insurance.service';
+import { Patient } from '../patients/entities/patient.entity';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
@@ -73,6 +74,15 @@ export class ClinicalEntriesService {
   ): Promise<ImportClinicalEntriesResult> {
     const skipped: { row: number; reason: string }[] = [];
     let created = 0;
+    // consultas.xls has many rows per patient (one per visit) — without
+    // this, a patient with a dozen consultas triggers a dozen identical
+    // lookups by the same NUMHISTORIA in one request. Caches misses too
+    // (null), same reasoning: a bad legacyId's answer can't change
+    // mid-request either.
+    const patientCache = new Map<string, Patient | null>();
+    // Same idea as the Pacientes importer's own cache: the same handful
+    // of aseguradora names repeat across thousands of rows.
+    const insuranceCache = new Map<string, string>();
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 1;
@@ -92,7 +102,11 @@ export class ClinicalEntriesService {
         });
         continue;
       }
-      const patient = await this.patients.findByLegacyId(row.patientLegacyId);
+      let patient = patientCache.get(row.patientLegacyId);
+      if (patient === undefined) {
+        patient = await this.patients.findByLegacyId(row.patientLegacyId);
+        patientCache.set(row.patientLegacyId, patient);
+      }
       if (!patient) {
         skipped.push({
           row: rowNumber,
@@ -118,9 +132,17 @@ export class ClinicalEntriesService {
       // the Pacientes importer — an aseguradora added to the catalog this
       // way is real catalog data, not tied to whether this row ends up
       // skipped for an unrelated reason.
-      const insuranceEntityId = row.insuranceEntityName
-        ? await this.insurance.findOrCreateByName(row.insuranceEntityName)
-        : undefined;
+      let insuranceEntityId: string | undefined;
+      if (row.insuranceEntityName) {
+        const cacheKey = row.insuranceEntityName.trim().toLowerCase();
+        insuranceEntityId = insuranceCache.get(cacheKey);
+        if (!insuranceEntityId) {
+          insuranceEntityId = await this.insurance.findOrCreateByName(
+            row.insuranceEntityName,
+          );
+          insuranceCache.set(cacheKey, insuranceEntityId);
+        }
+      }
 
       // The whole request already runs inside one transaction
       // (TenantContextInterceptor) — without a SAVEPOINT per row, one
