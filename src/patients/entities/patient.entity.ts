@@ -20,8 +20,8 @@ export class Patient {
   @Column({ name: 'last_name' })
   lastName: string;
 
-  @Column({ name: 'document_id' })
-  documentId: string;
+  @Column({ name: 'document_id', type: 'text', nullable: true })
+  documentId: string | null;
 
   @Column({ name: 'date_of_birth', type: 'date' })
   dateOfBirth: string;

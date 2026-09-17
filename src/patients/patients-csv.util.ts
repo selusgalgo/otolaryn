@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import * as XLSX from 'xlsx';
 import {
   cellToDate,
@@ -44,27 +43,16 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
 // as-is the way COLUMNS fields are.
 const INSURANCE_NAME_LABEL = 'Aseguradora';
 
-// documentId is deliberately not required here even though
-// CreatePatientDto itself requires it — a real-world import (this app's
-// own legacy OTOLARYN migration included) often has no equivalent column
-// at all, and forcing one to be mapped would either block the import or
-// invite mapping some unrelated column to it by mistake. A row with no
-// documentId gets a generated placeholder instead — see
-// generatePlaceholderDocumentId below.
+// documentId is deliberately not required here — Documento is optional on
+// CreatePatientDto itself now (plenty of real patients have none on file),
+// so a row without one, or without a mapped column at all, just leaves it
+// empty instead of inventing a value.
 const REQUIRED_FIELDS: (keyof CreatePatientDto)[] = [
   'firstName',
   'lastName',
   'dateOfBirth',
   'phone',
 ];
-
-// Short, prefixed so it reads as an intentional placeholder rather than a
-// real document number, and random rather than row-indexed so it stays
-// unique against every other patient in the tenant (not just within this
-// one import) without needing to check the database first.
-function generatePlaceholderDocumentId(): string {
-  return `SIN-DOC-${randomBytes(4).toString('hex')}`;
-}
 
 export interface ExportedFile {
   buffer: Buffer;
@@ -248,6 +236,30 @@ function cellToAntecedenteMark(value: unknown): {
   return { marked: true, detalle: isAffirmative(text) ? null : text };
 }
 
+// NIF (8 digits + control letter) or NIE (X/Y/Z + 7 digits + letter) —
+// this legacy export has no Documento column at all, but ~20% of its
+// PROFESION cells have one typed in anyway, sometimes alone ("28883086P"),
+// sometimes after the real profession ("MAESTRO 28556177K"). A row that
+// carries a real NIF this way is worth keeping as the real documentId
+// instead of an auto-generated placeholder.
+const NIF_NIE_RE = /\b([0-9]{8}[A-Za-z]|[XYZxyz][0-9]{7}[A-Za-z])\b/;
+
+// Only called when the row has no documentId yet (no Documento column
+// mapped, or that cell was empty) — an explicitly mapped Documento always
+// wins, this is purely a fallback for files that don't have one.
+function extractDocumentIdFromProfession(profession: string): {
+  profession: string | null;
+  documentId: string | null;
+} {
+  const match = NIF_NIE_RE.exec(profession);
+  if (!match) return { profession, documentId: null };
+  const remainder = (
+    profession.slice(0, match.index) +
+    profession.slice(match.index + match[0].length)
+  ).trim();
+  return { profession: remainder || null, documentId: match[0].toUpperCase() };
+}
+
 // Step 2: the actual import, using the mapping the user confirmed in the
 // wizard (field -> the file's own header text). Falls back to
 // suggestMapping when no mapping is given at all, so a caller that skips
@@ -288,9 +300,23 @@ export function parsePatientsFile(
       // still runs through @IsEmail and fails.
       if (text) row[field] = text;
     }
-    if (!row.documentId) {
-      row.documentId = generatePlaceholderDocumentId();
+    // Fallback, not an override: an explicitly mapped Documento column
+    // always wins — this only fires when that cell (or the mapping
+    // itself) left documentId empty.
+    if (!row.documentId && row.profession) {
+      const extracted = extractDocumentIdFromProfession(row.profession);
+      if (extracted.documentId) {
+        row.documentId = extracted.documentId;
+        if (extracted.profession) {
+          row.profession = extracted.profession;
+        } else {
+          delete row.profession;
+        }
+      }
     }
+    // No further fallback: a row with no Documento column, no NIF found in
+    // Profesión, and no cell value just imports with documentId empty —
+    // Documento is optional on CreatePatientDto, nothing to invent.
 
     if (effectiveMapping.insuranceEntityName) {
       const name = cellToText(

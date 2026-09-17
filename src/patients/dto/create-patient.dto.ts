@@ -31,11 +31,15 @@ export class CreatePatientDto {
   @MaxLength(100)
   lastName: string;
 
+  // Opcional: muchos pacientes reales no tienen DNI/NIE/pasaporte a mano
+  // (~80% de las filas de la migración legada, por ejemplo) — no se
+  // inventa un valor cuando falta, se deja vacío.
+  @IsOptional()
   @Transform(trim)
   @IsString()
   @MinLength(1)
   @MaxLength(20)
-  documentId: string;
+  documentId?: string;
 
   @IsDateString()
   dateOfBirth: string;

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchPatientsAction } from "@/lib/actions/patients";
+import { formatDocumentId } from "@/lib/utils";
 import type { Patient } from "@/lib/types";
 
 type Mode = "existing" | "new";
@@ -69,7 +70,7 @@ export function PatientPicker() {
           {selected ? (
             <div className="flex items-center justify-between rounded-md border p-2 text-sm">
               <span>
-                {selected.firstName} {selected.lastName} · {selected.documentId}
+                {selected.firstName} {selected.lastName} · {formatDocumentId(selected.documentId)}
               </span>
               <Button
                 type="button"
@@ -106,7 +107,7 @@ export function PatientPicker() {
                           setResults([]);
                         }}
                       >
-                        {p.firstName} {p.lastName} · {p.documentId}
+                        {p.firstName} {p.lastName} · {formatDocumentId(p.documentId)}
                       </button>
                     </li>
                   ))}
@@ -133,7 +134,7 @@ export function PatientPicker() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="patientDocumentId">Documento (DNI/NIE/pasaporte)</Label>
-              <Input id="patientDocumentId" name="patientDocumentId" required maxLength={20} />
+              <Input id="patientDocumentId" name="patientDocumentId" maxLength={20} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="patientDateOfBirth">Fecha de nacimiento</Label>

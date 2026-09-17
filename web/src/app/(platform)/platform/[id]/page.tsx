@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import { apiFetch } from "@/lib/api";
+import { formatDocumentId } from "@/lib/utils";
 import {
   createTenantUserAction,
   resetTenantUserPasswordAction,
@@ -79,7 +80,7 @@ export default async function TenantOverviewPage({
                         <TableCell>
                           {patient.firstName} {patient.lastName}
                         </TableCell>
-                        <TableCell>{patient.documentId}</TableCell>
+                        <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
                         <TableCell>{patient.phone}</TableCell>
                       </TableRow>
                     ))}

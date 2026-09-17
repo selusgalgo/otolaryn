@@ -26,11 +26,10 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
 // not just picking a name off a list blind.
 function sampleFor(preview: ImportPreview, field: string, header: string | undefined): string {
   if (!header) {
-    // documentId is the one field this app can fill in on its own when
-    // the file simply doesn't have an equivalent column — worth saying
-    // so here, otherwise leaving it unmapped looks like an oversight
-    // rather than a deliberate, supported choice.
-    return field === "documentId" ? "Se generará un identificador automáticamente" : "";
+    // Documento is optional — worth saying so here, otherwise leaving it
+    // unmapped looks like an oversight rather than a deliberate, supported
+    // choice for files (like the legacy migration's) that don't have one.
+    return field === "documentId" ? "Se importará sin documento" : "";
   }
   const values = preview.sampleRows
     .map((row) => row[header])

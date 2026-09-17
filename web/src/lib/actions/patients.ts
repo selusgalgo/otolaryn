@@ -11,6 +11,7 @@ export interface PatientFormState {
 }
 
 function patientPayloadFromFormData(formData: FormData) {
+  const documentId = String(formData.get("documentId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
@@ -26,9 +27,11 @@ function patientPayloadFromFormData(formData: FormData) {
     // this is just to avoid a needless request.
     firstName: String(formData.get("firstName") ?? "").trim(),
     lastName: String(formData.get("lastName") ?? "").trim(),
-    documentId: String(formData.get("documentId") ?? "").trim(),
     dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
     phone: String(formData.get("phone") ?? "").trim(),
+    // Documento is optional now — omitted entirely when blank, same
+    // pattern as every other optional field below.
+    ...(documentId ? { documentId } : {}),
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(notes ? { notes } : {}),

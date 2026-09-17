@@ -3,7 +3,7 @@ export interface Patient {
   tenantId: string;
   firstName: string;
   lastName: string;
-  documentId: string;
+  documentId: string | null;
   dateOfBirth: string;
   phone: string;
   email: string | null;
