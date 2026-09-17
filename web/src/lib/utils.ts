@@ -17,13 +17,12 @@ export function formatDateOnly(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
-// A patient imported without a mapped "Documento" column gets a
-// placeholder like "SIN-DOC-982e4abe" (see generatePlaceholderDocumentId
-// in patients-csv.util.ts) so the unique/non-null constraint is still
-// satisfied — but it isn't a real document number and showing it as one
-// just confuses whoever reads the list. Anywhere the app displays
-// documentId to a person, render it through this instead of the raw
-// value.
-export function formatDocumentId(documentId: string): string {
+// Documento is optional — null for a patient that never had one. Rows
+// imported before that placeholder scheme was retired can still carry a
+// "SIN-DOC-982e4abe"-shaped value (see the old generatePlaceholderDocumentId
+// in patients-csv.util.ts); both read the same as "no documento" here, so
+// anywhere the app displays documentId to a person, render it through this
+// instead of the raw value.
+export function formatDocumentId(documentId: string | null): string {
   return documentId && !documentId.startsWith("SIN-DOC-") ? documentId : "-";
 }

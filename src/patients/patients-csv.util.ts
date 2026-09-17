@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import * as XLSX from 'xlsx';
 import {
   cellToDate,
@@ -44,27 +43,16 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
 // as-is the way COLUMNS fields are.
 const INSURANCE_NAME_LABEL = 'Aseguradora';
 
-// documentId is deliberately not required here even though
-// CreatePatientDto itself requires it — a real-world import (this app's
-// own legacy OTOLARYN migration included) often has no equivalent column
-// at all, and forcing one to be mapped would either block the import or
-// invite mapping some unrelated column to it by mistake. A row with no
-// documentId gets a generated placeholder instead — see
-// generatePlaceholderDocumentId below.
+// documentId is deliberately not required here — Documento is optional on
+// CreatePatientDto itself now (plenty of real patients have none on file),
+// so a row without one, or without a mapped column at all, just leaves it
+// empty instead of inventing a value.
 const REQUIRED_FIELDS: (keyof CreatePatientDto)[] = [
   'firstName',
   'lastName',
   'dateOfBirth',
   'phone',
 ];
-
-// Short, prefixed so it reads as an intentional placeholder rather than a
-// real document number, and random rather than row-indexed so it stays
-// unique against every other patient in the tenant (not just within this
-// one import) without needing to check the database first.
-function generatePlaceholderDocumentId(): string {
-  return `SIN-DOC-${randomBytes(4).toString('hex')}`;
-}
 
 export interface ExportedFile {
   buffer: Buffer;
@@ -326,9 +314,9 @@ export function parsePatientsFile(
         }
       }
     }
-    if (!row.documentId) {
-      row.documentId = generatePlaceholderDocumentId();
-    }
+    // No further fallback: a row with no Documento column, no NIF found in
+    // Profesión, and no cell value just imports with documentId empty —
+    // Documento is optional on CreatePatientDto, nothing to invent.
 
     if (effectiveMapping.insuranceEntityName) {
       const name = cellToText(

@@ -21,7 +21,7 @@ import type {
   Patient,
   PatientAntecedente,
 } from "@/lib/types";
-import { formatDateOnly } from "@/lib/utils";
+import { formatDateOnly, formatDocumentId } from "@/lib/utils";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
@@ -138,7 +138,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           <CardContent className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <div className="text-muted-foreground">Documento</div>
-              <div>{patient.documentId}</div>
+              <div>{formatDocumentId(patient.documentId)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Fecha de nacimiento</div>

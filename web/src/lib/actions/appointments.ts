@@ -188,13 +188,18 @@ async function createPatientAndAppointment(
   let patientId: string;
 
   if (mode === "new") {
+    const documentId = String(formData.get("patientDocumentId") ?? "").trim();
     const email = String(formData.get("patientEmail") ?? "").trim();
     const patientBody = {
       firstName: String(formData.get("patientFirstName") ?? "").trim(),
       lastName: String(formData.get("patientLastName") ?? "").trim(),
-      documentId: String(formData.get("patientDocumentId") ?? "").trim(),
       dateOfBirth: String(formData.get("patientDateOfBirth") ?? ""),
       phone: String(formData.get("patientPhone") ?? "").trim(),
+      // Documento is optional — omitted (not sent as "") when blank, same
+      // as every other optional field here: an empty string would still
+      // fail @MinLength(1) on the backend even though @IsOptional() lets
+      // a genuinely missing key through.
+      ...(documentId ? { documentId } : {}),
       ...(email ? { email } : {}),
     };
 

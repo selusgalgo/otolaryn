@@ -19,7 +19,7 @@ interface PatientResponse {
   id: string;
   firstName: string;
   lastName: string;
-  documentId: string;
+  documentId: string | null;
   profession: string | null;
 }
 
@@ -298,7 +298,7 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(body.skipped[0].reason).toContain('IMP-020');
   });
 
-  it('imports a row with no Documento column at all, generating a placeholder', async () => {
+  it('imports a row with no Documento column at all, leaving documentId empty', async () => {
     const csv = [
       'Nombre,Apellidos,Fecha de nacimiento,Teléfono',
       'SinDoc,Uno,1990-06-15,+34600222333',
@@ -319,7 +319,8 @@ describe('Patients — export/import CSV/XLSX', () => {
       .set('Authorization', `Bearer ${tokenA}`);
     const patients = (list.body as PaginatedPatients).data;
     expect(patients).toHaveLength(1);
-    expect(patients[0].documentId).toMatch(/^SIN-DOC-/);
+    // Documento is optional — no column mapped means no value invented.
+    expect(patients[0].documentId).toBeNull();
   });
 
   it('extracts a NIF/NIE embedded in Profesión as documentId when no Documento column exists', async () => {
@@ -358,10 +359,10 @@ describe('Patients — export/import CSV/XLSX', () => {
       .get('/patients?search=SinNif')
       .set('Authorization', `Bearer ${tokenA}`);
     const normal = (normalList.body as PaginatedPatients).data[0];
-    // No NIF-shaped text in Profesión: untouched, falls back to the usual
-    // auto-generated placeholder like any other Documento-less row.
+    // No NIF-shaped text in Profesión: untouched, left empty like any
+    // other Documento-less row.
     expect(normal.profession).toBe('POLICIA LOCAL');
-    expect(normal.documentId).toMatch(/^SIN-DOC-/);
+    expect(normal.documentId).toBeNull();
   });
 
   it('accepts a day-first (DD/MM/AAAA) date of birth', async () => {

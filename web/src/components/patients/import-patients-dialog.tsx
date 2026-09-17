@@ -17,8 +17,8 @@ const ACCEPT =
   ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 // documentId excluded on purpose — see the matching REQUIRED_FIELDS
-// comment in patients-csv.util.ts: a row with no mapped documentId gets
-// one generated automatically instead of blocking the import.
+// comment in patients-csv.util.ts: Documento is optional on the patient
+// itself, a row with no mapped column just imports without one.
 const REQUIRED_FIELDS: (keyof ColumnMapping)[] = [
   "firstName",
   "lastName",

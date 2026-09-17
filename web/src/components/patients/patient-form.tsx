@@ -65,8 +65,7 @@ export function PatientForm({
           <Input
             id="documentId"
             name="documentId"
-            defaultValue={initialValues?.documentId}
-            required
+            defaultValue={initialValues?.documentId ?? ""}
             maxLength={20}
             disabled={pending}
           />
