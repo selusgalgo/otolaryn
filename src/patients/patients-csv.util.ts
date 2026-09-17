@@ -248,6 +248,30 @@ function cellToAntecedenteMark(value: unknown): {
   return { marked: true, detalle: isAffirmative(text) ? null : text };
 }
 
+// NIF (8 digits + control letter) or NIE (X/Y/Z + 7 digits + letter) —
+// this legacy export has no Documento column at all, but ~20% of its
+// PROFESION cells have one typed in anyway, sometimes alone ("28883086P"),
+// sometimes after the real profession ("MAESTRO 28556177K"). A row that
+// carries a real NIF this way is worth keeping as the real documentId
+// instead of an auto-generated placeholder.
+const NIF_NIE_RE = /\b([0-9]{8}[A-Za-z]|[XYZxyz][0-9]{7}[A-Za-z])\b/;
+
+// Only called when the row has no documentId yet (no Documento column
+// mapped, or that cell was empty) — an explicitly mapped Documento always
+// wins, this is purely a fallback for files that don't have one.
+function extractDocumentIdFromProfession(profession: string): {
+  profession: string | null;
+  documentId: string | null;
+} {
+  const match = NIF_NIE_RE.exec(profession);
+  if (!match) return { profession, documentId: null };
+  const remainder = (
+    profession.slice(0, match.index) +
+    profession.slice(match.index + match[0].length)
+  ).trim();
+  return { profession: remainder || null, documentId: match[0].toUpperCase() };
+}
+
 // Step 2: the actual import, using the mapping the user confirmed in the
 // wizard (field -> the file's own header text). Falls back to
 // suggestMapping when no mapping is given at all, so a caller that skips
@@ -287,6 +311,20 @@ export function parsePatientsFile(
       // class-validator when the property is undefined; an empty string
       // still runs through @IsEmail and fails.
       if (text) row[field] = text;
+    }
+    // Fallback, not an override: an explicitly mapped Documento column
+    // always wins — this only fires when that cell (or the mapping
+    // itself) left documentId empty.
+    if (!row.documentId && row.profession) {
+      const extracted = extractDocumentIdFromProfession(row.profession);
+      if (extracted.documentId) {
+        row.documentId = extracted.documentId;
+        if (extracted.profession) {
+          row.profession = extracted.profession;
+        } else {
+          delete row.profession;
+        }
+      }
     }
     if (!row.documentId) {
       row.documentId = generatePlaceholderDocumentId();

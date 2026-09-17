@@ -20,6 +20,7 @@ interface PatientResponse {
   firstName: string;
   lastName: string;
   documentId: string;
+  profession: string | null;
 }
 
 interface PaginatedPatients {
@@ -319,6 +320,48 @@ describe('Patients — export/import CSV/XLSX', () => {
     const patients = (list.body as PaginatedPatients).data;
     expect(patients).toHaveLength(1);
     expect(patients[0].documentId).toMatch(/^SIN-DOC-/);
+  });
+
+  it('extracts a NIF/NIE embedded in Profesión as documentId when no Documento column exists', async () => {
+    const csv = [
+      'Nombre,Apellidos,Fecha de nacimiento,Teléfono,Profesión',
+      'ConNif,Puro,1990-06-15,+34600222333,28883086P',
+      'ConNif,Mixto,1991-07-16,+34600222444,MAESTRO 28556177K',
+      'SinNif,Normal,1992-08-17,+34600222555,POLICIA LOCAL',
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(3);
+
+    const list = await request(server)
+      .get('/patients?search=ConNif')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patients = (list.body as PaginatedPatients).data;
+    const puro = patients.find((p) => p.lastName === 'Puro')!;
+    const mixto = patients.find((p) => p.lastName === 'Mixto')!;
+    // Pure NIF: becomes the documentId, profession left empty rather than
+    // storing the NIF a second time as free text.
+    expect(puro.documentId).toBe('28883086P');
+    expect(puro.profession).toBeNull();
+    // NIF alongside a real profession: NIF goes to documentId, the
+    // profession text survives with the NIF stripped out of it.
+    expect(mixto.documentId).toBe('28556177K');
+    expect(mixto.profession).toBe('MAESTRO');
+
+    const normalList = await request(server)
+      .get('/patients?search=SinNif')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const normal = (normalList.body as PaginatedPatients).data[0];
+    // No NIF-shaped text in Profesión: untouched, falls back to the usual
+    // auto-generated placeholder like any other Documento-less row.
+    expect(normal.profession).toBe('POLICIA LOCAL');
+    expect(normal.documentId).toMatch(/^SIN-DOC-/);
   });
 
   it('accepts a day-first (DD/MM/AAAA) date of birth', async () => {
