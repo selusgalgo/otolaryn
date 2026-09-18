@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SettingsIcon } from "lucide-react";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateTenantDialog } from "@/components/platform/create-tenant-dialog";
@@ -48,7 +48,7 @@ export default async function PlatformPage() {
                 <TableCell className="text-right">
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/platform/${tenant.id}/settings`}>
-                      <SettingsIcon data-icon="inline-start" />
+                      <Cog6ToothIcon data-icon="inline-start" />
                       Configuración
                     </Link>
                   </Button>

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -7,6 +8,9 @@ import {
   Min,
   Max,
 } from 'class-validator';
+
+export type PatientSortBy = 'name' | 'dateOfBirth';
+export type SortDirection = 'asc' | 'desc';
 
 export class ListPatientsQueryDto {
   @IsOptional()
@@ -26,4 +30,12 @@ export class ListPatientsQueryDto {
   @Min(1)
   @Max(100)
   pageSize: number = 20;
+
+  @IsOptional()
+  @IsIn(['name', 'dateOfBirth'])
+  sortBy?: PatientSortBy;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortDir?: SortDirection;
 }

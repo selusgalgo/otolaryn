@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
+import { ArrowLeftIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,7 +50,7 @@ export default async function TenantOverviewPage({
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href={`/platform/${id}/settings`}>
-            <SettingsIcon data-icon="inline-start" />
+            <Cog6ToothIcon data-icon="inline-start" />
             Configuración
           </Link>
         </Button>

@@ -155,7 +155,7 @@ export function AppointmentForm({
             value={practitionerId}
             onChange={(e) => setPractitionerId(e.target.value)}
             disabled={pending}
-            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+            className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             <option value="" disabled>
               Selecciona un profesional
@@ -245,7 +245,7 @@ export function AppointmentForm({
             name="status"
             defaultValue={initialValues?.status}
             disabled={pending}
-            className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             {APPOINTMENT_STATUSES.map((s) => (
               <option key={s} value={s}>

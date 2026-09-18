@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -91,7 +91,7 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                         value={slot.startTime}
                         onChange={(e) => updateSlot(dayIndex, slotIndex, "startTime", e.target.value)}
                         disabled={pending}
-                        className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+                        className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       />
                       <span className="text-sm text-muted-foreground">a</span>
                       <input
@@ -99,7 +99,7 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                         value={slot.endTime}
                         onChange={(e) => updateSlot(dayIndex, slotIndex, "endTime", e.target.value)}
                         disabled={pending}
-                        className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+                        className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       />
                       <button
                         type="button"
@@ -108,7 +108,7 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                         aria-label="Quitar tramo"
                         className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
                       >
-                        <XIcon className="size-4" />
+                        <XMarkIcon className="size-4" />
                       </button>
                     </div>
                   ))}

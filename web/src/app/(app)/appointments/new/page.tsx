@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { PatientPicker } from "@/components/appointments/patient-picker";
 import { createAppointmentForPatientAction } from "@/lib/actions/appointments";

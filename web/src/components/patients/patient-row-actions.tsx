@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArchiveIcon, EyeIcon, MoreVerticalIcon, PencilIcon } from "lucide-react";
+import {
+  ArchiveBoxIcon,
+  EllipsisVerticalIcon,
+  EyeIcon,
+  PencilIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,7 +73,7 @@ export function PatientRowActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label={`Acciones para ${fullName}`}>
-            <MoreVerticalIcon />
+            <EllipsisVerticalIcon />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -89,7 +94,7 @@ export function PatientRowActions({
                 className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
                 onSelect={() => setArchiveOpen(true)}
               >
-                <ArchiveIcon data-icon="inline-start" />
+                <ArchiveBoxIcon data-icon="inline-start" />
                 Archivar
               </DropdownMenuItem>
             </>

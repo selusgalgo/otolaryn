@@ -76,6 +76,8 @@ export class PatientsController {
       query.page,
       query.pageSize,
       query.search,
+      query.sortBy,
+      query.sortDir,
     );
   }
 

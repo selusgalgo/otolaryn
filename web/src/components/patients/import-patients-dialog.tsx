@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import { UploadIcon } from "lucide-react";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -43,10 +43,24 @@ function isMappingComplete(mapping: ColumnMapping): boolean {
 // read which rows and why before dismissing it themselves.
 interface ImportPatientsDialogProps {
   antecedenteTypes?: AntecedenteType[];
+  // Controlled open state, so a parent "Acciones" menu can open this
+  // without rendering its own trigger button — same pattern as
+  // NewAppointmentDialog's open/onOpenChange/hideTrigger. Uncontrolled
+  // (internal state, own trigger) by default.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
-export function ImportPatientsDialog({ antecedenteTypes }: ImportPatientsDialogProps) {
-  const [open, setOpen] = useState(false);
+export function ImportPatientsDialog({
+  antecedenteTypes,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  hideTrigger = false,
+}: ImportPatientsDialogProps) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChangeProp ?? setOpenState;
   const [state, formAction, pending] = useActionState(importPatientsAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   // Bumped on close to remount FileDropzone fresh — form.reset() clears the
@@ -95,12 +109,14 @@ export function ImportPatientsDialog({ antecedenteTypes }: ImportPatientsDialogP
         if (!next) reset();
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <UploadIcon data-icon="inline-start" />
-          Importar
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <ArrowUpTrayIcon data-icon="inline-start" />
+            Importar
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar pacientes</DialogTitle>
@@ -177,7 +193,7 @@ export function ImportPatientsDialog({ antecedenteTypes }: ImportPatientsDialogP
                 "Importando..."
               ) : (
                 <>
-                  <UploadIcon data-icon="inline-start" />
+                  <ArrowUpTrayIcon data-icon="inline-start" />
                   Importar
                 </>
               )}

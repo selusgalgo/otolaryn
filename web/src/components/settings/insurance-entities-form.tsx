@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +89,7 @@ export function InsuranceEntitiesForm({ initialEntities }: InsuranceEntitiesForm
               aria-label={`Eliminar ${entity.name}`}
               className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
             >
-              <XIcon className="size-4" />
+              <XMarkIcon className="size-4" />
             </button>
           </div>
         ))}

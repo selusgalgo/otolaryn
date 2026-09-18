@@ -19,7 +19,7 @@ export function Avatar({ firstName, lastName, src, className }: AvatarProps) {
   return (
     <span
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-foreground/15 text-sm font-semibold text-primary-foreground",
+        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stock text-sm font-semibold text-muted-foreground",
         className,
       )}
     >

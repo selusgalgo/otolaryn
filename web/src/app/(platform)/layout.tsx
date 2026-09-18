@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
-import { LogOutIcon, UserIcon } from "lucide-react";
+import { ArrowLeftOnRectangleIcon, UserIcon } from "@heroicons/react/24/outline";
 
 // Deliberately its own chrome, not a variant of (app)/layout.tsx — superadmin
 // manages clinics themselves, a different domain from the per-clinic Sidebar
@@ -36,7 +36,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
               aria-label="Cerrar sesión"
               className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
             >
-              <LogOutIcon className="size-5" />
+              <ArrowLeftOnRectangleIcon className="size-5" />
             </button>
           </form>
         </div>
