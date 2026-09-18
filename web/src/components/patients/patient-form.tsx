@@ -120,7 +120,7 @@ export function PatientForm({
             name="insuranceEntityId"
             defaultValue={initialValues?.insuranceEntityId ?? ""}
             disabled={pending}
-            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+            className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             <option value="">Sin especificar</option>
             {insuranceOptions?.map((o) => (
@@ -149,7 +149,7 @@ export function PatientForm({
             name="assignedPractitionerId"
             defaultValue={initialValues?.assignedPractitionerId ?? ""}
             disabled={pending}
-            className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+            className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             <option value="">Sin asignar</option>
             {practitionerOptions.map((p) => (

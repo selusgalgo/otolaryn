@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { PencilIcon } from "lucide-react";
+import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -98,7 +98,7 @@ export function EditUserDialog({ user, updateAction, resetPasswordAction }: Edit
               name="role"
               defaultValue={user.role}
               disabled={dataPending}
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+              className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
             >
               {ASSIGNABLE_ROLES.map((value) => (
                 <option key={value} value={value}>

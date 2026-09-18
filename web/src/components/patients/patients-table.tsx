@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import {
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -14,13 +19,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PatientAvatar } from "@/components/patients/patient-avatar";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
-import { formatDateOnly, formatDocumentId } from "@/lib/utils";
+import { formatDateShort, formatDocumentId } from "@/lib/utils";
+
+type PatientSortBy = "name" | "dateOfBirth";
+type SortDirection = "asc" | "desc";
 
 interface PatientsTableProps {
   patients: Patient[];
@@ -31,6 +39,48 @@ interface PatientsTableProps {
   canArchive: boolean;
   insuranceOptions?: InsuranceOption[];
   practitionerOptions?: PractitionerOption[] | null;
+  // Current sort + search, mirrored from the URL by the page above — used
+  // only to build each sortable header's href and pick its chevron icon,
+  // never to re-sort `patients` client-side (the server already returned
+  // them in the requested order).
+  search?: string;
+  sortBy?: PatientSortBy;
+  sortDir?: SortDirection;
+}
+
+// Nombre/Fecha de nacimiento headers: chevron-up-down when this column
+// isn't the active sort, chevron-up/down once it is — clicking always goes
+// to page 1 (a different order can't assume the same page still makes
+// sense) and flips direction if this column is already active, otherwise
+// starts ascending.
+function SortableHeader({
+  label,
+  column,
+  search,
+  sortBy,
+  sortDir,
+}: {
+  label: string;
+  column: PatientSortBy;
+  search?: string;
+  sortBy?: PatientSortBy;
+  sortDir: SortDirection;
+}) {
+  const active = sortBy === column;
+  const nextDir: SortDirection = active && sortDir === "asc" ? "desc" : "asc";
+  const Icon = !active ? ChevronUpDownIcon : sortDir === "asc" ? ChevronUpIcon : ChevronDownIcon;
+
+  const href = new URLSearchParams();
+  if (search) href.set("search", search);
+  href.set("sortBy", column);
+  href.set("sortDir", nextDir);
+
+  return (
+    <Link href={`/patients?${href.toString()}`} className="inline-flex items-center gap-1 hover:text-foreground">
+      {label}
+      <Icon className="size-4" />
+    </Link>
+  );
 }
 
 // Selection lives entirely in this Client Component's own state — the page
@@ -44,6 +94,9 @@ export function PatientsTable({
   canArchive,
   insuranceOptions,
   practitionerOptions,
+  search,
+  sortBy,
+  sortDir = "asc",
 }: PatientsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -153,23 +206,27 @@ export function PatientsTable({
                   />
                 </TableHead>
               )}
-              <TableHead>Nombre</TableHead>
-              {/* Comprobación temporal de la migración: Nº de historia es el
-                  legacy_id que relaciona este paciente con sus filas en
-                  pacientes.xls/consultas.xls — el id interno (uuid) no
-                  aparece en el legado y no sirve para contrastar nada.
-                  Quitar esta columna cuando la migración quede verificada. */}
-              <TableHead>Nº de historia</TableHead>
+              <TableHead>
+                <SortableHeader label="Nombre" column="name" search={search} sortBy={sortBy} sortDir={sortDir} />
+              </TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Fecha de nacimiento</TableHead>
+              <TableHead>
+                <SortableHeader
+                  label="Fecha de nacimiento"
+                  column="dateOfBirth"
+                  search={search}
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                />
+              </TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canArchive ? 7 : 6} className="text-center text-muted-foreground">
+                <TableCell colSpan={canArchive ? 6 : 5} className="text-center text-muted-foreground">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -186,15 +243,26 @@ export function PatientsTable({
                   </TableCell>
                 )}
                 <TableCell>
-                  <Link href={`/patients/${patient.id}`} className="flex items-center gap-3 hover:underline">
-                    <PatientAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
-                    {patient.firstName} {patient.lastName}
+                  <Link href={`/patients/${patient.id}`} className="group flex items-center gap-3">
+                    <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
+                    <div>
+                      <div className="font-medium group-hover:underline">
+                        {patient.firstName} {patient.lastName}
+                      </div>
+                      {/* Nº de historia (legacy_id) — relaciona este paciente
+                          con sus filas en pacientes.xls/consultas.xls; el id
+                          interno (uuid) no aparece en el legado y no sirve
+                          para contrastar nada. Bajo el nombre en vez de en su
+                          propia columna. */}
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {patient.legacyId ?? "—"}
+                      </div>
+                    </div>
                   </Link>
                 </TableCell>
-                <TableCell className="font-mono text-xs">{patient.legacyId ?? "—"}</TableCell>
-                <TableCell>{formatDocumentId(patient.documentId)}</TableCell>
-                <TableCell>{patient.phone}</TableCell>
-                <TableCell>{formatDateOnly(patient.dateOfBirth)}</TableCell>
+                <TableCell className="font-medium">{formatDocumentId(patient.documentId)}</TableCell>
+                <TableCell className="font-medium">{patient.phone}</TableCell>
+                <TableCell className="font-medium">{formatDateShort(patient.dateOfBirth)}</TableCell>
                 <TableCell>
                   <PatientRowActions
                     patient={patient}

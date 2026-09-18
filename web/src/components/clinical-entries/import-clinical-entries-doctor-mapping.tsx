@@ -39,7 +39,7 @@ export function ImportClinicalEntriesDoctorMapping({
               value={mapping[name] ?? ""}
               disabled={disabled}
               onChange={(e) => onChange({ ...mapping, [name]: e.target.value || undefined })}
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+              className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
             >
               <option value="">Sin asignar — sus consultas se omitirán</option>
               {practitioners.map((p) => (

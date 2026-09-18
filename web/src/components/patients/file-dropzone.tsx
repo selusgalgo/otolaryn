@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileIcon, UploadIcon } from "lucide-react";
+import { ArrowUpTrayIcon, DocumentIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 interface FileDropzoneProps {
@@ -71,13 +71,13 @@ export function FileDropzone({ name, accept, disabled, hint, onFileSelected }: F
     >
       {fileName ? (
         <>
-          <FileIcon className="size-5 text-muted-foreground" />
+          <DocumentIcon className="size-5 text-muted-foreground" />
           <p className="font-medium">{fileName}</p>
           <p className="text-xs text-muted-foreground">Haz clic o suelta otro fichero para cambiarlo</p>
         </>
       ) : (
         <>
-          <UploadIcon className="size-5 text-muted-foreground" />
+          <ArrowUpTrayIcon className="size-5 text-muted-foreground" />
           <p>
             Arrastra un fichero aquí o <span className="font-medium text-foreground">haz clic para seleccionarlo</span>
           </p>

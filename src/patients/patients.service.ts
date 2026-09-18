@@ -14,6 +14,10 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { Patient } from './entities/patient.entity';
 import type { ImportRow } from './patients-csv.util';
+import type {
+  PatientSortBy,
+  SortDirection,
+} from './dto/list-patients-query.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -77,8 +81,18 @@ export class PatientsService {
     page: number,
     pageSize: number,
     search?: string,
+    sortBy?: PatientSortBy,
+    sortDir: SortDirection = 'asc',
   ): Promise<PaginatedResult<Patient>> {
-    const qb = this.repo.createQueryBuilder('p').orderBy('p.createdAt', 'DESC');
+    const qb = this.repo.createQueryBuilder('p');
+    const direction = sortDir.toUpperCase() as 'ASC' | 'DESC';
+    if (sortBy === 'name') {
+      qb.orderBy('p.firstName', direction).addOrderBy('p.lastName', direction);
+    } else if (sortBy === 'dateOfBirth') {
+      qb.orderBy('p.dateOfBirth', direction);
+    } else {
+      qb.orderBy('p.createdAt', 'DESC');
+    }
     this.restrictToOwnPatients(qb, user);
 
     if (search) {

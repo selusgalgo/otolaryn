@@ -1,11 +1,14 @@
 import Link from "next/link";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ImportClinicalEntriesDialog } from "@/components/clinical-entries/import-clinical-entries-dialog";
 import { CreatePatientDialog } from "@/components/patients/create-patient-dialog";
-import { ExportPatientsMenu } from "@/components/patients/export-patients-menu";
-import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
+import { PatientsActionsMenu } from "@/components/patients/patients-actions-menu";
 import { PatientsTable } from "@/components/patients/patients-table";
 import { getActiveAntecedenteTypes } from "@/lib/antecedentes";
 import { apiFetch } from "@/lib/api";
@@ -16,19 +19,34 @@ import type { Paginated, Patient } from "@/lib/types";
 
 const PAGE_SIZE = 20;
 
+type PatientSortBy = "name" | "dateOfBirth";
+type SortDirection = "asc" | "desc";
+
 export default async function PatientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; search?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }>;
 }) {
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
   const search = params.search?.trim() || "";
+  const sortBy: PatientSortBy | undefined =
+    params.sortBy === "name" || params.sortBy === "dateOfBirth" ? params.sortBy : undefined;
+  const sortDir: SortDirection = params.sortDir === "desc" ? "desc" : "asc";
 
   const query = new URLSearchParams();
   query.set("page", String(page));
   query.set("pageSize", String(PAGE_SIZE));
   if (search) query.set("search", search);
+  if (sortBy) {
+    query.set("sortBy", sortBy);
+    query.set("sortDir", sortDir);
+  }
 
   const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes] =
     await Promise.all([
@@ -39,8 +57,16 @@ export default async function PatientsPage({
       getActiveAntecedenteTypes(),
     ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
-  const pageHref = (p: number) =>
-    `/patients?page=${p}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+  const pageHref = (p: number) => {
+    const href = new URLSearchParams();
+    href.set("page", String(p));
+    if (search) href.set("search", search);
+    if (sortBy) {
+      href.set("sortBy", sortBy);
+      href.set("sortDir", sortDir);
+    }
+    return `/patients?${href.toString()}`;
+  };
 
   return (
     <div className="space-y-4">
@@ -53,14 +79,12 @@ export default async function PatientsPage({
           <span className="text-sm text-muted-foreground">({result.total} en total)</span>
         </div>
         <div className="flex items-center gap-2">
-          <ImportPatientsDialog antecedenteTypes={antecedenteTypes ?? undefined} />
-          {/* Historia clínica es territorio clínico, igual que la propia
-              importación de antecedentes — recepcion no tiene acceso
-              (el backend ya devuelve 403 en /clinical-entries/import). */}
-          {me.role !== "recepcion" && (
-            <ImportClinicalEntriesDialog practitioners={practitionerOptions} />
-          )}
-          <ExportPatientsMenu search={search} />
+          <PatientsActionsMenu
+            antecedenteTypes={antecedenteTypes ?? undefined}
+            showImportClinicalEntries={me.role !== "recepcion"}
+            practitioners={practitionerOptions}
+            search={search}
+          />
           <CreatePatientDialog
             insuranceOptions={insuranceOptions}
             practitionerOptions={practitionerOptions}
@@ -71,7 +95,16 @@ export default async function PatientsPage({
       <form className="flex items-end gap-4" action="/patients">
         <div className="flex-1 space-y-2">
           <Label htmlFor="search">Buscar paciente</Label>
-          <Input id="search" name="search" defaultValue={search} placeholder="Nombre, apellidos o documento..." />
+          <div className="relative">
+            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="search"
+              name="search"
+              defaultValue={search}
+              placeholder="Nombre, apellidos o documento..."
+              className="pl-8"
+            />
+          </div>
         </div>
         <Button type="submit" variant="outline">
           Buscar
@@ -87,7 +120,7 @@ export default async function PatientsPage({
           a fresh table instead of keeping a stale selection made against a
           different set of rows. */}
       <PatientsTable
-        key={`${page}-${search}`}
+        key={`${page}-${search}-${sortBy ?? ""}-${sortDir}`}
         patients={result.data}
         emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
         // recepcion puede crear/editar pacientes para dar citas, pero
@@ -97,30 +130,40 @@ export default async function PatientsPage({
         canArchive={me.role !== "recepcion"}
         insuranceOptions={insuranceOptions}
         practitionerOptions={practitionerOptions}
+        search={search}
+        sortBy={sortBy}
+        sortDir={sortDir}
       />
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Página {result.page} de {totalPages}
+        <div className="flex items-center justify-between">
+          <span className="font-button text-button text-muted-foreground uppercase">
+            Mostrando {result.data.length} de {result.total} pacientes
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             {page > 1 ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={pageHref(page - 1)}>Anterior</Link>
+              <Button asChild variant="outline" size="icon-sm" aria-label="Página anterior">
+                <Link href={pageHref(page - 1)}>
+                  <ChevronLeftIcon className="size-4" />
+                </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="sm" disabled>
-                Anterior
+              <Button variant="outline" size="icon-sm" disabled aria-label="Página anterior">
+                <ChevronLeftIcon className="size-4" />
               </Button>
             )}
+            <span className="text-sm text-muted-foreground">
+              {result.page}/{totalPages}
+            </span>
             {page < totalPages ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={pageHref(page + 1)}>Siguiente</Link>
+              <Button asChild variant="outline" size="icon-sm" aria-label="Página siguiente">
+                <Link href={pageHref(page + 1)}>
+                  <ChevronRightIcon className="size-4" />
+                </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="sm" disabled>
-                Siguiente
+              <Button variant="outline" size="icon-sm" disabled aria-label="Página siguiente">
+                <ChevronRightIcon className="size-4" />
               </Button>
             )}
           </div>

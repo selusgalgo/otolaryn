@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -152,7 +152,7 @@ export function AntecedenteTypesForm({ initialTypes }: AntecedenteTypesFormProps
               aria-label={`Eliminar ${type.name}`}
               className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
             >
-              <XIcon className="size-4" />
+              <XMarkIcon className="size-4" />
             </button>
           </div>
         ))}

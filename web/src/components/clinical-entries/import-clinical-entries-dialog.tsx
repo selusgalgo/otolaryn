@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { UploadIcon } from "lucide-react";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,13 @@ const ACCEPT =
 
 interface ImportClinicalEntriesDialogProps {
   practitioners?: PractitionerOption[] | null;
+  // Controlled open state, so a parent "Acciones" menu can open this
+  // without rendering its own trigger button — same pattern as
+  // NewAppointmentDialog's open/onOpenChange/hideTrigger. Uncontrolled
+  // (internal state, own trigger) by default.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 type Step = "upload" | "mapping" | "doctors";
@@ -39,8 +46,15 @@ type Step = "upload" | "mapping" | "doctors";
 // fichero y confirmar el mapeo de columnas, 2) si se mapeó una columna de
 // médico, resolver cada nombre distinto a un profesional real, 3)
 // importar de verdad con ambos mapeos ya confirmados.
-export function ImportClinicalEntriesDialog({ practitioners }: ImportClinicalEntriesDialogProps) {
-  const [open, setOpen] = useState(false);
+export function ImportClinicalEntriesDialog({
+  practitioners,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  hideTrigger = false,
+}: ImportClinicalEntriesDialogProps) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChangeProp ?? setOpenState;
   const [step, setStep] = useState<Step>("upload");
   const [pending, startTransition] = useTransition();
   const [dropzoneKey, setDropzoneKey] = useState(0);
@@ -140,12 +154,14 @@ export function ImportClinicalEntriesDialog({ practitioners }: ImportClinicalEnt
         if (!next) reset();
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <UploadIcon data-icon="inline-start" />
-          Importar consultas
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <ArrowUpTrayIcon data-icon="inline-start" />
+            Importar consultas
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar consultas</DialogTitle>
@@ -251,7 +267,7 @@ export function ImportClinicalEntriesDialog({ practitioners }: ImportClinicalEnt
                   "Importando..."
                 ) : (
                   <>
-                    <UploadIcon data-icon="inline-start" />
+                    <ArrowUpTrayIcon data-icon="inline-start" />
                     Importar
                   </>
                 )}

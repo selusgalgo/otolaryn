@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
@@ -8,7 +8,7 @@ import { CreateAppointmentDialog } from "@/components/appointments/create-appoin
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
 import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
 import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
-import { PatientAvatar } from "@/components/patients/patient-avatar";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
@@ -104,7 +104,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <PatientAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
+          <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
           <h1 className="text-2xl font-bold">
             {patient.firstName} {patient.lastName}
           </h1>

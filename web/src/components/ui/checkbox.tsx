@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon } from "@heroicons/react/24/outline"
 
 import { cn } from "@/lib/utils"
 

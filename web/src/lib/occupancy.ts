@@ -153,16 +153,16 @@ export function computeDayFreeSlots(
 // for the verde/rojo/gris palette and its legend labels, so the two
 // calendars can't drift out of sync with each other.
 export const OCCUPANCY_STYLES: Record<DayOccupancy, string> = {
-  // Reuses the same tokens as AppointmentStatusBadge.
-  free: "bg-success/20 hover:bg-success/30",
-  full: "bg-destructive/20 hover:bg-destructive/30",
+  // Semantic color rule: 700 for the foreground, 100 for the background.
+  free: "bg-green-100 text-green-700 hover:bg-green-200",
+  full: "bg-red-100 text-red-700 hover:bg-red-200",
   closed: "bg-muted/50 text-muted-foreground/60",
 };
 
 export const OCCUPANCY_LEGEND: { key: DayOccupancy; label: string; swatch: string }[] = [
-  { key: "free", label: "Con huecos libres", swatch: "bg-success" },
-  { key: "full", label: "Completo", swatch: "bg-destructive" },
-  { key: "closed", label: "Cerrado / vacaciones", swatch: "bg-muted-foreground/40" },
+  { key: "free", label: "Disponible", swatch: "bg-green-700" },
+  { key: "full", label: "Completo", swatch: "bg-red-700" },
+  { key: "closed", label: "Cerrado", swatch: "bg-muted-foreground/40" },
 ];
 
 export interface FreeSlotOptions {

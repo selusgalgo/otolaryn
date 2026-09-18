@@ -50,7 +50,7 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
           name="role"
           defaultValue="profesional"
           disabled={pending}
-          className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+          className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
         >
           {ASSIGNABLE_ROLES.map((value) => (
             <option key={value} value={value}>

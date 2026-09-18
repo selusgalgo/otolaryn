@@ -1,21 +1,20 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AppointmentRowActions } from "@/components/appointments/appointment-row-actions";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
 import { apiFetch } from "@/lib/api";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
+import { getCurrentUser } from "@/lib/auth";
+import { toDateKey } from "@/lib/calendar-grid";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Paginated, Patient, Schedule } from "@/lib/types";
+import { formatDocumentId, splitName } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
@@ -24,16 +23,26 @@ function formatDateTime(iso: string): string {
 export default async function AppointmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; page?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; page?: string; practitionerId?: string }>;
 }) {
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
-  const from = params.from || todayIso();
-  const to = params.to;
+  const practitionerId = params.practitionerId;
+
+  // The calendar itself is the filter — no separate date-range form.
+  // Nothing in the URL yet means "the whole visible month" (today's);
+  // navigating months or clicking a day (see OccupancyCalendar) sets
+  // from/to explicitly instead.
+  const now = new Date();
+  const defaultFrom = toDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+  const defaultTo = toDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  const from = params.from || defaultFrom;
+  const to = params.to || defaultTo;
 
   const query = new URLSearchParams();
   query.set("from", `${from}T00:00:00.000Z`);
   if (to) query.set("to", `${to}T23:59:59.999Z`);
+  if (practitionerId) query.set("practitionerId", practitionerId);
   query.set("page", String(page));
   query.set("pageSize", String(PAGE_SIZE));
 
@@ -49,20 +58,39 @@ export default async function AppointmentsPage({
     ),
   );
 
-  // The calendar starts on whatever month "from" falls in (today, unless
-  // the date-range form above has been used) — schedule is read-only here
-  // for every tenant role (see SettingsController), profesional/recepcion
-  // included, since they need it too to make sense of the colors.
+  // The calendar's own grid always shows whatever month "from" falls in.
   const fromDate = new Date(`${from}T00:00:00`);
-  const [schedule, initialAppointments, practitioners] = await Promise.all([
+  const [schedule, appointments, practitioners, me] = await Promise.all([
     apiFetch<Schedule>("/settings/schedule"),
-    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
+    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth(), practitionerId),
     getPractitionerOptions(),
+    getCurrentUser(),
   ]);
-  // A day is "selected" on the calendar only when the filter form is
-  // pinned to exactly one day (from === to) — the same state a day click
-  // below produces, so clicking a day highlights itself on reload.
+  // A day is "selected" on the calendar only when the filter is pinned to
+  // exactly one day (from === to) — the same state a day click produces,
+  // so clicking a day highlights itself on reload.
   const selectedDateKey = to === from ? from : undefined;
+  const pageHref = (p: number) => {
+    const qs = new URLSearchParams();
+    qs.set("from", from);
+    if (to) qs.set("to", to);
+    if (practitionerId) qs.set("practitionerId", practitionerId);
+    qs.set("page", String(p));
+    return `/appointments?${qs.toString()}`;
+  };
+
+  // practitioners is null for a profesional (see getPractitionerOptions) —
+  // every row they see is already scoped to themselves server-side, so
+  // that's the only name worth resolving in that case. For admin/recepcion,
+  // look the id up in the real list instead of assuming anything.
+  const practitionerNameById = new Map(practitioners?.map((p) => [p.id, p.label]));
+  function practitionerNameFor(appointment: Appointment): string | null {
+    if (appointment.practitionerId) {
+      const name = practitionerNameById.get(appointment.practitionerId);
+      if (name) return name;
+    }
+    return me.role === "profesional" ? `${me.firstName} ${me.lastName}` : null;
+  }
 
   return (
     <div className="space-y-4">
@@ -72,62 +100,82 @@ export default async function AppointmentsPage({
       </div>
 
       <OccupancyCalendar
-        initialYear={fromDate.getFullYear()}
-        initialMonth={fromDate.getMonth()}
-        initialAppointments={initialAppointments}
+        year={fromDate.getFullYear()}
+        month={fromDate.getMonth()}
+        appointments={appointments}
         schedule={schedule}
         selectedDateKey={selectedDateKey}
         practitioners={practitioners}
+        from={from}
+        to={to}
+        practitionerId={practitionerId}
       />
-
-      <form className="flex items-end gap-4" action="/appointments">
-        <div className="space-y-2">
-          <Label htmlFor="from">Desde</Label>
-          <Input id="from" name="from" type="date" defaultValue={from} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="to">Hasta</Label>
-          <Input id="to" name="to" type="date" defaultValue={to} />
-        </div>
-        <Button type="submit" variant="outline">
-          Filtrar
-        </Button>
-      </form>
 
       <div className="rounded-md border bg-background">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fecha y hora</TableHead>
               <TableHead>Paciente</TableHead>
-              <TableHead>Duración</TableHead>
+              <TableHead>Fecha y hora</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Profesional</TableHead>
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {result.data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No hay citas en este rango.
                 </TableCell>
               </TableRow>
             )}
-            {result.data.map((appointment, i) => (
-              <TableRow key={appointment.id}>
-                <TableCell>
-                  <Link href={`/appointments/${appointment.id}`} className="hover:underline">
-                    {formatDateTime(appointment.scheduledAt)}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {patients[i] ? `${patients[i]!.firstName} ${patients[i]!.lastName}` : "—"}
-                </TableCell>
-                <TableCell>{appointment.durationMinutes} min</TableCell>
-                <TableCell>
-                  <AppointmentStatusBadge status={appointment.status} />
-                </TableCell>
-              </TableRow>
-            ))}
+            {result.data.map((appointment, i) => {
+              const patient = patients[i];
+              const practitionerName = practitionerNameFor(appointment);
+              return (
+                <TableRow key={appointment.id}>
+                  <TableCell>
+                    {patient ? (
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
+                        <div>
+                          <div className="font-medium">
+                            {patient.firstName} {patient.lastName}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDocumentId(patient.documentId)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/appointments/${appointment.id}`} className="hover:underline">
+                      {formatDateTime(appointment.scheduledAt)}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <AppointmentStatusBadge status={appointment.status} />
+                  </TableCell>
+                  <TableCell>
+                    {practitionerName ? (
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar {...splitName(practitionerName)} size="sm" />
+                        {practitionerName}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <AppointmentRowActions appointment={appointment} practitioners={practitioners} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -140,7 +188,7 @@ export default async function AppointmentsPage({
           <div className="flex gap-2">
             {page > 1 ? (
               <Button asChild variant="outline" size="sm">
-                <Link href={`/appointments?from=${from}${to ? `&to=${to}` : ""}&page=${page - 1}`}>Anterior</Link>
+                <Link href={pageHref(page - 1)}>Anterior</Link>
               </Button>
             ) : (
               <Button variant="outline" size="sm" disabled>
@@ -149,7 +197,7 @@ export default async function AppointmentsPage({
             )}
             {page < totalPages ? (
               <Button asChild variant="outline" size="sm">
-                <Link href={`/appointments?from=${from}${to ? `&to=${to}` : ""}&page=${page + 1}`}>Siguiente</Link>
+                <Link href={pageHref(page + 1)}>Siguiente</Link>
               </Button>
             ) : (
               <Button variant="outline" size="sm" disabled>

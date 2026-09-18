@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { updateTenantScheduleAction } from "@/lib/actions/platform";

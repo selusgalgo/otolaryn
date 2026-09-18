@@ -6,13 +6,24 @@ import "./globals.css";
 // the same CSS variable — so Tailwind's font-normal/font-medium/font-bold
 // utilities (weights 400/500/700) each resolve to the matching physical
 // file instead of the browser faking bold/medium by synthesizing it.
-const roboto = localFont({
+const inter = localFont({
   src: [
-    { path: "./fonts/Roboto-Regular.ttf", weight: "400", style: "normal" },
-    { path: "./fonts/Roboto-Medium.ttf", weight: "500", style: "normal" },
-    { path: "./fonts/Roboto-Bold.ttf", weight: "700", style: "normal" },
+    { path: "./fonts/Inter-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/Inter-Medium.ttf", weight: "500", style: "normal" },
   ],
-  variable: "--font-roboto",
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const departureMono = localFont({
+  src: [
+    {
+      path: "./fonts/DepartureMono-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+  ],
+  variable: "--font-departure-mono",
   display: "swap",
 });
 
@@ -28,7 +39,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${roboto.variable} font-sans antialiased`}>{children}</body>
+      <body
+        className={`${inter.variable} ${departureMono.variable} font-sans antialiased`}
+      >
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon, LogOutIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowLeftOnRectangleIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "@/components/account/profile-form";
 import { PasswordForm } from "@/components/account/password-form";
@@ -33,7 +33,7 @@ export default async function AccountPage() {
             aria-label="Cerrar sesión"
             className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
           >
-            <LogOutIcon className="size-5" />
+            <ArrowLeftOnRectangleIcon className="size-5" />
           </button>
         </form>
       </header>

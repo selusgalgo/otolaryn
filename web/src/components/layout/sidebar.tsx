@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowLeftOnRectangleIcon,
   CalendarDaysIcon,
+  Cog6ToothIcon,
   EllipsisVerticalIcon,
-  LayoutDashboardIcon,
-  LogOutIcon,
-  SettingsIcon,
-  UserCogIcon,
+  HomeIcon,
+  IdentificationIcon,
   UserIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@heroicons/react/24/outline";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -30,7 +30,7 @@ import type { Me, Role } from "@/lib/types";
 const NAV_ITEMS: {
   href: string;
   label: string;
-  icon: typeof LayoutDashboardIcon;
+  icon: typeof HomeIcon;
   roles: Role[];
   // Configuración lives in the ⋮ menu (UserMenu) on desktop now, not
   // repeated in the sidebar list too. Mobile's bottom nav has no ⋮ menu
@@ -40,7 +40,7 @@ const NAV_ITEMS: {
   {
     href: "/dashboard",
     label: "Inicio",
-    icon: LayoutDashboardIcon,
+    icon: HomeIcon,
     roles: ["admin", "profesional", "recepcion"],
   },
   {
@@ -58,13 +58,13 @@ const NAV_ITEMS: {
   {
     href: "/users",
     label: "Usuarios",
-    icon: UserCogIcon,
+    icon: IdentificationIcon,
     roles: ["admin"],
   },
   {
     href: "/settings",
     label: "Configuración",
-    icon: SettingsIcon,
+    icon: Cog6ToothIcon,
     roles: ["admin"],
     hideFromDesktopNav: true,
   },
@@ -166,14 +166,14 @@ function UserMenu({ me }: { me: Me }) {
           {me.role === "admin" && (
             <DropdownMenuItem asChild>
               <Link href="/settings">
-                <SettingsIcon className="size-4" />
+                <Cog6ToothIcon className="size-4" />
                 Configuración
               </Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void logoutAction()}>
-            <LogOutIcon className="size-4" />
+            <ArrowLeftOnRectangleIcon className="size-4" />
             Cerrar sesión
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -216,7 +216,7 @@ export function Sidebar({ me }: { me: Me }) {
               aria-label="Cerrar sesión"
               className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
             >
-              <LogOutIcon className="size-5" />
+              <ArrowLeftOnRectangleIcon className="size-5" />
             </button>
           </form>
         </div>

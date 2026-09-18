@@ -1,5 +1,19 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+// Plain twMerge doesn't know about the custom `--text-heading`/`--text-body`/
+// `--text-button` font-size tokens defined in globals.css (it only reads its
+// own built-in scale, not the project's @theme block) — without this it
+// classifies `text-button` as a text-color utility, sees it in the same
+// group as a genuine color class like `text-primary-foreground`, and drops
+// whichever one comes first.
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: ["heading", "body", "button"] }],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -17,6 +31,22 @@ export function formatDateOnly(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+const SHORT_MONTHS_ES = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sept", "oct", "nov", "dic",
+];
+
+// Same regex-on-the-raw-string approach as formatDateOnly, and for the same
+// reason — going through `new Date(iso)` first risks a timezone-driven
+// off-by-one on a date-only value. "18 sept 2026" style, used where that
+// reads better than the plain DD/MM/AAAA above (e.g. the patients table).
+export function formatDateShort(iso: string): string {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return iso;
+  const [, year, month, day] = match;
+  return `${Number(day)} ${SHORT_MONTHS_ES[Number(month) - 1]} ${year}`;
+}
+
 // Documento is optional — null for a patient that never had one. Rows
 // imported before that placeholder scheme was retired can still carry a
 // "SIN-DOC-982e4abe"-shaped value (see the old generatePlaceholderDocumentId
@@ -25,4 +55,12 @@ export function formatDateOnly(iso: string): string {
 // instead of the raw value.
 export function formatDocumentId(documentId: string | null): string {
   return documentId && !documentId.startsWith("SIN-DOC-") ? documentId : "-";
+}
+
+// A few call sites only carry a combined "Nombre Apellidos" string (e.g.
+// PractitionerOption.label) but need firstName/lastName separately to feed
+// InitialsAvatar — split on the first space to reconstruct that shape.
+export function splitName(name: string): { firstName: string; lastName: string } {
+  const [firstName, ...rest] = name.split(" ");
+  return { firstName, lastName: rest.join(" ") || firstName };
 }

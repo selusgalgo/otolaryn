@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRightIcon, ClipboardListIcon, ClockIcon, ShieldIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -24,13 +29,13 @@ const SECTIONS: {
     href: "/settings/antecedentes",
     title: "Antecedentes",
     description: "Etiquetas que los profesionales pueden marcar en la ficha de cada paciente.",
-    icon: ClipboardListIcon,
+    icon: ClipboardDocumentListIcon,
   },
   {
     href: "/settings/insurance",
     title: "Compañías de seguros",
     description: "Aseguradoras con las que trabaja la clínica.",
-    icon: ShieldIcon,
+    icon: ShieldCheckIcon,
   },
 ];
 

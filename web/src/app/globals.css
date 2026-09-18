@@ -7,8 +7,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-roboto);
-  --font-heading: var(--font-roboto);
+  --color-stock: var(--stock);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
+  --font-button: var(--font-departure-mono);
+  /* Heading: Inter Medium, 16px, 150% line-height. */
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5;
+  /* Body: Inter Regular, 12px, 160% line-height. */
+  --text-body: 0.75rem;
+  --text-body--line-height: 1.6;
+  /* Button: Departure Mono Regular, 12px, 160% line-height. */
+  --text-button: 0.75rem;
+  --text-button--line-height: 1.6;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,41 +60,48 @@
 }
 
 :root {
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Corporate palette: #1F4E8C principal, #2477BF secundario, #A7D5F2
-     complementario (zonas claras) — used for buttons and other UI accents. */
-  --primary: #1f4e8c;
-  --primary-foreground: #ffffff;
-  --secondary: #2477bf;
-  --secondary-foreground: #ffffff;
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: #a7d5f2;
-  --accent-foreground: #1f4e8c;
+  /* Base palette: Black/White/Body-gray/Stock-gray. Sky-900 is the sole
+     accent color (buttons, links, focus/active states) — everything else
+     in the old blue family (secondary, accent) is replaced by the neutral
+     palette below. */
+  --black: #191919;
+  --white: #ffffff;
+  --body: #616161;
+  --stock: #e5e5e5;
+
+  --card: var(--white);
+  --card-foreground: var(--black);
+  --popover: var(--white);
+  --popover-foreground: var(--black);
+  --primary: oklch(39.1% 0.09 240.876);
+  --primary-foreground: var(--white);
+  --secondary: var(--stock);
+  --secondary-foreground: var(--black);
+  --muted: var(--stock);
+  --muted-foreground: var(--body);
+  --accent: var(--stock);
+  --accent-foreground: var(--black);
   --destructive: #f23d4c;
   --success: #00e492;
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: #1f4e8c;
+  --border: var(--stock);
+  --input: var(--stock);
+  --ring: oklch(39.1% 0.09 240.876);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --sidebar: var(--white);
+  --sidebar-foreground: var(--black);
+  --sidebar-primary: oklch(39.1% 0.09 240.876);
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: var(--stock);
+  --sidebar-accent-foreground: var(--black);
+  --sidebar-border: var(--stock);
+  --sidebar-ring: oklch(39.1% 0.09 240.876);
+  --background: var(--white);
+  --foreground: var(--black);
 }
 
 .dark {
@@ -93,14 +111,14 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: #1f4e8c;
+  --primary: oklch(39.1% 0.09 240.876);
   --primary-foreground: #ffffff;
   --secondary: #2477bf;
   --secondary-foreground: #ffffff;
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: #a7d5f2;
-  --accent-foreground: #1f4e8c;
+  --accent-foreground: oklch(39.1% 0.09 240.876);
   --destructive: #f23d4c;
   --success: #00e492;
   --border: oklch(1 0 0 / 10%);
@@ -126,7 +144,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-normal;
+    @apply bg-background text-foreground font-normal text-body;
   }
   html {
     @apply font-sans;
@@ -137,6 +155,6 @@
   h4,
   h5,
   h6 {
-    @apply font-bold;
+    @apply font-heading font-medium text-heading;
   }
 }

@@ -77,7 +77,7 @@ export function ImportClinicalEntriesColumnMapping({
                 value={selected}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
               >
                 <option value="">{required ? "Selecciona una columna…" : "No importar"}</option>
                 {preview.headers.map((header) => (
@@ -102,7 +102,7 @@ export function ImportClinicalEntriesColumnMapping({
                 value={selected}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-50"
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
               >
                 <option value="">No importar</option>
                 {preview.headers.map((header) => (

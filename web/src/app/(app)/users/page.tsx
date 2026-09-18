@@ -2,10 +2,11 @@ import { redirect } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { EditUserDialog } from "@/components/users/edit-user-dialog";
+import { RoleBadge } from "@/components/users/role-badge";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { apiFetch } from "@/lib/api";
 import { updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
 import { getCurrentUser } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
 
 export default async function UsersPage() {
@@ -47,10 +48,15 @@ export default async function UsersPage() {
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>
-                  {user.firstName} {user.lastName}
+                  <div className="flex items-center gap-3">
+                    <InitialsAvatar firstName={user.firstName} lastName={user.lastName} size="sm" />
+                    {user.firstName} {user.lastName}
+                  </div>
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>{ROLE_LABELS[user.role] ?? user.role}</TableCell>
+                <TableCell>
+                  <RoleBadge role={user.role} />
+                </TableCell>
                 <TableCell className="text-right">
                   <EditUserDialog
                     user={user}
