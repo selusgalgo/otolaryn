@@ -36,6 +36,15 @@ export class Patient {
   address: string | null;
 
   @Column({ type: 'text', nullable: true })
+  city: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  province: string | null;
+
+  @Column({ name: 'postal_code', type: 'text', nullable: true })
+  postalCode: string | null;
+
+  @Column({ type: 'text', nullable: true })
   notes: string | null;
 
   // NUMHISTORIA from the legacy OTOLARYN desktop app — only set for

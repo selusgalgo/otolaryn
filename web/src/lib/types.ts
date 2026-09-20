@@ -8,6 +8,9 @@ export interface Patient {
   phone: string;
   email: string | null;
   address: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
   notes: string | null;
   profession: string | null;
   legacyId: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,11 +20,28 @@ interface RowState {
   detalle: string;
 }
 
+function buildRows(
+  visibleTypes: AntecedenteType[],
+  markedByType: Map<string, PatientAntecedente>,
+): Map<string, RowState> {
+  return new Map(
+    visibleTypes.map((t) => {
+      const existing = markedByType.get(t.id);
+      return [t.id, { checked: !!existing, detalle: existing?.detalle ?? "" }];
+    }),
+  );
+}
+
 // A checkbox + an optional short text next to it, one row per antecedente
 // type — not a plain sí/no list: the real legacy data behind this (see
 // pacientes.xls) almost always carries a nuance ("4-5 cigarrillos/día",
 // "Alérgico al melocotón"), so the checkbox alone would throw that away.
-// One "Guardar" for the whole card, same full-replace shape as
+//
+// Two modes: at rest, only the marked antecedentes show (a quick read for
+// a clínico skimming the chart) — the full checklist (every active type,
+// to mark new ones or edit detalle) only appears once "Editar" is
+// pressed, and "Cancelar" discards any unsaved change and returns to the
+// read view. One "Guardar" for the whole card, same full-replace shape as
 // ScheduleForm/AntecedenteTypesForm rather than a save per row.
 export function PatientAntecedentesCard({
   patientId,
@@ -38,18 +56,13 @@ export function PatientAntecedentesCard({
     .filter((t) => t.active || markedByType.has(t.id))
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
-  const [rows, setRows] = useState<Map<string, RowState>>(
-    () =>
-      new Map(
-        visibleTypes.map((t) => {
-          const existing = markedByType.get(t.id);
-          return [t.id, { checked: !!existing, detalle: existing?.detalle ?? "" }];
-        }),
-      ),
-  );
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState<Map<string, RowState>>(() => buildRows(visibleTypes, markedByType));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const markedTypes = visibleTypes.filter((t) => rows.get(t.id)?.checked);
 
   function toggle(typeId: string, checked: boolean) {
     setSaved(false);
@@ -59,6 +72,12 @@ export function PatientAntecedentesCard({
   function setDetalle(typeId: string, detalle: string) {
     setSaved(false);
     setRows((prev) => new Map(prev).set(typeId, { ...prev.get(typeId)!, detalle }));
+  }
+
+  function cancelEdit() {
+    setRows(buildRows(visibleTypes, markedByType));
+    setError(null);
+    setEditing(false);
   }
 
   function save() {
@@ -76,28 +95,39 @@ export function PatientAntecedentesCard({
         return;
       }
       setSaved(true);
+      setEditing(false);
     });
   }
 
   return (
-    // Sin col-span: vive en el hueco de la derecha junto a Datos del
-    // paciente (ver patients/[id]/page.tsx), no a ancho completo.
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Antecedentes</CardTitle>
-        <Button size="sm" onClick={save} disabled={pending}>
-          {pending ? "Guardando..." : "Guardar"}
-        </Button>
+        {editing ? (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={cancelEdit} disabled={pending}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={save} disabled={pending}>
+              {pending ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <PencilIcon data-icon="inline-start" />
+            Editar
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {visibleTypes.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay antecedentes configurados — añádelos desde Configuración.
           </p>
-        ) : (
-          // Una sola columna: la tarjeta vive ahora en el hueco estrecho de
-          // la derecha (junto a Datos del paciente), donde dos columnas
-          // dejaban la etiqueta cortada y el campo de detalle sin sitio.
+        ) : editing ? (
+          // Una sola columna: la tarjeta vive en el hueco de la derecha
+          // junto a Historia clínica, donde dos columnas dejaban la
+          // etiqueta cortada y el campo de detalle sin sitio.
           <div className="grid grid-cols-1 gap-y-2">
             {visibleTypes.map((type) => {
               const row = rows.get(type.id)!;
@@ -123,6 +153,20 @@ export function PatientAntecedentesCard({
               );
             })}
           </div>
+        ) : markedTypes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin antecedentes marcados.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {markedTypes.map((type) => {
+              const row = rows.get(type.id)!;
+              return (
+                <li key={type.id} className="text-sm">
+                  <span className="font-medium">{type.name}</span>
+                  {row.detalle && <span className="text-muted-foreground"> — {row.detalle}</span>}
+                </li>
+              );
+            })}
+          </ul>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {saved && !error && <p className="text-sm text-success">Antecedentes guardados.</p>}
