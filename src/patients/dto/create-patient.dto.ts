@@ -61,6 +61,24 @@ export class CreatePatientDto {
   @MaxLength(300)
   address?: string;
 
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(100)
+  province?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(10)
+  postalCode?: string;
+
   // 2000 no basta para el legado: la columna HISTORIA de pacientes.xls (que
   // se mapea aquí) llega hasta 11.548 caracteres en algunas filas reales.
   @IsOptional()

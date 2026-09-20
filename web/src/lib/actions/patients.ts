@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
 import type { Patient } from "@/lib/types";
 
@@ -14,6 +13,9 @@ function patientPayloadFromFormData(formData: FormData) {
   const documentId = String(formData.get("documentId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const province = String(formData.get("province") ?? "").trim();
+  const postalCode = String(formData.get("postalCode") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const profession = String(formData.get("profession") ?? "").trim();
   const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
@@ -34,6 +36,9 @@ function patientPayloadFromFormData(formData: FormData) {
     ...(documentId ? { documentId } : {}),
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
+    ...(city ? { city } : {}),
+    ...(province ? { province } : {}),
+    ...(postalCode ? { postalCode } : {}),
     ...(notes ? { notes } : {}),
     ...(profession ? { profession } : {}),
     ...(insuranceEntityId ? { insuranceEntityId } : {}),
@@ -88,22 +93,15 @@ export async function updatePatientAction(
   return { success: true };
 }
 
-export async function deletePatientAction(id: string): Promise<void> {
-  await apiFetch(`/patients/${id}`, { method: "DELETE" });
-  revalidatePath("/patients");
-  redirect("/patients");
-}
-
 export interface ArchivePatientState {
   error?: string;
   success?: boolean;
 }
 
-// Same endpoint as deletePatientAction (a "dar de baja"/soft-delete, never
-// a real delete — the clinical history has to be kept for years), but
-// called from a row menu on the list itself: redirecting to a bare
-// "/patients" like the detail-page version does would drop whatever page
-// or search filter was showing, so this just revalidates and stays put.
+// "Dar de baja"/soft-delete, never a real delete — the clinical history
+// has to be kept for years. Called from a row menu on the patients list;
+// revalidates and stays put instead of redirecting, since the list may be
+// showing a page or search filter worth keeping.
 export async function archivePatientAction(id: string): Promise<ArchivePatientState> {
   try {
     await apiFetch(`/patients/${id}`, { method: "DELETE" });
@@ -127,8 +125,7 @@ export interface BulkDeletePatientsState {
   result?: BulkDeletePatientsResult;
 }
 
-// Unlike deletePatientAction above, doesn't redirect — this runs from the
-// list itself (PatientsTable), which needs to stay put and show how many
+// Runs from the list itself (PatientsTable), which needs to stay put and show how many
 // of the selection actually went through, since "some ids skipped" is a
 // real outcome (someone else already discharged one, a profesional
 // selected a patient outside their own visibility) and not just success

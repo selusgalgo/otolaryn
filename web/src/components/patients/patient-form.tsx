@@ -22,6 +22,11 @@ interface PatientFormProps {
   // Called after a successful submit — used by the dialog wrappers to
   // close themselves, since these actions revalidate instead of redirecting.
   onSuccess?: () => void;
+  // Renders a secondary "Cancelar" button next to the submit button when
+  // given — used by inline (non-modal) editing, where there's no dialog
+  // chrome of its own to back out of. Omitted (as in every Dialog-based
+  // use of this form) means no cancel button at all.
+  onCancel?: () => void;
   insuranceOptions?: InsuranceOption[];
   // null (not just an empty array) hides the "Médico habitual" field
   // entirely — same meaning as everywhere else PractitionerOption is used:
@@ -38,6 +43,7 @@ export function PatientForm({
   submitLabel,
   submitIcon,
   onSuccess,
+  onCancel,
   insuranceOptions,
   practitionerOptions,
 }: PatientFormProps) {
@@ -96,9 +102,23 @@ export function PatientForm({
           <Input id="address" name="address" defaultValue={initialValues?.address ?? ""} disabled={pending} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="profession">Profesión</Label>
-          <Input id="profession" name="profession" defaultValue={initialValues?.profession ?? ""} disabled={pending} />
+          <Label htmlFor="city">Población</Label>
+          <Input id="city" name="city" defaultValue={initialValues?.city ?? ""} disabled={pending} />
         </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="province">Provincia</Label>
+          <Input id="province" name="province" defaultValue={initialValues?.province ?? ""} disabled={pending} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="postalCode">C.P.</Label>
+          <Input id="postalCode" name="postalCode" maxLength={10} defaultValue={initialValues?.postalCode ?? ""} disabled={pending} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="profession">Profesión</Label>
+        <Input id="profession" name="profession" defaultValue={initialValues?.profession ?? ""} disabled={pending} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="notes">Notas</Label>
@@ -161,16 +181,23 @@ export function PatientForm({
         </div>
       )}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending}>
-        {pending ? (
-          "Guardando..."
-        ) : (
-          <>
-            {submitIcon}
-            {submitLabel}
-          </>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? (
+            "Guardando..."
+          ) : (
+            <>
+              {submitIcon}
+              {submitLabel}
+            </>
+          )}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+            Cancelar
+          </Button>
         )}
-      </Button>
+      </div>
     </form>
   );
 }
