@@ -93,6 +93,33 @@ export async function updatePatientAction(
   return { success: true };
 }
 
+// Standalone action for the Notas card on the patient detail page — a
+// plain patientPayloadFromFormData().notes would also send whatever the
+// FormData happens to be missing (firstName, dateOfBirth, ...) as empty
+// strings and overwrite the rest of the patient, since that helper is
+// built for a full patient form. This sends only what changed.
+export async function updatePatientNotesAction(
+  id: string,
+  _prevState: PatientFormState,
+  formData: FormData,
+): Promise<PatientFormState> {
+  const notes = String(formData.get("notes") ?? "").trim();
+  try {
+    await apiFetch<Patient>(`/patients/${id}`, {
+      method: "PATCH",
+      body: { notes },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudieron guardar las notas." };
+  }
+
+  revalidatePath(`/patients/${id}`);
+  return { success: true };
+}
+
 export interface ArchivePatientState {
   error?: string;
   success?: boolean;

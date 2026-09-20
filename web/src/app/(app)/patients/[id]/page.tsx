@@ -3,29 +3,17 @@ import { notFound } from "next/navigation";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
-import { CreateAppointmentDialog } from "@/components/appointments/create-appointment-dialog";
 import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
+import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
 import { getPractitionerOptions } from "@/lib/practitioners";
-import type {
-  AntecedenteType,
-  Appointment,
-  ClinicalEntry,
-  Paginated,
-  Patient,
-  PatientAntecedente,
-} from "@/lib/types";
+import type { AntecedenteType, ClinicalEntry, Paginated, Patient, PatientAntecedente } from "@/lib/types";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,12 +34,11 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   // this endpoint for that role, so it's skipped entirely rather than
   // fetched and hidden. Antecedentes are clinical data too, same
   // exclusion.
-  const [entries, appointments, practitioners, insuranceOptions, antecedentes] =
+  const [entries, practitioners, insuranceOptions, antecedentes] =
     await Promise.all([
       me.role === "recepcion"
         ? null
         : apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
-      apiFetch<Paginated<Appointment>>(`/appointments?patientId=${id}&pageSize=50`),
       getPractitionerOptions(),
       getInsuranceOptions(),
       me.role === "recepcion"
@@ -74,36 +61,6 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     return me.role === "profesional" ? `${me.firstName} ${me.lastName}` : null;
   }
 
-  const agendaCard = (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Agenda</CardTitle>
-        <CreateAppointmentDialog patientId={id} practitioners={practitioners} />
-      </CardHeader>
-      <CardContent>
-        {appointments.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin citas todavía.</p>
-        ) : (
-          <ul className="divide-y">
-            {appointments.data.map((appointment) => (
-              <li key={appointment.id} className="py-2">
-                <Link
-                  href={`/appointments/${appointment.id}`}
-                  className="flex items-center justify-between gap-4 hover:underline"
-                >
-                  <span className="text-sm">{formatDateTime(appointment.scheduledAt)}</span>
-                  <span className="shrink-0">
-                    <AppointmentStatusBadge status={appointment.status} />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-4">
       <PatientProfileSection
@@ -113,11 +70,11 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         practitionerOptions={practitioners}
       />
 
-      {/* Debajo, a ancho completo y en este orden: Historia clínica y
-          Antecedentes (solo admin/profesional, que tienen acceso clínico)
-          y, cerrando la página, Agenda — la misma para todos los roles,
-          última porque es la que menos cambia entre visitas. Below md todo
-          se apila en una columna en este mismo orden de arriba a abajo. */}
+      {/* Debajo, a ancho completo: Historia clínica y Antecedentes (solo
+          admin/profesional, que tienen acceso clínico) y, cerrando la
+          página, Notas — visible para todos los roles, a diferencia del
+          resto de este bloque. Below md todo se apila en una columna en
+          este mismo orden de arriba a abajo. */}
       {entries !== null && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
           <Card>
@@ -167,7 +124,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {agendaCard}
+      <PatientNotesCard patientId={id} notes={patient.notes} />
     </div>
   );
 }
