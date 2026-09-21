@@ -26,6 +26,13 @@ const COLUMNS: {
 
 const VISIT_DATE_LABEL = 'Fecha';
 const PATIENT_LEGACY_ID_LABEL = 'Nº de historia';
+// Same header names the Pacientes importer suggests for firstName/lastName
+// — a real consultas.xls repeats the patient's own name on every row
+// (NOMBRE/APELLIDOS), which is exactly what lets bulkImport double-check a
+// legacy_id match against a name instead of trusting it blindly (see
+// name-similarity.util.ts).
+const PATIENT_FIRST_NAME_LABEL = 'Nombre';
+const PATIENT_LAST_NAME_LABEL = 'Apellidos';
 const INSURANCE_NAME_LABEL = 'Aseguradora';
 const DOCTOR_NAME_LABEL = 'Doctor';
 
@@ -42,6 +49,8 @@ export interface ClinicalEntryFieldMapping {
   treatment?: string;
   visitDate?: string;
   patientLegacyId?: string;
+  patientFirstName?: string;
+  patientLastName?: string;
   insuranceEntityName?: string;
   doctorName?: string;
 }
@@ -66,6 +75,14 @@ export function suggestClinicalEntryMapping(
     normalizeHeader(PATIENT_LEGACY_ID_LABEL),
   );
   if (legacyIdHeader) mapping.patientLegacyId = legacyIdHeader;
+  const patientFirstNameHeader = byNormalized.get(
+    normalizeHeader(PATIENT_FIRST_NAME_LABEL),
+  );
+  if (patientFirstNameHeader) mapping.patientFirstName = patientFirstNameHeader;
+  const patientLastNameHeader = byNormalized.get(
+    normalizeHeader(PATIENT_LAST_NAME_LABEL),
+  );
+  if (patientLastNameHeader) mapping.patientLastName = patientLastNameHeader;
   const insuranceHeader = byNormalized.get(
     normalizeHeader(INSURANCE_NAME_LABEL),
   );
@@ -125,6 +142,11 @@ export interface ClinicalEntryImportRow {
   treatment?: string;
   visitDate?: string;
   patientLegacyId?: string;
+  // The row's own patient name, kept purely as a sanity check against the
+  // patient legacy_id actually resolves to — see bulkImport and
+  // name-similarity.util.ts. Never used to resolve the patient itself.
+  patientFirstName?: string;
+  patientLastName?: string;
   insuranceEntityName?: string;
   // Raw name, not yet resolved to a user id — bulkImport looks it up in
   // the doctorMapping confirmed in the wizard's resolution step.
@@ -171,6 +193,18 @@ export function parseClinicalEntriesFile(
         sourceRow[effectiveMapping.patientLegacyId],
       ).trim();
       if (text) row.patientLegacyId = text;
+    }
+    if (effectiveMapping.patientFirstName) {
+      const text = cellToText(
+        sourceRow[effectiveMapping.patientFirstName],
+      ).trim();
+      if (text) row.patientFirstName = text;
+    }
+    if (effectiveMapping.patientLastName) {
+      const text = cellToText(
+        sourceRow[effectiveMapping.patientLastName],
+      ).trim();
+      if (text) row.patientLastName = text;
     }
     if (effectiveMapping.insuranceEntityName) {
       const text = cellToText(

@@ -7,16 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { PatientForm } from "@/components/patients/patient-form";
 import { createPatientAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
-import type { PractitionerOption } from "@/lib/practitioners";
 
 interface CreatePatientDialogProps {
   insuranceOptions?: InsuranceOption[];
-  practitionerOptions?: PractitionerOption[] | null;
 }
 
 export function CreatePatientDialog({
   insuranceOptions,
-  practitionerOptions,
 }: CreatePatientDialogProps) {
   const [open, setOpen] = useState(false);
 
@@ -28,18 +25,21 @@ export function CreatePatientDialog({
           Nuevo paciente
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Nuevo paciente</DialogTitle>
         </DialogHeader>
-        <PatientForm
-          action={createPatientAction}
-          submitLabel="Crear paciente"
-          submitIcon={<PlusIcon data-icon="inline-start" />}
-          onSuccess={() => setOpen(false)}
-          insuranceOptions={insuranceOptions}
-          practitionerOptions={practitionerOptions}
-        />
+        {/* Solo esto se desplaza cuando el formulario no cabe entero — el
+            título y el borde del diálogo se quedan fijos. */}
+        <div className="overflow-y-auto">
+          <PatientForm
+            action={createPatientAction}
+            submitLabel="Crear paciente"
+            submitIcon={<PlusIcon data-icon="inline-start" />}
+            onSuccess={() => setOpen(false)}
+            insuranceOptions={insuranceOptions}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -40,6 +40,7 @@ interface PaginatedEntries {
     chiefComplaint: string;
     authorUserId: string;
     insuranceEntityId: string | null;
+    visitDate: string;
   }[];
   total: number;
 }
@@ -177,6 +178,10 @@ describe('Consultas — import', () => {
     expect(list[0].chiefComplaint).toBe('Dolor de oido');
     expect(list[0].authorUserId).toBe(doctorUserId);
     expect(list[0].insuranceEntityId).toBeTruthy();
+    // FECHA never carries a real time of day — defaults to a plausible
+    // 10:00 rather than the UTC-midnight-as-01:00 a bare date used to
+    // produce (see toVisitDate in the service).
+    expect(new Date(list[0].visitDate).getHours()).toBe(10);
   });
 
   it('skips a row whose Nº de historia has no matching patient', async () => {
@@ -249,6 +254,65 @@ describe('Consultas — import', () => {
     expect(secondBody.skipped.find((s) => s.row === 2)?.reason).toBe(
       'Esta fila ya se había importado antes',
     );
+  });
+
+  it('skips a row whose name does not match the patient that Nº de historia resolves to', async () => {
+    // Real legacy data confirmed this happens: the same NUMHISTORIA can
+    // point to a different person between pacientes.xls and
+    // consultas.xls, because the legacy system reused/reassigned historia
+    // numbers over the years. NH-500 belongs to "Paciente Legado" — a row
+    // claiming to be a completely different person under that same number
+    // must be skipped for manual review, not silently attached to the
+    // wrong patient.
+    const csv = [
+      'Nombre,Apellidos,Motivo,Nº de historia,Doctor',
+      'Isabel,Domínguez Gutiérrez,Revision,NH-500,Dr. Federico',
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/clinical-entries/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
+      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(0);
+    expect(body.skipped).toHaveLength(1);
+    expect(body.skipped[0].reason).toContain('no coincide con el paciente');
+  });
+
+  it('tolerates a typo in the name and still imports the row', async () => {
+    // Same real-data finding: minor typos in the legacy file ("Mnauel" for
+    // "Manuel") must NOT be treated as a mismatch — the guard is a sanity
+    // check against a wrong person, not a spellchecker.
+    //
+    // The two leading rows (no Motivo, skipped) push the real row to
+    // legacy_id "3" — "1" and "2" are already taken by earlier tests in
+    // this same tenant (see the idempotency test above), and legacy_id is
+    // just this file's own row position, so a real row landing on "1" or
+    // "2" here would collide with those instead of testing what this test
+    // is actually about.
+    const csv = [
+      'Nombre,Apellidos,Motivo,Nº de historia,Doctor',
+      ',,,NH-500,Dr. Federico',
+      ',,,NH-500,Dr. Federico',
+      'Pcaiente,Legaod,Revision,NH-500,Dr. Federico',
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/clinical-entries/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
+      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportResult;
+    expect(body.created).toBe(1);
+    expect(body.skipped).toHaveLength(2);
+    expect(
+      body.skipped.every((s) => s.reason === 'Falta el motivo de la consulta'),
+    ).toBe(true);
   });
 
   it('forbids recepcion from importing consultas', async () => {

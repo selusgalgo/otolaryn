@@ -13,6 +13,8 @@ export interface ClinicalEntryColumnMapping {
   treatment?: string;
   visitDate?: string;
   patientLegacyId?: string;
+  patientFirstName?: string;
+  patientLastName?: string;
   insuranceEntityName?: string;
   doctorName?: string;
 }

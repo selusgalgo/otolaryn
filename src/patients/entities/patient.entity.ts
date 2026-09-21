@@ -29,6 +29,9 @@ export class Patient {
   @Column()
   phone: string;
 
+  @Column({ name: 'phone2', type: 'text', nullable: true })
+  phone2: string | null;
+
   @Column({ type: 'text', nullable: true })
   email: string | null;
 
@@ -54,15 +57,6 @@ export class Patient {
 
   @Column({ name: 'insurance_entity_id', type: 'uuid', nullable: true })
   insuranceEntityId: string | null;
-
-  // FPRIMERACONSULTA from the legacy app — date only, no time component.
-  @Column({ name: 'first_consultation_date', type: 'date', nullable: true })
-  firstConsultationDate: string | null;
-
-  // "Médico habitual" — no legacy equivalent (pacientes.xls has no doctor
-  // column), a forward-looking field editable from the patient's own page.
-  @Column({ name: 'assigned_practitioner_id', type: 'uuid', nullable: true })
-  assignedPractitionerId: string | null;
 
   // PROFESION from the legacy app.
   @Column({ type: 'text', nullable: true })

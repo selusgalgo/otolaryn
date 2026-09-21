@@ -6,6 +6,7 @@ export interface Patient {
   documentId: string | null;
   dateOfBirth: string;
   phone: string;
+  phone2: string | null;
   email: string | null;
   address: string | null;
   city: string | null;
@@ -16,7 +17,6 @@ export interface Patient {
   legacyId: string | null;
   insuranceEntityId: string | null;
   firstConsultationDate: string | null;
-  assignedPractitionerId: string | null;
   createdAt: string;
   deletedAt: string | null;
 }

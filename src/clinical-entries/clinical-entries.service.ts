@@ -3,12 +3,29 @@ import { QueryFailedError } from 'typeorm';
 import { InsuranceService } from '../insurance/insurance.service';
 import { Patient } from '../patients/entities/patient.entity';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
+import { namesLookRelated } from '../shared/name-similarity.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { ClinicalEntry } from './entities/clinical-entry.entity';
 
 const UNIQUE_VIOLATION = '23505';
+
+// A bare "YYYY-MM-DD" (no time part — every consulta imported from
+// consultas.xls is this shape, since FECHA never carries a real time of
+// day) parsed with `new Date(...)` is treated as UTC midnight, which
+// renders as 01:00/02:00 in Spain depending on DST — an oddly specific-
+// looking time for something that's actually "no real time known".
+// Appending a fixed 10:00 (a plausible mid-morning consult time, and
+// parsed as local rather than UTC once it's a full date-time string)
+// reads as the obviously-a-placeholder value it is instead of looking
+// like real data. A value that already carries its own time (every
+// manual "Nueva consulta" from the UI) passes through untouched.
+function toVisitDate(visitDate: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(visitDate)
+    ? new Date(`${visitDate}T10:00:00`)
+    : new Date(visitDate);
+}
 
 export interface ImportClinicalEntriesResult {
   totalRows: number;
@@ -49,7 +66,7 @@ export class ClinicalEntriesService {
       diagnosis: dto.diagnosis ?? null,
       treatment: dto.treatment ?? null,
       followUpNotes: dto.followUpNotes ?? null,
-      visitDate: dto.visitDate ? new Date(dto.visitDate) : new Date(),
+      visitDate: dto.visitDate ? toVisitDate(dto.visitDate) : new Date(),
     });
     return this.repo.save(entry);
   }
@@ -115,6 +132,29 @@ export class ClinicalEntriesService {
         continue;
       }
 
+      // The legacy source itself isn't reliable: the same NUMHISTORIA can
+      // point to a different person in pacientes.xls than in
+      // consultas.xls (the legacy system reused/reassigned historia
+      // numbers over the years — confirmed against a real sample of both
+      // files). legacy_id resolution above is exact and correct; this is
+      // a sanity check on top of it, not a replacement — if the row's own
+      // name looks nothing like the patient that legacy_id resolved to,
+      // skip it for manual review instead of silently attaching it to the
+      // wrong person.
+      if (row.patientFirstName || row.patientLastName) {
+        const rowName = [row.patientFirstName, row.patientLastName]
+          .filter(Boolean)
+          .join(' ');
+        const patientName = `${patient.firstName} ${patient.lastName}`;
+        if (!namesLookRelated(rowName, patientName)) {
+          skipped.push({
+            row: rowNumber,
+            reason: `El nombre "${rowName}" no coincide con el paciente "${patientName}" (nº de historia "${row.patientLegacyId}") — revisa el nº de historia`,
+          });
+          continue;
+        }
+      }
+
       const authorUserId = row.doctorName
         ? doctorMapping[row.doctorName]
         : undefined;
@@ -160,7 +200,7 @@ export class ClinicalEntriesService {
           diagnosis: null,
           treatment: row.treatment ?? null,
           followUpNotes: null,
-          visitDate: row.visitDate ? new Date(row.visitDate) : new Date(),
+          visitDate: row.visitDate ? toVisitDate(row.visitDate) : new Date(),
           insuranceEntityId: insuranceEntityId ?? null,
           legacyId: String(rowNumber),
         });

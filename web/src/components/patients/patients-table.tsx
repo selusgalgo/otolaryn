@@ -23,7 +23,6 @@ import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
-import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 import { formatDateShort, formatDocumentId } from "@/lib/utils";
 
@@ -38,7 +37,6 @@ interface PatientsTableProps {
   // since the checkboxes/selection UI exists only to feed that action.
   canArchive: boolean;
   insuranceOptions?: InsuranceOption[];
-  practitionerOptions?: PractitionerOption[] | null;
   // Current sort + search, mirrored from the URL by the page above — used
   // only to build each sortable header's href and pick its chevron icon,
   // never to re-sort `patients` client-side (the server already returned
@@ -93,7 +91,6 @@ export function PatientsTable({
   emptyMessage,
   canArchive,
   insuranceOptions,
-  practitionerOptions,
   search,
   sortBy,
   sortDir = "asc",
@@ -268,7 +265,6 @@ export function PatientsTable({
                     patient={patient}
                     canArchive={canArchive}
                     insuranceOptions={insuranceOptions}
-                    practitionerOptions={practitionerOptions}
                   />
                 </TableCell>
               </TableRow>

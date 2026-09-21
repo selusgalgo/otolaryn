@@ -25,6 +25,7 @@ interface PatientResponse {
   email: string | null;
   address: string | null;
   notes: string | null;
+  firstConsultationDate: string | null;
 }
 
 interface PaginatedPatients {
@@ -144,6 +145,44 @@ describe('Patients CRUD', () => {
 
     expect(res.status).toBe(200);
     expect((res.body as PatientResponse).id).toBe(id);
+  });
+
+  it('derives firstConsultationDate from the earliest clinical entry instead of a stored field', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('first-consultation'));
+    const id = (created.body as PatientResponse).id;
+
+    const before = await request(server)
+      .get(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    // No consultas yet — nothing to derive it from.
+    expect((before.body as PatientResponse).firstConsultationDate).toBeNull();
+
+    await request(server)
+      .post(`/patients/${id}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        visitDate: '2020-06-15T10:00:00.000Z',
+        chiefComplaint: 'Revisión',
+      });
+    // Earlier than the one above — created second, but it's the one that
+    // should win as "first consultation".
+    await request(server)
+      .post(`/patients/${id}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        visitDate: '2018-02-01T10:00:00.000Z',
+        chiefComplaint: 'Primera visita',
+      });
+
+    const after = await request(server)
+      .get(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((after.body as PatientResponse).firstConsultationDate).toBe(
+      '2018-02-01',
+    );
   });
 
   it('returns 404 for a nonexistent patient id', async () => {
