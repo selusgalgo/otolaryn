@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
 import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
@@ -91,25 +92,53 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
               {entries.data.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
               ) : (
-                <ul className="divide-y">
-                  {entries.data.map((entry) => {
-                    const authorName = authorNameFor(entry);
-                    return (
-                      <li key={entry.id} className="py-2">
-                        <Link
-                          href={`/patients/${id}/clinical-entries/${entry.id}`}
-                          className="block hover:underline"
-                        >
-                          <div className="text-sm">{entry.chiefComplaint}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(entry.visitDate)}
-                            {authorName && ` · ${authorName}`}
-                          </div>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead className="hidden md:table-cell">Doctor</TableHead>
+                      <TableHead className="w-10" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entries.data.map((entry) => {
+                      const authorName = authorNameFor(entry);
+                      return (
+                        <TableRow key={entry.id}>
+                          <TableCell className="whitespace-nowrap">
+                            <Link
+                              href={`/patients/${id}/clinical-entries/${entry.id}`}
+                              className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase hover:bg-slate-200"
+                            >
+                              {formatDate(entry.visitDate)}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            {entry.chiefComplaint}
+                            {/* En escritorio el doctor vive en su propia
+                                columna — en móvil, donde esa columna se
+                                oculta, se muestra aquí debajo para no
+                                perder el dato. */}
+                            {authorName && (
+                              <div className="text-left text-xs text-muted-foreground md:hidden">
+                                {authorName}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{authorName ?? "—"}</TableCell>
+                          <TableCell>
+                            <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
+                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
+                                <EyeIcon />
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

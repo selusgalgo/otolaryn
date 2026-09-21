@@ -85,10 +85,7 @@ export default async function PatientsPage({
             practitioners={practitionerOptions}
             search={search}
           />
-          <CreatePatientDialog
-            insuranceOptions={insuranceOptions}
-            practitionerOptions={practitionerOptions}
-          />
+          <CreatePatientDialog insuranceOptions={insuranceOptions} />
         </div>
       </div>
 
@@ -129,7 +126,6 @@ export default async function PatientsPage({
         // esto solo evita ofrecer un botón que siempre fallaría.
         canArchive={me.role !== "recepcion"}
         insuranceOptions={insuranceOptions}
-        practitionerOptions={practitionerOptions}
         search={search}
         sortBy={sortBy}
         sortDir={sortDir}

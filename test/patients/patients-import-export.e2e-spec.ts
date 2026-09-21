@@ -21,6 +21,11 @@ interface PatientResponse {
   lastName: string;
   documentId: string | null;
   profession: string | null;
+  phone: string;
+  phone2: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
 }
 
 interface PaginatedPatients {
@@ -35,16 +40,15 @@ interface ImportResult {
 }
 
 // Used to build *upload* fixtures paired with csvRow() below — deliberately
-// stays at the original 8 columns; a file simply not having "Nº de
-// historia"/"Fecha de la primera cita" at all is a normal, valid case
-// (those targets just go unmapped), unrelated to what a fresh export
-// writes (see EXPORT_CSV_HEADER).
+// stops short of "Nº de historia"; a file simply not having that at all is
+// a normal, valid case (that target just goes unmapped), unrelated to
+// what a fresh export writes (see EXPORT_CSV_HEADER).
 const CSV_HEADER =
-  'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Email,Dirección,Notas';
+  'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Dirección,Notas';
 
 // What GET /patients/export actually writes now that patients-csv.util's
 // COLUMNS also carries profession/legacyId/firstConsultationDate.
-const EXPORT_CSV_HEADER = `${CSV_HEADER},Profesión,Nº de historia,Fecha de la primera cita`;
+const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de historia`;
 
 function csvRow(fields: {
   firstName: string;
@@ -52,6 +56,7 @@ function csvRow(fields: {
   documentId: string;
   dateOfBirth?: string;
   phone?: string;
+  phone2?: string;
   email?: string;
   address?: string;
   notes?: string;
@@ -62,6 +67,7 @@ function csvRow(fields: {
     fields.documentId,
     fields.dateOfBirth ?? '1990-01-01',
     fields.phone ?? '+34600000000',
+    fields.phone2 ?? '',
     fields.email ?? '',
     fields.address ?? '',
     fields.notes ?? '',
@@ -242,6 +248,118 @@ describe('Patients — export/import CSV/XLSX', () => {
       .get('/patients?search=Import')
       .set('Authorization', `Bearer ${tokenA}`);
     expect((list.body as PaginatedPatients).total).toBe(2);
+  });
+
+  it('splits two phone numbers crammed into one Teléfono cell into phone/phone2', async () => {
+    // Real legacy data does this ("645575702/955761278") instead of using
+    // a genuine second column — confirmed against a real sample of
+    // pacientes.xls.
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'DosTelefonos',
+        lastName: 'Uno',
+        documentId: 'TEL-001',
+        phone: '645575702/955761278',
+      }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    expect((res.body as ImportResult).created).toBe(1);
+
+    const list = await request(server)
+      .get('/patients?search=DosTelefonos')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patient = (list.body as PaginatedPatients).data[0];
+    expect(patient.phone).toBe('645575702');
+    expect(patient.phone2).toBe('955761278');
+  });
+
+  it('splits an unambiguous "calle - PROVINCIA" Dirección into address/province', async () => {
+    // Real legacy data: "SALINAS Nº 8 LORA DEL RIO - SEVILLA" — confirmed
+    // against a real sample of pacientes.xls. City stays unknown on
+    // purpose (which town within Sevilla isn't derivable from this).
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'ConProvincia',
+        lastName: 'Uno',
+        documentId: 'DIR-001',
+        address: 'SALINAS Nº 8 LORA DEL RIO - SEVILLA',
+      }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    expect((res.body as ImportResult).created).toBe(1);
+
+    const list = await request(server)
+      .get('/patients?search=ConProvincia')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patient = (list.body as PaginatedPatients).data[0];
+    expect(patient.address).toBe('SALINAS Nº 8 LORA DEL RIO');
+    expect(patient.province).toBe('Sevilla');
+    expect(patient.city).toBeNull();
+  });
+
+  it('treats a Dirección cell with no digits or street markers as a bare Ciudad/Población', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'SoloCiudad',
+        lastName: 'Uno',
+        documentId: 'DIR-002',
+        address: 'Mairena del Alcor',
+      }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    expect((res.body as ImportResult).created).toBe(1);
+
+    const list = await request(server)
+      .get('/patients?search=SoloCiudad')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patient = (list.body as PaginatedPatients).data[0];
+    expect(patient.city).toBe('Mairena del Alcor');
+    expect(patient.address).toBeNull();
+    expect(patient.province).toBeNull();
+  });
+
+  it('leaves an ambiguous Dirección (town mashed on with no separator) untouched', async () => {
+    // Real legacy data: "CONDE DE BUSTILLO Nº 2 TRIANA" — Triana is a
+    // Sevilla neighbourhood, not a separate town, and there's no separator
+    // to signal a split was even intended. Left as address, not guessed.
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'Ambiguo',
+        lastName: 'Uno',
+        documentId: 'DIR-003',
+        address: 'CONDE DE BUSTILLO Nº 2 TRIANA',
+      }),
+    ].join('\n');
+
+    const res = await request(server)
+      .post('/patients/import')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    expect((res.body as ImportResult).created).toBe(1);
+
+    const list = await request(server)
+      .get('/patients?search=Ambiguo')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const patient = (list.body as PaginatedPatients).data[0];
+    expect(patient.address).toBe('CONDE DE BUSTILLO Nº 2 TRIANA');
+    expect(patient.city).toBeNull();
+    expect(patient.province).toBeNull();
   });
 
   it('skips a row with a missing required field and reports why, without failing the whole import', async () => {

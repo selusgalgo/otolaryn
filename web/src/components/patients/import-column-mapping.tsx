@@ -12,12 +12,23 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "documentId", label: "Documento", required: false },
   { field: "dateOfBirth", label: "Fecha de nacimiento", required: true },
   { field: "phone", label: "Teléfono", required: true },
+  // No obligatorio: si el fichero solo trae un Teléfono con dos números
+  // metidos en la misma celda ("645575702/955761278"), el importador ya
+  // los separa solo — este campo es únicamente para un fichero que además
+  // trae su propia columna de segundo teléfono.
+  { field: "phone2", label: "Teléfono 2", required: false },
   { field: "email", label: "Email", required: false },
   { field: "address", label: "Dirección", required: false },
+  // No obligatorios: si el fichero solo trae una Dirección que mezcla la
+  // calle y la población ("... - SEVILLA"), el importador ya separa los
+  // casos inequívocos por su cuenta — mapear estos aquí es solo para un
+  // fichero que además trae sus propias columnas de Ciudad/Provincia.
+  { field: "city", label: "Ciudad/Población", required: false },
+  { field: "province", label: "Provincia", required: false },
+  { field: "postalCode", label: "C.P.", required: false },
   { field: "notes", label: "Notas", required: false },
   { field: "profession", label: "Profesión", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
-  { field: "firstConsultationDate", label: "Fecha de la primera cita", required: false },
 ];
 
 // Up to 2 real sample values from the column currently chosen for a field,
@@ -85,7 +96,7 @@ export function ImportColumnMapping({
               <div key={field} className="space-y-1">
                 <Label htmlFor={`mapping-${field}`}>
                   {label}
-                  {(field === "dateOfBirth" || field === "firstConsultationDate") && (
+                  {field === "dateOfBirth" && (
                     <span className="text-muted-foreground"> (DD/MM/AAAA)</span>
                   )}
                   {required && <span className="text-destructive"> *</span>}

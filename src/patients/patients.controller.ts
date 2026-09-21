@@ -107,7 +107,7 @@ export class PatientsController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.patients.findOne(id, user);
+    return this.patients.findOneWithFirstConsultationDate(id, user);
   }
 
   @Post()

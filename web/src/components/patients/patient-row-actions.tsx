@@ -27,14 +27,12 @@ import {
 import { PatientForm } from "@/components/patients/patient-form";
 import { archivePatientAction, updatePatientAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
-import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 
 interface PatientRowActionsProps {
   patient: Patient;
   canArchive: boolean;
   insuranceOptions?: InsuranceOption[];
-  practitionerOptions?: PractitionerOption[] | null;
 }
 
 // Both dialogs live outside DropdownMenuContent (as siblings, not nested
@@ -47,7 +45,6 @@ export function PatientRowActions({
   patient,
   canArchive,
   insuranceOptions,
-  practitionerOptions,
 }: PatientRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -103,18 +100,21 @@ export function PatientRowActions({
       </DropdownMenu>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Editar paciente</DialogTitle>
           </DialogHeader>
-          <PatientForm
-            action={boundUpdate}
-            initialValues={patient}
-            submitLabel="Guardar cambios"
-            onSuccess={() => setEditOpen(false)}
-            insuranceOptions={insuranceOptions}
-            practitionerOptions={practitionerOptions}
-          />
+          {/* Solo esto se desplaza cuando el formulario no cabe entero — el
+              título y el borde del diálogo se quedan fijos. */}
+          <div className="overflow-y-auto">
+            <PatientForm
+              action={boundUpdate}
+              initialValues={patient}
+              submitLabel="Guardar cambios"
+              onSuccess={() => setEditOpen(false)}
+              insuranceOptions={insuranceOptions}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

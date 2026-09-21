@@ -18,7 +18,7 @@ export { isSupportedImportFile };
 // so a file exported from here round-trips back in without the user ever
 // having to map anything by hand.
 //
-// legacyId/firstConsultationDate are plain scalar fields like the rest —
+// legacyId is a plain scalar field like the rest —
 // insuranceEntityId/antecedentes are deliberately NOT in this list: the
 // legacy file carries an aseguradora *name* and antecedente columns, not
 // ids, so those two need their own resolution step (name/value -> id) in
@@ -30,12 +30,15 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'documentId', label: 'Documento' },
   { field: 'dateOfBirth', label: 'Fecha de nacimiento' },
   { field: 'phone', label: 'Teléfono' },
+  { field: 'phone2', label: 'Teléfono 2' },
   { field: 'email', label: 'Email' },
   { field: 'address', label: 'Dirección' },
+  { field: 'city', label: 'Ciudad/Población' },
+  { field: 'province', label: 'Provincia' },
+  { field: 'postalCode', label: 'C.P.' },
   { field: 'notes', label: 'Notas' },
   { field: 'profession', label: 'Profesión' },
   { field: 'legacyId', label: 'Nº de historia' },
-  { field: 'firstConsultationDate', label: 'Fecha de la primera cita' },
 ];
 
 // The mapping target for the aseguradora column — resolved to
@@ -260,6 +263,133 @@ function extractDocumentIdFromProfession(profession: string): {
   return { profession: remainder || null, documentId: match[0].toUpperCase() };
 }
 
+// A real legacy TELEFONO cell sometimes carries two numbers in one value
+// ("645575702/955761278", "954 25 19 95 / 636 06 89 86") instead of a
+// second column — split on "/" only (the one separator actually seen in
+// the source data; a phone number never contains a "/" itself, so this
+// never mis-splits a genuine single number). Three parts or more, or a
+// single part, isn't this shape — left untouched rather than guessed at.
+function splitPhone(text: string): { phone: string; phone2?: string } {
+  const parts = text
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 2) {
+    return { phone: parts[0], phone2: parts[1] };
+  }
+  return { phone: text };
+}
+
+// Spain's 50 provinces plus the two autonomous cities — a static, closed
+// list is exactly what makes the "- PROVINCIA" split below safe: it only
+// ever fires when the text after the separator is a real, unambiguous
+// province name, never a guess.
+const SPANISH_PROVINCES = [
+  'A Coruña',
+  'Álava',
+  'Albacete',
+  'Alicante',
+  'Almería',
+  'Asturias',
+  'Ávila',
+  'Badajoz',
+  'Baleares',
+  'Barcelona',
+  'Burgos',
+  'Cáceres',
+  'Cádiz',
+  'Cantabria',
+  'Castellón',
+  'Ciudad Real',
+  'Córdoba',
+  'Cuenca',
+  'Girona',
+  'Granada',
+  'Guadalajara',
+  'Guipúzcoa',
+  'Huelva',
+  'Huesca',
+  'Jaén',
+  'La Rioja',
+  'Las Palmas',
+  'León',
+  'Lleida',
+  'Lugo',
+  'Madrid',
+  'Málaga',
+  'Murcia',
+  'Navarra',
+  'Ourense',
+  'Palencia',
+  'Pontevedra',
+  'Salamanca',
+  'Santa Cruz de Tenerife',
+  'Segovia',
+  'Sevilla',
+  'Soria',
+  'Tarragona',
+  'Teruel',
+  'Toledo',
+  'Valencia',
+  'Valladolid',
+  'Vizcaya',
+  'Zamora',
+  'Zaragoza',
+  'Ceuta',
+  'Melilla',
+];
+const PROVINCE_BY_NORMALIZED = new Map(
+  SPANISH_PROVINCES.map((name) => [normalizeHeader(name), name]),
+);
+
+// A real legacy DIRECCION cell is free text with no consistent shape — a
+// street, or a bare place name, or (inconsistently) both mashed together
+// with a "-" or "." before a town/province that isn't always there. Rather
+// than guess at every shape (confirmed against a real 78-row sample: many
+// of these are genuinely ambiguous — "TRIANA"/"DOS HERMANAS" appended with
+// no separator at all could be a town or a Sevilla neighbourhood, and
+// inventing a wrong Ciudad/Provincia is worse than leaving the cell as-is
+// in Dirección), this only acts on the two shapes that are unambiguous:
+//  - "<street> - <PROVINCIA>" / "<street> . <PROVINCIA>", where PROVINCIA
+//    is an exact (accent/case-insensitive) match against the real list of
+//    Spanish provinces above — the rest becomes address, province is set,
+//    city is deliberately left alone (which town within that province
+//    isn't something this can tell).
+//  - The whole cell, with no digit and no address-shaped word in it at
+//    all ("SEVILLA", "Almonte", "Mairena del Alcor") — the whole thing
+//    becomes city, since there's nothing address-like left to keep.
+// Everything else — the large middle ground of "street with a town mashed
+// on the end, no separator" — is left untouched in address, same as
+// today, rather than guessed at.
+const ADDRESS_MARKER_RE =
+  /\d|n[ºo°.]|avd|avda|c\/|calle|plaza|urb|parcela|bloque|\bbq\b|parque|residen/i;
+
+function splitAddress(text: string): {
+  address?: string;
+  city?: string;
+  province?: string;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+
+  const suffixMatch = trimmed.match(/^(.*)[-.]\s*([A-Za-zÀ-ÿ\s]+)$/);
+  if (suffixMatch) {
+    const province = PROVINCE_BY_NORMALIZED.get(
+      normalizeHeader(suffixMatch[2]),
+    );
+    if (province) {
+      const address = suffixMatch[1].trim();
+      return address ? { address, province } : { province };
+    }
+  }
+
+  if (!ADDRESS_MARKER_RE.test(trimmed)) {
+    return { city: trimmed.replace(/\s+/g, ' ') };
+  }
+
+  return { address: text };
+}
+
 // Step 2: the actual import, using the mapping the user confirmed in the
 // wizard (field -> the file's own header text). Falls back to
 // suggestMapping when no mapping is given at all, so a caller that skips
@@ -291,14 +421,33 @@ export function parsePatientsFile(
       if (!actualHeader) continue;
       const rawValue = sourceRow[actualHeader];
       const text =
-        field === 'dateOfBirth' || field === 'firstConsultationDate'
-          ? cellToDate(rawValue)
-          : cellToText(rawValue);
+        field === 'dateOfBirth' ? cellToDate(rawValue) : cellToText(rawValue);
+      if (!text) continue;
+      if (field === 'phone') {
+        // An explicit Teléfono 2 column (processed later in this same
+        // loop, COLUMNS lists it right after phone) overwrites this if the
+        // file actually has one — this split only fires for a file that
+        // crams both numbers into the one Teléfono cell.
+        const { phone, phone2 } = splitPhone(text);
+        row.phone = phone;
+        if (phone2) row.phone2 = phone2;
+        continue;
+      }
+      if (field === 'address') {
+        // Same precedence as phone/phone2: explicit Ciudad/Provincia
+        // columns (processed later in this same loop, COLUMNS lists them
+        // right after address) overwrite whatever this guesses.
+        const split = splitAddress(text);
+        if (split.address) row.address = split.address;
+        if (split.city) row.city = split.city;
+        if (split.province) row.province = split.province;
+        continue;
+      }
       // An empty optional cell must become undefined, not "" — email
       // (and any future @IsOptional field) is only actually skipped by
       // class-validator when the property is undefined; an empty string
       // still runs through @IsEmail and fails.
-      if (text) row[field] = text;
+      row[field] = text;
     }
     // Fallback, not an override: an explicitly mapped Documento column
     // always wins — this only fires when that cell (or the mapping

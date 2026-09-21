@@ -11,6 +11,7 @@ export interface PatientFormState {
 
 function patientPayloadFromFormData(formData: FormData) {
   const documentId = String(formData.get("documentId") ?? "").trim();
+  const phone2 = String(formData.get("phone2") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
@@ -19,8 +20,6 @@ function patientPayloadFromFormData(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
   const profession = String(formData.get("profession") ?? "").trim();
   const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
-  const firstConsultationDate = String(formData.get("firstConsultationDate") ?? "").trim();
-  const assignedPractitionerId = String(formData.get("assignedPractitionerId") ?? "").trim();
 
   return {
     // Trimmed here too so the UI doesn't round-trip to the API just to
@@ -34,6 +33,7 @@ function patientPayloadFromFormData(formData: FormData) {
     // Documento is optional now — omitted entirely when blank, same
     // pattern as every other optional field below.
     ...(documentId ? { documentId } : {}),
+    ...(phone2 ? { phone2 } : {}),
     ...(email ? { email } : {}),
     ...(address ? { address } : {}),
     ...(city ? { city } : {}),
@@ -42,8 +42,6 @@ function patientPayloadFromFormData(formData: FormData) {
     ...(notes ? { notes } : {}),
     ...(profession ? { profession } : {}),
     ...(insuranceEntityId ? { insuranceEntityId } : {}),
-    ...(firstConsultationDate ? { firstConsultationDate } : {}),
-    ...(assignedPractitionerId ? { assignedPractitionerId } : {}),
   };
 }
 
@@ -196,12 +194,15 @@ export type ColumnMapping = Partial<
     | "documentId"
     | "dateOfBirth"
     | "phone"
+    | "phone2"
     | "email"
     | "address"
+    | "city"
+    | "province"
+    | "postalCode"
     | "notes"
     | "profession"
-    | "legacyId"
-    | "firstConsultationDate",
+    | "legacyId",
     string
   >
 > & {

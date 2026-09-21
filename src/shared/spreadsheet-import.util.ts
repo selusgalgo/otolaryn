@@ -76,8 +76,8 @@ export function cellToText(value: unknown): string {
   return '';
 }
 
-// Any date-shaped field (dateOfBirth, firstConsultationDate, a consulta's
-// FECHA) gets this instead of the generic cellToText above, because a real
+// Any date-shaped field (dateOfBirth, a consulta's FECHA) gets this
+// instead of the generic cellToText above, because a real
 // spreadsheet hands dates two shapes that aren't already ISO and would
 // otherwise fail an @IsDateString() field outright:
 //  - Day-first text, e.g. "21/08/1976" — the format a person types by

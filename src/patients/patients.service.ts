@@ -7,6 +7,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
+import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { InsuranceService } from '../insurance/insurance.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
@@ -137,6 +138,33 @@ export class PatientsService {
       throw new NotFoundException('Patient not found');
     }
     return patient;
+  }
+
+  // Backs GET /patients/:id specifically — "fecha de la primera consulta"
+  // used to be a manually-entered column, but that duplicated (and could
+  // drift from) the real answer already sitting in clinical_entries once
+  // the Consultas importer exists, so it's derived fresh on every read
+  // instead. Kept out of the plain findOne() above: every other caller
+  // (create/update/archive/the Consultas and Antecedentes importers) only
+  // needs the real Patient entity to merge/save or check existence, not
+  // this derived value tacked onto it.
+  async findOneWithFirstConsultationDate(
+    id: string,
+    user?: CurrentUserPayload,
+  ): Promise<Patient & { firstConsultationDate: string | null }> {
+    const patient = await this.findOne(id, user);
+    const row = await this.tenancyContext.manager
+      .getRepository(ClinicalEntry)
+      .createQueryBuilder('ce')
+      .select('MIN(ce.visit_date)', 'min')
+      .where('ce.patient_id = :id', { id })
+      .getRawOne<{ min: Date | null }>();
+    return {
+      ...patient,
+      firstConsultationDate: row?.min
+        ? row.min.toISOString().slice(0, 10)
+        : null,
+    };
   }
 
   // Used by the Consultas importer to resolve NUMHISTORIA -> patient,

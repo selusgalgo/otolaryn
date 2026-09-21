@@ -13,7 +13,7 @@ import { updatePatientAction, type PatientFormState } from "@/lib/actions/patien
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
-import { formatDateOnly, formatDocumentId } from "@/lib/utils";
+import { calculateAge, formatDateOnly, formatDocumentId } from "@/lib/utils";
 
 interface PatientProfileSectionProps {
   patient: Patient;
@@ -36,6 +36,9 @@ export function PatientProfileSection({
   practitionerOptions,
 }: PatientProfileSectionProps) {
   const [editing, setEditing] = useState(false);
+  // formatDocumentId returns "-" for a missing/placeholder document — blank
+  // reads better than a lone dash for an empty field in this ficha.
+  const documentDisplay = formatDocumentId(patient.documentId);
   const boundUpdate = updatePatientAction.bind(null, patient.id);
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
 
@@ -133,6 +136,25 @@ export function PatientProfileSection({
                     disabled={pending}
                   />
                 </div>
+                <div className="w-full space-y-1 text-left">
+                  <Label htmlFor="insuranceEntityId" className="text-xs">
+                    Aseguradora
+                  </Label>
+                  <select
+                    id="insuranceEntityId"
+                    name="insuranceEntityId"
+                    defaultValue={patient.insuranceEntityId ?? ""}
+                    disabled={pending}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+                  >
+                    <option value="">Sin especificar</option>
+                    {insuranceOptions?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </CardContent>
             </Card>
 
@@ -159,6 +181,12 @@ export function PatientProfileSection({
                     Teléfono
                   </Label>
                   <Input id="phone" name="phone" defaultValue={patient.phone} required disabled={pending} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="phone2" className="text-xs text-muted-foreground">
+                    Teléfono 2
+                  </Label>
+                  <Input id="phone2" name="phone2" defaultValue={patient.phone2 ?? ""} disabled={pending} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="email" className="text-xs text-muted-foreground">
@@ -203,35 +231,13 @@ export function PatientProfileSection({
                   <Input id="province" name="province" defaultValue={patient.province ?? ""} disabled={pending} />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="insuranceEntityId" className="text-xs text-muted-foreground">
-                    Aseguradora
-                  </Label>
-                  <select
-                    id="insuranceEntityId"
-                    name="insuranceEntityId"
-                    defaultValue={patient.insuranceEntityId ?? ""}
-                    disabled={pending}
-                    className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Sin especificar</option>
-                    {insuranceOptions?.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="firstConsultationDate" className="text-xs text-muted-foreground">
-                    Fecha de la primera consulta
-                  </Label>
-                  <Input
-                    id="firstConsultationDate"
-                    name="firstConsultationDate"
-                    type="date"
-                    defaultValue={patient.firstConsultationDate?.slice(0, 10) ?? ""}
-                    disabled={pending}
-                  />
+                  <Label className="text-xs text-muted-foreground">Fecha de la primera consulta</Label>
+                  {/* Ya no es un campo editable — se calcula solo a partir
+                      de la consulta más antigua de Historia clínica, así
+                      que no puede desincronizarse de lo que esta diga. */}
+                  <p className="flex h-9 items-center text-sm">
+                    {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : ""}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -267,9 +273,23 @@ export function PatientProfileSection({
               <div className="text-lg font-bold">
                 {patient.firstName} {patient.lastName}
               </div>
-              <div className="space-y-1 text-sm">
-                <div>{formatDocumentId(patient.documentId)}</div>
-                <div className="text-muted-foreground">{patient.profession ?? "—"}</div>
+              <div className="space-y-2 text-sm">
+                <div>{documentDisplay === "-" ? "" : documentDisplay}</div>
+                <div>
+                  {patient.dateOfBirth && (
+                    <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-sans text-xs font-medium text-sky-700">
+                      {calculateAge(patient.dateOfBirth)} años
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Profesión</div>
+                  <div>{patient.profession ?? ""}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Aseguradora</div>
+                  <div>{insuranceName ?? ""}</div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -288,33 +308,33 @@ export function PatientProfileSection({
                 <div>{patient.phone}</div>
               </div>
               <div>
+                <div className="text-muted-foreground">Teléfono 2</div>
+                <div>{patient.phone2 ?? ""}</div>
+              </div>
+              <div>
                 <div className="text-muted-foreground">Email</div>
-                <div>{patient.email ?? "—"}</div>
+                <div>{patient.email ?? ""}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Dirección</div>
-                <div>{patient.address ?? "—"}</div>
+                <div>{patient.address ?? ""}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">C.P.</div>
-                <div>{patient.postalCode ?? "—"}</div>
+                <div>{patient.postalCode ?? ""}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Ciudad/Población</div>
-                <div>{patient.city ?? "—"}</div>
+                <div>{patient.city ?? ""}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Provincia</div>
-                <div>{patient.province ?? "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Aseguradora</div>
-                <div>{insuranceName ?? "—"}</div>
+                <div>{patient.province ?? ""}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Fecha de la primera consulta</div>
                 <div>
-                  {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : "—"}
+                  {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : ""}
                 </div>
               </div>
             </CardContent>

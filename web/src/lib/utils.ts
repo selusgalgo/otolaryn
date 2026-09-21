@@ -47,6 +47,24 @@ export function formatDateShort(iso: string): string {
   return `${Number(day)} ${SHORT_MONTHS_ES[Number(month) - 1]} ${year}`;
 }
 
+// Whole years only, computed against today in the viewer's own local time
+// (this always renders client-side, in the ficha) — a birthday that hasn't
+// happened yet this year doesn't count towards the age.
+export function calculateAge(dateOfBirth: string): number {
+  const match = dateOfBirth.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return NaN;
+  const [, yearStr, monthStr, dayStr] = match;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const hadBirthdayThisYear =
+    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+  if (!hadBirthdayThisYear) age -= 1;
+  return age;
+}
+
 // Documento is optional — null for a patient that never had one. Rows
 // imported before that placeholder scheme was retired can still carry a
 // "SIN-DOC-982e4abe"-shaped value (see the old generatePlaceholderDocumentId

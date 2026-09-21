@@ -50,6 +50,16 @@ export class CreatePatientDto {
   @MaxLength(30)
   phone: string;
 
+  // Muchas filas del legado traen dos teléfonos en una sola celda
+  // ("645575702/955761278") — el importador los separa antes de llegar
+  // aquí (ver patients-csv.util.ts), pero el campo en sí es un teléfono
+  // secundario normal, igual de editable a mano que el primero.
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(30)
+  phone2?: string;
+
   @IsOptional()
   @Transform(trim)
   @IsEmail()
@@ -98,17 +108,6 @@ export class CreatePatientDto {
   @IsOptional()
   @IsUUID()
   insuranceEntityId?: string;
-
-  @IsOptional()
-  @IsDateString()
-  firstConsultationDate?: string;
-
-  // "Médico habitual" — nunca lo manda el asistente de importación de
-  // Pacientes (el legado no tiene esa columna), pero sí lo puede fijar un
-  // admin/profesional a mano desde la ficha del paciente.
-  @IsOptional()
-  @IsUUID()
-  assignedPractitionerId?: string;
 
   // NUMHISTORIA del programa legado — solo lo rellena el asistente de
   // importación de Pacientes, nunca el formulario normal.

@@ -22,12 +22,23 @@ const PLAIN_FIELDS: { field: PlainField; label: string; required: boolean }[] = 
 const SPECIAL_FIELDS: {
   field: keyof Pick<
     ClinicalEntryColumnMapping,
-    "visitDate" | "patientLegacyId" | "insuranceEntityName" | "doctorName"
+    | "visitDate"
+    | "patientLegacyId"
+    | "patientFirstName"
+    | "patientLastName"
+    | "insuranceEntityName"
+    | "doctorName"
   >;
   label: string;
 }[] = [
   { field: "visitDate", label: "Fecha" },
   { field: "patientLegacyId", label: "Nº de historia" },
+  // No son obligatorios para importar (chiefComplaint + patientLegacyId ya
+  // bastan), pero sin ellos se pierde la comprobación de seguridad que
+  // detecta un nº de historia reutilizado en el fichero legado — conviene
+  // mapearlos siempre que el fichero los traiga.
+  { field: "patientFirstName", label: "Nombre del paciente (comprobación)" },
+  { field: "patientLastName", label: "Apellidos del paciente (comprobación)" },
   { field: "insuranceEntityName", label: "Aseguradora" },
   { field: "doctorName", label: "Doctor" },
 ];
