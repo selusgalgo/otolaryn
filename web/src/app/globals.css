@@ -158,3 +158,61 @@
     @apply font-heading font-medium text-heading;
   }
 }
+
+/* Content authored through RichTextEditor (Notas, Motivo/Exploración/
+   Tratamiento) — scoped so it doesn't touch the app's own chrome
+   headings above, which all deliberately share one size. Applies both
+   inside the live editor (rich-text-content is the contentEditable
+   element itself) and to RichTextContent's read-only render of the same
+   HTML, so what's typed looks like what's saved. */
+.rich-text-content h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+.rich-text-content h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+.rich-text-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+.rich-text-content p {
+  margin: 0.25rem 0;
+}
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
+.rich-text-content ul {
+  list-style: disc;
+}
+.rich-text-content ol {
+  list-style: decimal;
+}
+.rich-text-content blockquote {
+  border-left: 2px solid var(--border);
+  margin: 0.5rem 0;
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+}
+.rich-text-content p:first-child,
+.rich-text-content h1:first-child,
+.rich-text-content h2:first-child,
+.rich-text-content h3:first-child {
+  margin-top: 0;
+}
+.rich-text-content p:last-child {
+  margin-bottom: 0;
+}
+.rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

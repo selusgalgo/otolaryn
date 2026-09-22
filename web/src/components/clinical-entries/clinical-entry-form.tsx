@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Textarea } from "@/components/ui/textarea";
 import type { ClinicalEntryFormState } from "@/lib/actions/clinical-entries";
 
@@ -28,6 +29,9 @@ function nowForDateTimeInput(): string {
 export function ClinicalEntryForm({ action }: ClinicalEntryFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const visitDateRef = useRef<HTMLInputElement>(null);
+  const [chiefComplaint, setChiefComplaint] = useState("");
+  const [examinationFindings, setExaminationFindings] = useState("");
+  const [treatment, setTreatment] = useState("");
 
   // Set imperatively after mount, not via defaultValue: "now" only means
   // anything in the browser's own clock/timezone, so it can't be computed
@@ -49,20 +53,23 @@ export function ClinicalEntryForm({ action }: ClinicalEntryFormProps) {
         </p>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="chiefComplaint">Motivo de consulta</Label>
-        <Textarea id="chiefComplaint" name="chiefComplaint" required disabled={pending} rows={2} />
+        <Label>Motivo de consulta</Label>
+        <input type="hidden" name="chiefComplaint" value={chiefComplaint} />
+        <RichTextEditor value={chiefComplaint} onChange={setChiefComplaint} disabled={pending} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="examinationFindings">Exploración</Label>
-        <Textarea id="examinationFindings" name="examinationFindings" disabled={pending} rows={3} />
+        <Label>Exploración</Label>
+        <input type="hidden" name="examinationFindings" value={examinationFindings} />
+        <RichTextEditor value={examinationFindings} onChange={setExaminationFindings} disabled={pending} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="diagnosis">Diagnóstico</Label>
         <Textarea id="diagnosis" name="diagnosis" disabled={pending} rows={2} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="treatment">Tratamiento</Label>
-        <Textarea id="treatment" name="treatment" disabled={pending} rows={2} />
+        <Label>Tratamiento</Label>
+        <input type="hidden" name="treatment" value={treatment} />
+        <RichTextEditor value={treatment} onChange={setTreatment} disabled={pending} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="followUpNotes">Notas de seguimiento</Label>

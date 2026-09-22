@@ -75,6 +75,19 @@ export function formatDocumentId(documentId: string | null): string {
   return documentId && !documentId.startsWith("SIN-DOC-") ? documentId : "-";
 }
 
+// A compact one-line preview of rich-text HTML (Motivo, in the Historia
+// clínica table) — a table row has no room for real headings/lists, so
+// this collapses block boundaries to spaces and drops every tag rather
+// than rendering (or, worse, showing literal "<p>...") markup inline.
+export function stripHtml(html: string): string {
+  return html
+    .replace(/<\/(p|li|h[1-3]|blockquote)>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // A few call sites only carry a combined "Nombre Apellidos" string (e.g.
 // PractitionerOption.label) but need firstName/lastName separately to feed
 // InitialsAvatar — split on the first space to reconstruct that shape.

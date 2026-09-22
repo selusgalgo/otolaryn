@@ -11,14 +11,17 @@ export class CreateClinicalEntryDto {
   @IsDateString()
   visitDate?: string;
 
+  // Edited as rich text (Tiptap) — the limit covers the HTML markup
+  // overhead (<p>, <strong>, ...) on top of the actual written content,
+  // not just the visible character count.
   @IsString()
   @MinLength(1)
-  @MaxLength(2000)
+  @MaxLength(6000)
   chiefComplaint: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(4000)
+  @MaxLength(12000)
   examinationFindings?: string;
 
   @IsOptional()
@@ -28,7 +31,7 @@ export class CreateClinicalEntryDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(6000)
   treatment?: string;
 
   @IsOptional()

@@ -4,7 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextContent } from "@/components/ui/rich-text-content";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { updatePatientNotesAction, type PatientFormState } from "@/lib/actions/patients";
 
 interface PatientNotesCardProps {
@@ -16,6 +17,7 @@ const initialState: PatientFormState = {};
 
 export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(notes ?? "");
   const boundUpdate = updatePatientNotesAction.bind(null, patientId);
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
 
@@ -28,7 +30,14 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Notas</CardTitle>
         {!editing && (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setDraft(notes ?? "");
+              setEditing(true);
+            }}
+          >
             <PencilIcon data-icon="inline-start" />
             Editar
           </Button>
@@ -37,7 +46,8 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
       <CardContent>
         {editing ? (
           <form action={formAction} className="space-y-3">
-            <Textarea name="notes" rows={4} defaultValue={notes ?? ""} disabled={pending} />
+            <input type="hidden" name="notes" value={draft} />
+            <RichTextEditor value={draft} onChange={setDraft} disabled={pending} />
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={pending}>
@@ -55,7 +65,7 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
             </div>
           </form>
         ) : (
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{notes || "Sin notas."}</p>
+          <RichTextContent html={notes} emptyText="Sin notas." />
         )}
       </CardContent>
     </Card>

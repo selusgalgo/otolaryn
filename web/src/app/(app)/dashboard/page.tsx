@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
+import { stripHtml } from "@/lib/utils";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -75,7 +76,7 @@ export default async function DashboardPage() {
                       className="flex items-center justify-between gap-4 hover:underline"
                     >
                       <span className="text-sm">
-                        {patientName(entry.patientId)} · {entry.chiefComplaint}
+                        {patientName(entry.patientId)} · {stripHtml(entry.chiefComplaint)}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatDateTime(entry.visitDate)}

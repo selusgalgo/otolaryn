@@ -219,6 +219,27 @@ describe('Patients CRUD', () => {
     expect((res.body as PatientResponse).lastName).toBe('Patient update');
   });
 
+  it('sanitizes rich text in Notas: keeps the allowed formatting tags, strips everything else', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('rich-notes'));
+    const id = (created.body as PatientResponse).id;
+
+    const res = await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        notes:
+          '<p><strong>Alérgico</strong> a penicilina</p><script>alert(1)</script><img src=x onerror=alert(1)>',
+      });
+
+    expect(res.status).toBe(200);
+    expect((res.body as PatientResponse).notes).toBe(
+      '<p><strong>Alérgico</strong> a penicilina</p>',
+    );
+  });
+
   it('soft-deletes a patient: it disappears from GET by id and from the list, but the document_id becomes reusable', async () => {
     const created = await request(server)
       .post('/patients')
