@@ -115,7 +115,7 @@ export function PatientProfileSection({
                 </div>
                 <div className="w-full space-y-1 text-left">
                   <Label htmlFor="documentId" className="text-xs">
-                    Documento
+                    Documento (DNI/NIE)
                   </Label>
                   <Input
                     id="documentId"
@@ -231,7 +231,7 @@ export function PatientProfileSection({
                   <Input id="province" name="province" defaultValue={patient.province ?? ""} disabled={pending} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Fecha de la primera consulta</Label>
+                  <Label className="text-xs text-muted-foreground">Primera consulta</Label>
                   {/* Ya no es un campo editable — se calcula solo a partir
                       de la consulta más antigua de Historia clínica, así
                       que no puede desincronizarse de lo que esta diga. */}
@@ -332,7 +332,7 @@ export function PatientProfileSection({
                 <div>{patient.province ?? ""}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Fecha de la primera consulta</div>
+                <div className="text-muted-foreground">Primera consulta</div>
                 <div>
                   {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : ""}
                 </div>
