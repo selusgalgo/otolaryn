@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { ClinicalEntry } from "@/lib/types";
 
@@ -45,7 +46,9 @@ export default async function ClinicalEntryDetailPage({
         <CardHeader>
           <CardTitle className="text-base">Motivo de consulta</CardTitle>
         </CardHeader>
-        <CardContent className="whitespace-pre-wrap text-sm">{entry.chiefComplaint}</CardContent>
+        <CardContent>
+          <RichTextContent html={entry.chiefComplaint} />
+        </CardContent>
       </Card>
 
       {entry.examinationFindings && (
@@ -53,7 +56,9 @@ export default async function ClinicalEntryDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Exploración</CardTitle>
           </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm">{entry.examinationFindings}</CardContent>
+          <CardContent>
+            <RichTextContent html={entry.examinationFindings} />
+          </CardContent>
         </Card>
       )}
 
@@ -71,7 +76,9 @@ export default async function ClinicalEntryDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Tratamiento</CardTitle>
           </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm">{entry.treatment}</CardContent>
+          <CardContent>
+            <RichTextContent html={entry.treatment} />
+          </CardContent>
         </Card>
       )}
 

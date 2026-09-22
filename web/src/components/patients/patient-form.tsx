@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { Patient } from "@/lib/types";
@@ -50,6 +50,7 @@ export function PatientForm({
   insuranceOptions,
 }: PatientFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [notes, setNotes] = useState(initialValues?.notes ?? "");
 
   useEffect(() => {
     if (state.success) onSuccess?.();
@@ -180,16 +181,9 @@ export function PatientForm({
       </details>
 
       <div className="space-y-2">
-        <Label htmlFor="notes">Notas</Label>
-        {/* Textarea, no Input: la importación de pacientes legados puede
-            volcar aquí historias clínicas de varios miles de caracteres. */}
-        <Textarea
-          id="notes"
-          name="notes"
-          rows={4}
-          defaultValue={initialValues?.notes ?? ""}
-          disabled={pending}
-        />
+        <Label>Notas</Label>
+        <input type="hidden" name="notes" value={notes} />
+        <RichTextEditor value={notes} onChange={setNotes} disabled={pending} />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <div className="flex gap-2">

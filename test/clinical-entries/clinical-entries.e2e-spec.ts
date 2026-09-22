@@ -20,6 +20,8 @@ interface ClinicalEntryResponse {
   patientId: string;
   authorUserId: string;
   chiefComplaint: string;
+  examinationFindings: string | null;
+  treatment: string | null;
   diagnosis: string | null;
 }
 
@@ -84,6 +86,28 @@ describe('Historia clinica (clinical entries)', () => {
     const body = res.body as ClinicalEntryResponse;
     expect(body.patientId).toBe(tenantA.patientId);
     expect(body.authorUserId).toBeTruthy();
+  });
+
+  it('sanitizes rich text: keeps the allowed formatting tags, strips everything else', async () => {
+    const res = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        ...sampleEntry(
+          '<p><strong>Dolor</strong> intenso <em>desde ayer</em></p><script>alert(1)</script>',
+        ),
+        examinationFindings:
+          '<p onclick="alert(1)">Faringe <a href="javascript:alert(1)">eritematosa</a></p>',
+        treatment: '<h2>Pauta</h2><ul><li>Ibuprofeno</li></ul>',
+      });
+
+    expect(res.status).toBe(201);
+    const body = res.body as ClinicalEntryResponse;
+    expect(body.chiefComplaint).toBe(
+      '<p><strong>Dolor</strong> intenso <em>desde ayer</em></p>',
+    );
+    expect(body.examinationFindings).toBe('<p>Faringe eritematosa</p>');
+    expect(body.treatment).toBe('<h2>Pauta</h2><ul><li>Ibuprofeno</li></ul>');
   });
 
   it('rejects a payload that tries to set authorUserId directly, instead of silently ignoring it', async () => {

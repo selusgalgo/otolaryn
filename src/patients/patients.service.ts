@@ -10,6 +10,10 @@ import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { InsuranceService } from '../insurance/insurance.service';
+import {
+  plainTextToRichText,
+  sanitizeRichText,
+} from '../shared/rich-text.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -179,6 +183,10 @@ export class PatientsService {
   async create(dto: CreatePatientDto): Promise<Patient> {
     const patient = this.repo.create({
       ...dto,
+      // Notas is edited as rich text (Tiptap) — sanitized here, not just
+      // trusted from the client, so a crafted request can't smuggle
+      // anything past the editor's own allowlist.
+      ...(dto.notes ? { notes: sanitizeRichText(dto.notes) } : {}),
       tenantId: this.tenancyContext.tenantId,
     });
     try {
@@ -228,6 +236,11 @@ export class PatientsService {
 
       const dto = plainToInstance(CreatePatientDto, {
         ...fields,
+        // A legacy file's Notas cell is plain text, not the HTML the
+        // Notas editor produces — converted here (newlines -> <br>) so
+        // create()'s own sanitizeRichText treats it as already-rich-text
+        // instead of escaping the whole thing as literal characters.
+        ...(fields.notes ? { notes: plainTextToRichText(fields.notes) } : {}),
         ...(insuranceEntityId ? { insuranceEntityId } : {}),
       });
       const errors = await validate(dto);
@@ -282,7 +295,10 @@ export class PatientsService {
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {
     const patient = await this.findOne(id);
-    this.repo.merge(patient, dto);
+    this.repo.merge(patient, {
+      ...dto,
+      ...(dto.notes ? { notes: sanitizeRichText(dto.notes) } : {}),
+    });
     try {
       return await this.repo.save(patient);
     } catch (err) {

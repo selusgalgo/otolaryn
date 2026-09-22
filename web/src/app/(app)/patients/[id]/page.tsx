@@ -12,6 +12,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { AntecedenteType, ClinicalEntry, Paginated, Patient, PatientAntecedente } from "@/lib/types";
+import { stripHtml } from "@/lib/utils";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
@@ -115,7 +116,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                             </Link>
                           </TableCell>
                           <TableCell>
-                            {entry.chiefComplaint}
+                            {stripHtml(entry.chiefComplaint)}
                             {/* En escritorio el doctor vive en su propia
                                 columna — en móvil, donde esa columna se
                                 oculta, se muestra aquí debajo para no

@@ -4,6 +4,10 @@ import { InsuranceService } from '../insurance/insurance.service';
 import { Patient } from '../patients/entities/patient.entity';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { namesLookRelated } from '../shared/name-similarity.util';
+import {
+  plainTextToRichText,
+  sanitizeRichText,
+} from '../shared/rich-text.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
@@ -57,14 +61,18 @@ export class ClinicalEntriesService {
     // the FK on (patient_id, tenant_id) succeed below.
     await this.patients.findOne(patientId);
 
+    // Motivo/Exploración/Tratamiento are edited as rich text (Tiptap) —
+    // sanitized here, not just trusted from the client.
     const entry = this.repo.create({
       tenantId: this.tenancyContext.tenantId,
       patientId,
       authorUserId,
-      chiefComplaint: dto.chiefComplaint,
-      examinationFindings: dto.examinationFindings ?? null,
+      chiefComplaint: sanitizeRichText(dto.chiefComplaint),
+      examinationFindings: dto.examinationFindings
+        ? sanitizeRichText(dto.examinationFindings)
+        : null,
       diagnosis: dto.diagnosis ?? null,
-      treatment: dto.treatment ?? null,
+      treatment: dto.treatment ? sanitizeRichText(dto.treatment) : null,
       followUpNotes: dto.followUpNotes ?? null,
       visitDate: dto.visitDate ? toVisitDate(dto.visitDate) : new Date(),
     });
@@ -191,14 +199,19 @@ export class ClinicalEntriesService {
       // row after it fails too even though nothing is wrong with them.
       await this.repo.query('SAVEPOINT row_import');
       try {
+        // consultas.xls cells are plain text, not the HTML the Motivo/
+        // Exploración/Tratamiento editors produce — converted here
+        // (newlines -> <br>) same as the Pacientes importer's own Notas.
         const entry = this.repo.create({
           tenantId: this.tenancyContext.tenantId,
           patientId: patient.id,
           authorUserId,
-          chiefComplaint: row.chiefComplaint,
-          examinationFindings: row.examinationFindings ?? null,
+          chiefComplaint: plainTextToRichText(row.chiefComplaint),
+          examinationFindings: row.examinationFindings
+            ? plainTextToRichText(row.examinationFindings)
+            : null,
           diagnosis: null,
-          treatment: row.treatment ?? null,
+          treatment: row.treatment ? plainTextToRichText(row.treatment) : null,
           followUpNotes: null,
           visitDate: row.visitDate ? toVisitDate(row.visitDate) : new Date(),
           insuranceEntityId: insuranceEntityId ?? null,
