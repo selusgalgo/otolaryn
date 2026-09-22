@@ -28,7 +28,7 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Notas</CardTitle>
+        <CardTitle className="text-base">Historia clínica</CardTitle>
         {!editing && (
           <Button
             size="sm"
@@ -65,7 +65,7 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
             </div>
           </form>
         ) : (
-          <RichTextContent html={notes} emptyText="Sin notas." />
+          <RichTextContent html={notes} emptyText="Sin historia clínica todavía." />
         )}
       </CardContent>
     </Card>

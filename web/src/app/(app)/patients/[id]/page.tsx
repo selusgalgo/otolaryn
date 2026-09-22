@@ -72,16 +72,17 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         practitionerOptions={practitioners}
       />
 
-      {/* Debajo, a ancho completo: Historia clínica y Antecedentes (solo
+      {/* Debajo, a ancho completo: Consultas y Antecedentes (solo
           admin/profesional, que tienen acceso clínico) y, cerrando la
-          página, Notas — visible para todos los roles, a diferencia del
-          resto de este bloque. Below md todo se apila en una columna en
-          este mismo orden de arriba a abajo. */}
+          página, la tarjeta de Historia clínica (texto libre) — visible
+          para todos los roles, a diferencia del resto de este bloque.
+          Below md todo se apila en una columna en este mismo orden de
+          arriba a abajo. */}
       {entries !== null && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Historia clínica</CardTitle>
+              <CardTitle className="text-base">Consultas</CardTitle>
               <Button asChild size="sm">
                 <Link href={`/patients/${id}/clinical-entries/new`}>
                   <PlusIcon data-icon="inline-start" />
