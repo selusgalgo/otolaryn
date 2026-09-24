@@ -26,6 +26,7 @@ interface PatientResponse {
   address: string | null;
   notes: string | null;
   firstConsultationDate: string | null;
+  legacyId: string | null;
 }
 
 interface PaginatedPatients {
@@ -107,6 +108,61 @@ describe('Patients CRUD', () => {
     expect(body.lastName).toBe('Patient create');
     expect(body.documentId).toBe(payload.documentId);
     expect(body.tenantId).toBe(tenantA.id);
+  });
+
+  it('auto-assigns a sequential Número de historia when the request omits legacyId', async () => {
+    const first = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('auto-number-1'));
+    const second = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('auto-number-2'));
+
+    const firstNumber = Number((first.body as PatientResponse).legacyId);
+    const secondNumber = Number((second.body as PatientResponse).legacyId);
+    expect(Number.isNaN(firstNumber)).toBe(false);
+    expect(secondNumber).toBe(firstNumber + 1);
+  });
+
+  it('respects an explicit legacyId instead of assigning one (the import path)', async () => {
+    const res = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ ...samplePatient('explicit-legacy-id'), legacyId: 'NH-EXPLICIT-1' });
+
+    expect(res.status).toBe(201);
+    expect((res.body as PatientResponse).legacyId).toBe('NH-EXPLICIT-1');
+  });
+
+  it("keeps each tenant's auto-assigned Número de historia sequence independent", async () => {
+    // Two patients in tenant A first, so its counter is well ahead of
+    // wherever tenant B's own sequence happens to be — if the two shared
+    // one counter, tenant B's next number would jump past its own prior
+    // value to keep up with A's instead of simply incrementing by one.
+    await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('tenant-a-number-1'));
+    await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('tenant-a-number-2'));
+
+    const bFirst = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send(samplePatient('tenant-b-number-1'));
+    const bSecond = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send(samplePatient('tenant-b-number-2'));
+
+    const bFirstNumber = Number((bFirst.body as PatientResponse).legacyId);
+    const bSecondNumber = Number((bSecond.body as PatientResponse).legacyId);
+    expect(Number.isNaN(bFirstNumber)).toBe(false);
+    expect(bSecondNumber).toBe(bFirstNumber + 1);
   });
 
   it('rejects a payload missing a required field', async () => {

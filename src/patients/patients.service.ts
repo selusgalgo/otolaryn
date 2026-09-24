@@ -215,7 +215,9 @@ export class PatientsService {
   // crea la tabla) esta misma sentencia la crea empezando en 1 — no hace
   // falta sembrarla en ningún otro sitio.
   private async assignNextPatientNumber(): Promise<string> {
-    const [{ assigned }] = (await this.tenancyContext.manager.query(
+    const rows = await this.tenancyContext.manager.query<
+      { assigned: number }[]
+    >(
       `
         INSERT INTO patient_number_counters (tenant_id, next_number)
         VALUES ($1, 2)
@@ -224,8 +226,8 @@ export class PatientsService {
         RETURNING next_number - 1 AS assigned
       `,
       [this.tenancyContext.tenantId],
-    )) as { assigned: number }[];
-    return String(assigned);
+    );
+    return String(rows[0].assigned);
   }
 
   // Each row runs through the exact same CreatePatientDto validation as a

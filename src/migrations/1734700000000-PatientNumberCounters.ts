@@ -18,9 +18,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // sentencia — sin la carrera de leer MAX(...)+1 y escribirlo aparte, que
 // dos altas simultáneas sí podrían pisarse. Misma forma RLS que el resto
 // de tablas propias de un tenant (insurance_entities, antecedente_types).
-export class PatientNumberCounters1734700000000
-  implements MigrationInterface
-{
+export class PatientNumberCounters1734700000000 implements MigrationInterface {
   name = 'PatientNumberCounters1734700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -51,9 +49,9 @@ export class PatientNumberCounters1734700000000
     // per-tenant con set_config que PatientAntecedentes1733900000000 —
     // patients también tiene FORCE ROW LEVEL SECURITY, incluso el owner
     // necesita el tenant fijado para poder leerla/escribirla.
-    const tenants = (await queryRunner.query(
-      `SELECT id FROM iam.tenants`,
-    )) as { id: string }[];
+    const tenants = (await queryRunner.query(`SELECT id FROM iam.tenants`)) as {
+      id: string;
+    }[];
     for (const tenant of tenants) {
       await queryRunner.query(`SELECT set_config('app.tenant_id', $1, true)`, [
         tenant.id,
