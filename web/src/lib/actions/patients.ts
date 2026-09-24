@@ -30,18 +30,23 @@ function patientPayloadFromFormData(formData: FormData) {
     lastName: String(formData.get("lastName") ?? "").trim(),
     dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
     phone: String(formData.get("phone") ?? "").trim(),
-    // Documento is optional now — omitted entirely when blank, same
-    // pattern as every other optional field below.
-    ...(documentId ? { documentId } : {}),
-    ...(phone2 ? { phone2 } : {}),
-    ...(email ? { email } : {}),
-    ...(address ? { address } : {}),
-    ...(city ? { city } : {}),
-    ...(province ? { province } : {}),
-    ...(postalCode ? { postalCode } : {}),
-    ...(notes ? { notes } : {}),
-    ...(profession ? { profession } : {}),
-    ...(insuranceEntityId ? { insuranceEntityId } : {}),
+    // Documento (and every other optional field below) sends an explicit
+    // null when blank, not just an omitted key — updatePatientAction uses
+    // this same payload for PATCH, and omitting the key there means
+    // "leave it as it was", not "clear it": a DNI once set could never be
+    // erased back to blank from the ficha. @IsOptional() on the backend
+    // DTO already skips validation on null the same way it does on
+    // undefined, so this changes nothing about what create() accepts.
+    documentId: documentId || null,
+    phone2: phone2 || null,
+    email: email || null,
+    address: address || null,
+    city: city || null,
+    province: province || null,
+    postalCode: postalCode || null,
+    notes: notes || null,
+    profession: profession || null,
+    insuranceEntityId: insuranceEntityId || null,
   };
 }
 
