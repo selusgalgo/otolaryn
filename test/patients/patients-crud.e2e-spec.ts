@@ -19,7 +19,7 @@ interface PatientResponse {
   tenantId: string;
   firstName: string;
   lastName: string;
-  documentId: string;
+  documentId: string | null;
   dateOfBirth: string;
   phone: string;
   email: string | null;
@@ -130,7 +130,10 @@ describe('Patients CRUD', () => {
     const res = await request(server)
       .post('/patients')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ ...samplePatient('explicit-legacy-id'), legacyId: 'NH-EXPLICIT-1' });
+      .send({
+        ...samplePatient('explicit-legacy-id'),
+        legacyId: 'NH-EXPLICIT-1',
+      });
 
     expect(res.status).toBe(201);
     expect((res.body as PatientResponse).legacyId).toBe('NH-EXPLICIT-1');
@@ -273,6 +276,28 @@ describe('Patients CRUD', () => {
     expect(res.status).toBe(200);
     expect((res.body as PatientResponse).phone).toBe('+34699999999');
     expect((res.body as PatientResponse).lastName).toBe('Patient update');
+  });
+
+  it('clears an optional field back to null when PATCHed with null, not just left as-is', async () => {
+    // The ficha's edit form sends an explicit null for a field the user
+    // blanked out — a real bug once had it omit the key instead, which
+    // PATCH treats as "leave unchanged", so a DNI once set could never be
+    // erased. @IsOptional() on UpdatePatientDto must skip validation on
+    // null the same way it does on undefined for this to work.
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ ...samplePatient('clear-document-id'), documentId: 'D-CLEARME' });
+    const id = (created.body as PatientResponse).id;
+    expect((created.body as PatientResponse).documentId).toBe('D-CLEARME');
+
+    const res = await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ documentId: null });
+
+    expect(res.status).toBe(200);
+    expect((res.body as PatientResponse).documentId).toBeNull();
   });
 
   it('sanitizes rich text in Notas: keeps the allowed formatting tags, strips everything else', async () => {
