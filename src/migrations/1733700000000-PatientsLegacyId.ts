@@ -4,8 +4,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // indexed column — never the primary key (that stays UUID) — so the
 // historical data migration is traceable back to its source row and
 // because clinic staff still refer to patients by this number from memory.
-// Nullable: only patients created via that migration ever get one; patients
-// created directly in the app never will.
+// Nullable at the time: only patients created via that migration got one;
+// patients created directly in the app never did. That gap is closed by
+// PatientNumberCounters1734700000000 (24/09/2026) — a patient created
+// directly in the app now gets the next number of the same sequence
+// instead. Column stays nullable for the patients created before that date.
 export class PatientsLegacyId1733700000000 implements MigrationInterface {
   name = 'PatientsLegacyId1733700000000';
 

@@ -250,7 +250,11 @@ export function PatientsTable({
                           con sus filas en pacientes.xls/consultas.xls; el id
                           interno (uuid) no aparece en el legado y no sirve
                           para contrastar nada. Bajo el nombre en vez de en su
-                          propia columna. */}
+                          propia columna. Desde el 24/09/2026 todo paciente
+                          nuevo recibe uno asignado automáticamente (ver
+                          PatientsService.create en el backend) — el "—" solo
+                          debería verse ya en pacientes creados antes de esa
+                          fecha. */}
                       <div className="font-mono text-xs text-muted-foreground">
                         {patient.legacyId ?? "—"}
                       </div>

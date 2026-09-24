@@ -109,8 +109,13 @@ export class CreatePatientDto {
   @IsUUID()
   insuranceEntityId?: string;
 
-  // NUMHISTORIA del programa legado — solo lo rellena el asistente de
-  // importación de Pacientes, nunca el formulario normal.
+  // "Número de historia" — el asistente de importación de Pacientes lo
+  // rellena con el NUMHISTORIA del programa legado, cuando esa fila lo
+  // trae. El formulario normal nunca lo envía: si llega undefined,
+  // PatientsService.create le asigna automáticamente el siguiente número
+  // libre de la secuencia del tenant (24/09/2026, a petición del usuario)
+  // — sigue siendo opcional aquí solo para no bloquear ese camino explícito
+  // del importador.
   @IsOptional()
   @Transform(trim)
   @IsString()

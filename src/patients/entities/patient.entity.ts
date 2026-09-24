@@ -50,8 +50,13 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  // NUMHISTORIA from the legacy OTOLARYN desktop app — only set for
-  // patients brought in by the historical data migration.
+  // "Número de historia" — originally NUMHISTORIA from the legacy
+  // OTOLARYN desktop app, set only for patients brought in by the
+  // historical data migration. Since 24/09/2026 (PatientsService.create,
+  // PatientNumberCounters1734700000000) it's also auto-assigned for every
+  // new patient created directly in the app, continuing the SAME per-tenant
+  // sequence — nullable is now only a historical leftover for patients
+  // created before that date, not a "legacy-only" marker.
   @Column({ name: 'legacy_id', type: 'text', nullable: true })
   legacyId: string | null;
 

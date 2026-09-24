@@ -181,8 +181,19 @@ export class PatientsService {
   }
 
   async create(dto: CreatePatientDto): Promise<Patient> {
+    // Número de historia (24/09/2026, a petición del usuario): antes solo
+    // lo traían los pacientes del importador del legado (NUMHISTORIA) —
+    // uno creado desde el formulario normal se quedaba con legacy_id NULL
+    // para siempre, justo el dato que el personal usa para relacionar todo
+    // (ver PatientNumberCounters1734700000000). Si el DTO ya trae uno
+    // explícito (el importador, cuando esa fila del legado sí tenía
+    // NUMHISTORIA) se respeta tal cual; si no, se asigna el siguiente de la
+    // secuencia del tenant — cubre tanto el alta normal como una fila
+    // importada sin NUMHISTORIA en el legado.
+    const legacyId = dto.legacyId ?? (await this.assignNextPatientNumber());
     const patient = this.repo.create({
       ...dto,
+      legacyId,
       // Notas is edited as rich text (Tiptap) — sanitized here, not just
       // trusted from the client, so a crafted request can't smuggle
       // anything past the editor's own allowlist.
@@ -194,6 +205,27 @@ export class PatientsService {
     } catch (err) {
       throw this.mapWriteError(err);
     }
+  }
+
+  // Atómico en una sola sentencia (INSERT ... ON CONFLICT DO UPDATE ...
+  // RETURNING) — dos altas simultáneas del mismo tenant nunca pueden
+  // recibir el mismo número, a diferencia de leer MAX(legacy_id)+1 y
+  // guardarlo aparte. Si el tenant aún no tiene fila en
+  // patient_number_counters (uno dado de alta después de la migración que
+  // crea la tabla) esta misma sentencia la crea empezando en 1 — no hace
+  // falta sembrarla en ningún otro sitio.
+  private async assignNextPatientNumber(): Promise<string> {
+    const [{ assigned }] = (await this.tenancyContext.manager.query(
+      `
+        INSERT INTO patient_number_counters (tenant_id, next_number)
+        VALUES ($1, 2)
+        ON CONFLICT (tenant_id)
+          DO UPDATE SET next_number = patient_number_counters.next_number + 1
+        RETURNING next_number - 1 AS assigned
+      `,
+      [this.tenancyContext.tenantId],
+    )) as { assigned: number }[];
+    return String(assigned);
   }
 
   // Each row runs through the exact same CreatePatientDto validation as a
