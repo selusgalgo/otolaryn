@@ -139,7 +139,7 @@ export class PatientsService {
     }
     const patient = await qb.getOne();
     if (!patient) {
-      throw new NotFoundException('Patient not found');
+      throw new NotFoundException('Paciente no encontrado');
     }
     return patient;
   }
@@ -387,11 +387,11 @@ export class PatientsService {
       const constraint = (err as { constraint?: string }).constraint;
       if (constraint === 'patients_tenant_legacy_id_idx') {
         return new ConflictException(
-          'A patient with this legacy id has already been imported',
+          'Ya se ha importado un paciente con este número de historia',
         );
       }
       return new ConflictException(
-        'A patient with this document ID already exists',
+        'Ya existe un paciente con este número de documento',
       );
     }
     return err instanceof Error ? err : new Error(String(err));

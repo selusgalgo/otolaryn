@@ -170,7 +170,17 @@ export function AgendaCalendar({
               const isToday = key === todayKey;
               const isPast = cell.date < todayStart;
               const showOccupancy = cell.inMonth && !isPast;
-              const occupancy = computeDayOccupancy(cell.date, appointmentsByDay.get(key) ?? [], schedule);
+              const occupancy = computeDayOccupancy(
+                cell.date,
+                appointmentsByDay.get(key) ?? [],
+                schedule,
+                // No per-practitioner filter here — this widget always
+                // shows either "everyone" (admin/recepcion) or is already
+                // auto-scoped to just themselves (profesional, in which
+                // case practitioners is null and there's nothing to
+                // union: their own appointments are all there is).
+                practitioners?.map((p) => p.id),
+              );
               return (
                 <button
                   key={key}

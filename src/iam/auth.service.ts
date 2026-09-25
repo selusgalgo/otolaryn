@@ -47,7 +47,7 @@ export class AuthService {
     );
 
     if (!user || !passwordMatches) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales no válidas');
     }
 
     const accessToken = await this.jwt.signAsync({

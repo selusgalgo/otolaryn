@@ -8,7 +8,7 @@ import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
-import { WEEKDAYS, buildGrid, formatMonthLabel, toDateKey } from "@/lib/calendar-grid";
+import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import {
   OCCUPANCY_LEGEND,
   OCCUPANCY_STYLES,
@@ -39,6 +39,24 @@ function formatDayHeading(date: Date): string {
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 }
 
+// Quick time-of-day narrowing for a day's free-slots popover — generic
+// fixed bands, same idea as Booksy's Mañana/Mediodía/Tarde chips, not tied
+// to any one tenant's configured tramos (a clinic with a 13:00-16:00 break
+// simply has nothing under "Mediodía" most of the time, same as it would
+// show no slots there today).
+type TimeOfDay = "morning" | "midday" | "afternoon";
+
+const TIME_OF_DAY_FILTERS: { key: TimeOfDay; label: string; from: number; to: number }[] = [
+  { key: "morning", label: "Mañana", from: 0, to: 12 * 60 },
+  { key: "midday", label: "Mediodía", from: 12 * 60, to: 16 * 60 },
+  { key: "afternoon", label: "Tarde", from: 16 * 60, to: 24 * 60 },
+];
+
+function minutesOf(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 // Agenda's calendar: same navigable month grid as Escritorio's
 // AgendaCalendar, but each day is colored by how full it is (against the
 // clinic's configured hours) instead of showing a dot, and it doubles as
@@ -67,11 +85,22 @@ export function OccupancyCalendar({
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // "" = Todos los profesionales.
   const selectedPractitionerId = practitionerId ?? "";
+  // Only meaningful for the "Todos" aggregate view — computeDayOccupancy/
+  // computeDayFreeSlots use it to treat each practitioner as their own
+  // parallel calendar instead of one shared one (see occupancy.ts). Once a
+  // specific practitioner is selected, `appointments` is already scoped to
+  // just them server-side, so there's nothing to union.
+  const allPractitionerIds =
+    selectedPractitionerId === "" ? practitioners?.map((p) => p.id) : undefined;
   // Which day's popover is open — at most one at a time, keyed by
   // toDateKey. Also doubles as the anchor for the quick-book dialog: once
   // an hour is picked, quickBook carries {date, time} and this is cleared.
   const [openDayKey, setOpenDayKey] = useState<string | null>(null);
   const [quickBook, setQuickBook] = useState<{ date: string; time: string } | null>(null);
+  // Shared across whichever day's popover is open — picking "Tarde" once
+  // and then browsing to the next day keeps that same narrowing instead of
+  // resetting it every time a different day is clicked.
+  const [timeFilter, setTimeFilter] = useState<TimeOfDay | null>(null);
 
   function dayHref(dayKey: string): string {
     const qs = new URLSearchParams();
@@ -120,51 +149,18 @@ export function OccupancyCalendar({
 
   const monthLabel = formatMonthLabel(year, month);
 
-  return (
-    <div className="space-y-3">
-      {/* admin/recepcion only — a profesional has no one else to filter by,
-          and is already looking at just their own appointments. Free hours
-          are always specific to one profesional (two people's schedules
-          don't add up into a single "who's free" answer), so switching this
-          navigates to a new filter — re-fetching the calendar AND the
-          appointments list below, both driven by the same URL. Lives
-          outside the calendar card, as its own row of avatar tags, instead
-          of a dropdown squeezed inside it. */}
-      {practitioners != null && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={practitionerHref("")}
-            className={cn(
-              "flex items-center rounded-full border px-3 py-2.5 text-sm transition-colors",
-              selectedPractitionerId === ""
-                ? "border-primary bg-primary/5 text-primary"
-                : "border-input bg-background text-muted-foreground hover:bg-muted",
-            )}
-          >
-            Todos los profesionales
-          </Link>
-          {practitioners.map((p) => {
-            const { firstName, lastName } = splitName(p.label);
-            const active = selectedPractitionerId === p.id;
-            return (
-              <Link
-                key={p.id}
-                href={practitionerHref(p.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm transition-colors",
-                  active
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-input bg-background hover:bg-muted",
-                )}
-              >
-                <InitialsAvatar firstName={firstName} lastName={lastName} size="sm" />
-                {p.label}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+  // Which day each profesional's own dot (in the side panel below) reflects
+  // — whichever day's popover is currently open, so the dots update live as
+  // you click around the grid; failing that, whatever single day the page
+  // is already filtered to; failing that, today. Falls back to "free" for
+  // a day outside the currently displayed month (appointmentsByDay simply
+  // has nothing for it), which only matters in the rare case of a
+  // cross-month selectedDateKey.
+  const activeDayKey = openDayKey ?? selectedDateKey ?? todayKey;
+  const activeDate = parseDateKey(activeDayKey);
 
+  return (
+    <div className="grid gap-3 md:grid-cols-[1fr_320px]">
       <Card>
         <CardContent className="px-3">
           <div className="mb-2 flex items-center justify-between">
@@ -200,7 +196,12 @@ export function OccupancyCalendar({
               // "libre"/"completo" en ningún sentido accionable, así que
               // colorearlo solo añade ruido visual.
               const showOccupancy = cell.inMonth && !isPast;
-              const occupancy = computeDayOccupancy(cell.date, appointmentsByDay.get(key) ?? [], schedule);
+              const occupancy = computeDayOccupancy(
+                cell.date,
+                appointmentsByDay.get(key) ?? [],
+                schedule,
+                allPractitionerIds,
+              );
               const dayButtonClassName = cn(
                 "w-full rounded-md py-1.5 text-sm transition-colors",
                 !showOccupancy && "text-muted-foreground/40",
@@ -220,7 +221,13 @@ export function OccupancyCalendar({
                 );
               }
 
-              const freeSlots = computeDayFreeSlots(cell.date, appointmentsByDay.get(key) ?? [], schedule);
+              const freeSlots = computeDayFreeSlots(
+                cell.date,
+                appointmentsByDay.get(key) ?? [],
+                schedule,
+                30,
+                allPractitionerIds,
+              );
 
               return (
                 <Popover
@@ -244,21 +251,54 @@ export function OccupancyCalendar({
                     ) : freeSlots.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No quedan huecos libres este día.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {freeSlots.map((time) => (
-                          <button
-                            key={time}
-                            type="button"
-                            onClick={() => {
-                              setOpenDayKey(null);
-                              setQuickBook({ date: key, time });
-                            }}
-                            className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:bg-muted"
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
+                      <>
+                        <div className="mb-2 flex gap-1.5">
+                          {TIME_OF_DAY_FILTERS.map((f) => (
+                            <button
+                              key={f.key}
+                              type="button"
+                              onClick={() => setTimeFilter(timeFilter === f.key ? null : f.key)}
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                                timeFilter === f.key
+                                  ? "border-primary bg-primary/5 text-primary"
+                                  : "border-input hover:bg-muted",
+                              )}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                        {(() => {
+                          const activeFilter = TIME_OF_DAY_FILTERS.find((f) => f.key === timeFilter);
+                          const visibleSlots = activeFilter
+                            ? freeSlots.filter(
+                                (time) => minutesOf(time) >= activeFilter.from && minutesOf(time) < activeFilter.to,
+                              )
+                            : freeSlots;
+                          return visibleSlots.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              Ningún hueco por {activeFilter?.label.toLowerCase()} este día.
+                            </p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {visibleSlots.map((time) => (
+                                <button
+                                  key={time}
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenDayKey(null);
+                                    setQuickBook({ date: key, time });
+                                  }}
+                                  className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:bg-muted"
+                                >
+                                  {time}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </>
                     )}
                     <Link
                       href={dayHref(key)}
@@ -298,6 +338,70 @@ export function OccupancyCalendar({
           hideTrigger
         />
       </Card>
+
+      {/* admin/recepcion only — a profesional has no one else to filter by,
+          and is already looking at just their own appointments. Free hours
+          are always specific to one profesional (two people's schedules
+          don't add up into a single "who's free" answer), so switching this
+          navigates to a new filter — re-fetching the calendar AND the
+          appointments list below, both driven by the same URL. A side
+          column next to the calendar (Booksy's layout) instead of a row of
+          chips above it — each profesional's dot is that same
+          computeDayOccupancy the grid itself uses, just scoped to their own
+          appointments alone, for whichever day is "active" right now (see
+          activeDayKey above) — never "partial", since a single person's
+          agenda is either free or full, that state only exists in
+          aggregate. */}
+      {practitioners != null && (
+        <Card className="h-fit">
+          <CardContent className="space-y-1.5 p-3">
+            <Link
+              href={practitionerHref("")}
+              className={cn(
+                "block rounded-lg border px-3 py-2 text-sm transition-colors",
+                selectedPractitionerId === ""
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-input bg-background text-muted-foreground hover:bg-muted",
+              )}
+            >
+              Todos los profesionales
+            </Link>
+            {practitioners.map((p) => {
+              const { firstName, lastName } = splitName(p.label);
+              const active = selectedPractitionerId === p.id;
+              const dotStatus = computeDayOccupancy(
+                activeDate,
+                (appointmentsByDay.get(activeDayKey) ?? []).filter(
+                  (a) => a.practitionerId === p.id,
+                ),
+                schedule,
+              );
+              return (
+                <Link
+                  key={p.id}
+                  href={practitionerHref(p.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border py-1.5 pr-3 pl-1.5 text-sm transition-colors",
+                    active
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background hover:bg-muted",
+                  )}
+                >
+                  <InitialsAvatar firstName={firstName} lastName={lastName} size="sm" />
+                  <span className="flex-1 truncate">{p.label}</span>
+                  <span
+                    title={OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.label}
+                    className={cn(
+                      "size-2.5 shrink-0 rounded-full",
+                      OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.swatch,
+                    )}
+                  />
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -63,7 +63,7 @@ describe('Dashboard (Escritorio) — Hoy', () => {
 
   beforeAll(async () => {
     owner = ownerPool();
-    [tenantA, tenantB] = await createTestTenants(owner);
+    [tenantA, tenantB] = await createTestTenants(owner, { openAllHours: true });
 
     // createTestTenants only seeds one 'admin' user per tenant — a
     // 'profesional' and a 'recepcion' inside tenant A are needed to prove

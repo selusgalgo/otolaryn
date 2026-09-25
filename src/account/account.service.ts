@@ -37,7 +37,7 @@ export class AccountService {
     if (!user) {
       // Can't actually happen for a valid JWT (the row it was issued for
       // still exists), but keeps this honest about its return type.
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuario no encontrado');
     }
     return user;
   }
@@ -66,7 +66,7 @@ export class AccountService {
         err instanceof QueryFailedError &&
         (err as { code?: string }).code === UNIQUE_VIOLATION
       ) {
-        throw new ConflictException('That username is already taken');
+        throw new ConflictException('Ese nombre de usuario ya está en uso');
       }
       throw err;
     }
@@ -80,7 +80,7 @@ export class AccountService {
       dto.currentPassword,
     );
     if (!currentMatches) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('La contraseña actual no es correcta');
     }
 
     user.passwordHash = await argon2.hash(dto.newPassword, {
