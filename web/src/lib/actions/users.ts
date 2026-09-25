@@ -22,6 +22,7 @@ export async function createUserAction(
         lastName: String(formData.get("lastName") ?? "").trim(),
         password: String(formData.get("password") ?? ""),
         role: String(formData.get("role") ?? "profesional"),
+        staffFunction: String(formData.get("staffFunction") ?? ""),
       },
     });
   } catch (err) {
@@ -50,6 +51,7 @@ export async function updateUserAction(
         lastName: String(formData.get("lastName") ?? "").trim(),
         username: String(formData.get("username") ?? "").trim(),
         role: String(formData.get("role") ?? ""),
+        staffFunction: String(formData.get("staffFunction") ?? ""),
       },
     });
   } catch (err) {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
-import { ASSIGNABLE_ROLES, ROLE_LABELS } from "@/lib/roles";
+import { ASSIGNABLE_ROLES, ROLE_LABELS, STAFF_FUNCTIONS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
 
 interface UserFormProps {
   action: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
@@ -18,6 +18,7 @@ const initialState: UserFormState = {};
 
 export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [role, setRole] = useState<string>("profesional");
 
   useEffect(() => {
     if (state.success) onSuccess?.();
@@ -48,7 +49,8 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
         <select
           id="role"
           name="role"
-          defaultValue="profesional"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
           disabled={pending}
           className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
         >
@@ -59,6 +61,25 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
           ))}
         </select>
       </div>
+      {role === "admin" && (
+        <div className="space-y-2">
+          <Label htmlFor="staffFunction">Función adicional</Label>
+          <select
+            id="staffFunction"
+            name="staffFunction"
+            defaultValue=""
+            disabled={pending}
+            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+          >
+            <option value="">Solo administrador</option>
+            {STAFF_FUNCTIONS.map((value) => (
+              <option key={value} value={value}>
+                {STAFF_FUNCTION_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
         {pending ? (

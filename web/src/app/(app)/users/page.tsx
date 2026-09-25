@@ -7,6 +7,7 @@ import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { apiFetch } from "@/lib/api";
 import { updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
 import { getCurrentUser } from "@/lib/auth";
+import { STAFF_FUNCTION_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
 
 export default async function UsersPage() {
@@ -55,7 +56,14 @@ export default async function UsersPage() {
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <RoleBadge role={user.role} />
+                  <div className="flex items-center gap-2">
+                    <RoleBadge role={user.role} />
+                    {user.staffFunction && (
+                      <span className="text-xs text-muted-foreground">
+                        · también {STAFF_FUNCTION_LABELS[user.staffFunction]}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <EditUserDialog

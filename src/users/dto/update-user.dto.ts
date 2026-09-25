@@ -1,6 +1,6 @@
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
-import type { UserRole } from '../../iam/entities/user.entity';
-import { ASSIGNABLE_ROLES } from './create-user.dto';
+import type { StaffFunction, UserRole } from '../../iam/entities/user.entity';
+import { ASSIGNABLE_ROLES, STAFF_FUNCTIONS } from './create-user.dto';
 
 // All fields optional — a caller sends only what it's changing. Email is
 // deliberately not editable here (same call as Mi cuenta's own profile
@@ -28,4 +28,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(ASSIGNABLE_ROLES)
   role?: UserRole;
+
+  // Same '' = "solo administrador" convention as CreateUserDto.
+  @IsOptional()
+  @IsIn([...STAFF_FUNCTIONS, ''])
+  staffFunction?: StaffFunction | '';
 }

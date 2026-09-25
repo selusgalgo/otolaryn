@@ -62,7 +62,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
 
   beforeAll(async () => {
     owner = ownerPool();
-    [tenantA, tenantB] = await createTestTenants(owner);
+    [tenantA, tenantB] = await createTestTenants(owner, { openAllHours: true });
 
     const profesionalHash = await argon2.hash(PROFESIONAL_PASSWORD, {
       type: argon2.argon2id,
@@ -299,6 +299,90 @@ describe('Roles — RolesGuard + scoping matrix', () => {
       .post('/auth/login')
       .send({ identifier: email, password: 'RolesTest-Reset1!' });
     expect(newLogin.status).toBe(200);
+  });
+
+  // The owner-doctor case: an admin who also sees patients. staffFunction
+  // is additive (keeps every admin capability, see roles.guard/RolesGuard —
+  // nothing here changes), it only changes who GET /users?bookable=true
+  // returns for the practitioner picker.
+  it('lets an admin with staffFunction=profesional appear in the bookable-practitioners list', async () => {
+    const email = `roles-owner-doctor-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Dueño',
+        lastName: 'Doctor',
+        password: 'RolesTest-OwnerDoctor1!',
+        role: 'admin',
+        staffFunction: 'profesional',
+      });
+    expect(created.status).toBe(201);
+    const body = created.body as UserResponse;
+    expect(body.role).toBe('admin');
+    expect(body.staffFunction).toBe('profesional');
+
+    const bookable = await request(server)
+      .get('/users?bookable=true')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(bookable.status).toBe(200);
+    const ids = (bookable.body as UserResponse[]).map((u) => u.id);
+    expect(ids).toContain(body.id);
+  });
+
+  it('excludes a plain admin (no staffFunction) from the bookable-practitioners list', async () => {
+    const email = `roles-plain-admin-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Solo',
+        lastName: 'Administrador',
+        password: 'RolesTest-PlainAdmin1!',
+        role: 'admin',
+      });
+    expect(created.status).toBe(201);
+    expect((created.body as UserResponse).staffFunction).toBeNull();
+
+    const bookable = await request(server)
+      .get('/users?bookable=true')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    const ids = (bookable.body as UserResponse[]).map((u) => u.id);
+    expect(ids).not.toContain((created.body as UserResponse).id);
+  });
+
+  it('ignores staffFunction for a non-admin role and clears it if role changes away from admin', async () => {
+    const email = `roles-staff-function-ignored-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Recepcion',
+        lastName: 'ConFuncion',
+        password: 'RolesTest-Ignored1!',
+        role: 'recepcion',
+        staffFunction: 'profesional',
+      });
+    expect(created.status).toBe(201);
+    expect((created.body as UserResponse).staffFunction).toBeNull();
+    const userId = (created.body as UserResponse).id;
+
+    const promoted = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ role: 'admin', staffFunction: 'profesional' });
+    expect(promoted.status).toBe(200);
+    expect((promoted.body as UserResponse).staffFunction).toBe('profesional');
+
+    const demoted = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ role: 'recepcion' });
+    expect(demoted.status).toBe(200);
+    expect((demoted.body as UserResponse).staffFunction).toBeNull();
   });
 
   it('hides a patient from profesional until they have an appointment or entry with them, then shows it', async () => {

@@ -58,6 +58,10 @@ export interface Paginated<T> {
 
 export type Role = "superadmin" | "admin" | "profesional" | "recepcion";
 
+// Only meaningful when role is "admin" — an owner/manager who also
+// practices or also staffs the front desk, without losing admin access.
+export type StaffFunction = "profesional" | "recepcion";
+
 export interface Me {
   firstName: string;
   lastName: string;
@@ -79,6 +83,7 @@ export interface AppUser {
   firstName: string;
   lastName: string;
   role: Role;
+  staffFunction: StaffFunction | null;
   createdAt: string;
 }
 

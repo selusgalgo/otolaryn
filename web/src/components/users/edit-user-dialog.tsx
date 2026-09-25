@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
-import { ASSIGNABLE_ROLES, ROLE_LABELS } from "@/lib/roles";
+import { ASSIGNABLE_ROLES, ROLE_LABELS, STAFF_FUNCTIONS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
 
 const initialState: UserFormState = {};
@@ -33,6 +33,8 @@ interface EditUserDialogProps {
 // holder changing their own.
 export function EditUserDialog({ user, updateAction, resetPasswordAction }: EditUserDialogProps) {
   const [open, setOpen] = useState(false);
+  const [role, setRole] = useState<string>(user.role);
+  const [staffFunction, setStaffFunction] = useState<string>(user.staffFunction ?? "");
   const [dataState, dataFormAction, dataPending] = useActionState(updateAction, initialState);
   const [passwordState, passwordFormAction, passwordPending] = useActionState(
     resetPasswordAction,
@@ -43,6 +45,23 @@ export function EditUserDialog({ user, updateAction, resetPasswordAction }: Edit
   useEffect(() => {
     if (passwordState.success) passwordFormRef.current?.reset();
   }, [passwordState.success]);
+
+  // React's <form action={...}> resets the DOM of every named form control
+  // back to its initial state right after a successful action — for the
+  // plain text inputs below that's invisible (defaultValue already matches
+  // what's there), but for these two <select>s it snaps the *raw DOM* back
+  // to their first option, out from under React's own state, which never
+  // actually changed. Left alone, a second "Guardar cambios" click (no
+  // edits, just re-confirming) would then read that stale reset DOM via
+  // FormData and silently blank staffFunction — confirmed by reproducing it
+  // against the real API. Forcing a fresh `key` on every action result
+  // remounts both selects, which reapplies `value={role}`/`value=
+  // {staffFunction}` from React's (still-correct) state and erases the
+  // stray DOM reset before anyone can click again.
+  const [saveCount, setSaveCount] = useState(0);
+  useEffect(() => {
+    setSaveCount((c) => c + 1);
+  }, [dataState]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -94,9 +113,11 @@ export function EditUserDialog({ user, updateAction, resetPasswordAction }: Edit
           <div className="space-y-2">
             <Label htmlFor="editRole">Rol</Label>
             <select
+              key={`role-${saveCount}`}
               id="editRole"
               name="role"
-              defaultValue={user.role}
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
               disabled={dataPending}
               className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
             >
@@ -107,6 +128,27 @@ export function EditUserDialog({ user, updateAction, resetPasswordAction }: Edit
               ))}
             </select>
           </div>
+          {role === "admin" && (
+            <div className="space-y-2">
+              <Label htmlFor="editStaffFunction">Función adicional</Label>
+              <select
+                key={`staff-${saveCount}`}
+                id="editStaffFunction"
+                name="staffFunction"
+                value={staffFunction}
+                onChange={(e) => setStaffFunction(e.target.value)}
+                disabled={dataPending}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+              >
+                <option value="">Solo administrador</option>
+                {STAFF_FUNCTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {STAFF_FUNCTION_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {dataState.error && <p className="text-sm text-destructive">{dataState.error}</p>}
           {dataState.success && <p className="text-sm text-success">Datos actualizados.</p>}
           <Button type="submit" disabled={dataPending} className="w-fit">
