@@ -28,7 +28,7 @@ export class UsersService {
     return this.tenancyContext.manager.getRepository(User);
   }
 
-  async findAll(role?: UserRole): Promise<SafeUser[]> {
+  async findAll(role?: UserRole, bookableOnly?: boolean): Promise<SafeUser[]> {
     const qb = this.repo
       .createQueryBuilder('u')
       .where('u.tenantId = :tenantId', {
@@ -36,7 +36,11 @@ export class UsersService {
       })
       .orderBy('u.createdAt', 'DESC');
 
-    if (role) {
+    if (bookableOnly) {
+      qb.andWhere(
+        "(u.role = 'profesional' OR (u.role = 'admin' AND u.staffFunction = 'profesional'))",
+      );
+    } else if (role) {
       qb.andWhere('u.role = :role', { role });
     }
 
@@ -55,6 +59,7 @@ export class UsersService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       role: dto.role,
+      staffFunction: dto.role === 'admin' ? dto.staffFunction || null : null,
       passwordHash,
     });
 
@@ -66,7 +71,7 @@ export class UsersService {
         err instanceof QueryFailedError &&
         (err as { code?: string }).code === UNIQUE_VIOLATION
       ) {
-        throw new ConflictException('A user with this email already exists');
+        throw new ConflictException('Ya existe un usuario con este email');
       }
       throw err;
     }
@@ -80,7 +85,7 @@ export class UsersService {
       where: { id: userId, tenantId: this.tenancyContext.tenantId },
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuario no encontrado');
     }
     return user;
   }
@@ -91,6 +96,12 @@ export class UsersService {
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.username !== undefined) user.username = dto.username || null;
     if (dto.role !== undefined) user.role = dto.role;
+    if (dto.staffFunction !== undefined)
+      user.staffFunction = dto.staffFunction || null;
+    // Whatever staffFunction ends up as above, it only survives if the
+    // user is (still, or now) an admin — same invariant as create(), and
+    // what stops a role change away from admin leaving a stale value.
+    if (user.role !== 'admin') user.staffFunction = null;
 
     try {
       const saved = await this.repo.save(user);
@@ -101,7 +112,7 @@ export class UsersService {
         (err as { code?: string }).code === UNIQUE_VIOLATION
       ) {
         throw new ConflictException(
-          'A user with this email or username already exists',
+          'Ya existe un usuario con este email o nombre de usuario',
         );
       }
       throw err;
@@ -126,6 +137,7 @@ function stripPasswordHash(user: User): SafeUser {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    staffFunction: user.staffFunction,
     createdAt: user.createdAt,
   };
 }

@@ -23,8 +23,8 @@ import { UsersService } from './users.service';
 // Tenant-scoped: manages the users of the caller's own clinic. Creating/
 // listing across clinics is PlatformController's job instead.
 //
-// Listing is also open to recepcion — it needs GET /users?role=profesional
-// to populate the practitioner picker when booking an appointment. Creating
+// Listing is also open to recepcion — it needs GET /users?bookable=true to
+// populate the practitioner picker when booking an appointment. Creating
 // users stays admin-only.
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,7 +36,7 @@ export class UsersController {
   @Get()
   @Roles('admin', 'recepcion')
   findAll(@Query() query: ListUsersQueryDto) {
-    return this.users.findAll(query.role);
+    return this.users.findAll(query.role, query.bookable === 'true');
   }
 
   @Post()

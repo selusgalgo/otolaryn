@@ -41,6 +41,7 @@ function stripPasswordHash(user: User): SafeUser {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    staffFunction: user.staffFunction,
     createdAt: user.createdAt,
   };
 }
@@ -95,7 +96,7 @@ export class PlatformService {
           err instanceof QueryFailedError &&
           (err as { code?: string }).code === UNIQUE_VIOLATION
         ) {
-          throw new ConflictException('A user with this email already exists');
+          throw new ConflictException('Ya existe un usuario con este email');
         }
         throw err;
       }
@@ -126,7 +127,7 @@ export class PlatformService {
   private async findTenant(id: string): Promise<Tenant> {
     const tenant = await this.tenants.findOne({ where: { id } });
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Clínica no encontrada');
     }
     return tenant;
   }
@@ -189,6 +190,7 @@ export class PlatformService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       role: dto.role,
+      staffFunction: dto.role === 'admin' ? dto.staffFunction || null : null,
       passwordHash,
     });
 
@@ -200,7 +202,7 @@ export class PlatformService {
         err instanceof QueryFailedError &&
         (err as { code?: string }).code === UNIQUE_VIOLATION
       ) {
-        throw new ConflictException('A user with this email already exists');
+        throw new ConflictException('Ya existe un usuario con este email');
       }
       throw err;
     }
@@ -214,7 +216,7 @@ export class PlatformService {
       where: { id: userId, tenantId },
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuario no encontrado');
     }
     return user;
   }
@@ -229,6 +231,9 @@ export class PlatformService {
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.username !== undefined) user.username = dto.username || null;
     if (dto.role !== undefined) user.role = dto.role;
+    if (dto.staffFunction !== undefined)
+      user.staffFunction = dto.staffFunction || null;
+    if (user.role !== 'admin') user.staffFunction = null;
 
     try {
       const saved = await this.users.save(user);
@@ -239,7 +244,7 @@ export class PlatformService {
         (err as { code?: string }).code === UNIQUE_VIOLATION
       ) {
         throw new ConflictException(
-          'A user with this email or username already exists',
+          'Ya existe un usuario con este email o nombre de usuario',
         );
       }
       throw err;

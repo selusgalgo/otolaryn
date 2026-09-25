@@ -45,13 +45,13 @@ export function assertNoOverlap(days: DayScheduleDto[]): void {
       const slot = sorted[i];
       if (slot.endTime <= slot.startTime) {
         throw new BadRequestException(
-          `Invalid time range on weekday ${day.weekday}: ${slot.startTime}-${slot.endTime}`,
+          `Tramo horario no válido el día ${day.weekday}: ${slot.startTime}-${slot.endTime}`,
         );
       }
       const next = sorted[i + 1];
       if (next && next.startTime < slot.endTime) {
         throw new BadRequestException(
-          `Overlapping time slots on weekday ${day.weekday}`,
+          `Hay tramos horarios solapados el día ${day.weekday}`,
         );
       }
     }

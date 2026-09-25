@@ -45,7 +45,7 @@ export class TenantContextInterceptor implements NestInterceptor {
     const tenantId = request.user?.tenantId;
 
     if (!tenantId || !isUUID(tenantId)) {
-      throw new ForbiddenException('Missing or invalid tenant context');
+      throw new ForbiddenException('Contexto de clínica ausente o no válido');
     }
 
     return from(

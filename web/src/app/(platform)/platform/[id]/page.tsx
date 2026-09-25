@@ -12,7 +12,7 @@ import {
   resetTenantUserPasswordAction,
   updateTenantUserAction,
 } from "@/lib/actions/platform";
-import { ROLE_LABELS } from "@/lib/roles";
+import { ROLE_LABELS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
 import type { AppUser, Paginated, Patient, Tenant } from "@/lib/types";
 
 function formatDate(iso: string): string {
@@ -116,7 +116,15 @@ export default async function TenantOverviewPage({
                           {user.firstName} {user.lastName}
                           <div className="text-xs text-muted-foreground">{user.email}</div>
                         </TableCell>
-                        <TableCell>{ROLE_LABELS[user.role] ?? user.role}</TableCell>
+                        <TableCell>
+                          {ROLE_LABELS[user.role] ?? user.role}
+                          {user.staffFunction && (
+                            <span className="text-xs text-muted-foreground">
+                              {" "}
+                              · también {STAFF_FUNCTION_LABELS[user.staffFunction]}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <EditUserDialog
                             user={user}

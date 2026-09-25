@@ -21,6 +21,7 @@ const TEST_PASSWORD = 'RlsTest-Passw0rd!';
 // otolaryn_owner is itself subject to FORCE ROW LEVEL SECURITY.
 export async function createTestTenants(
   pool: Pool,
+  opts: { openAllHours?: boolean } = {},
 ): Promise<[TestTenant, TestTenant]> {
   const passwordHash = await argon2.hash(TEST_PASSWORD, {
     type: argon2.argon2id,
@@ -43,6 +44,22 @@ export async function createTestTenants(
        VALUES ($1, $2, $3, 'admin', $4, $5)`,
       [tenantId, email, passwordHash, label, `Test-${runId}`],
     );
+
+    // Deliberately NOT seeded here: schedule.e2e-spec.ts's "starts fully
+    // closed for a tenant created outside PlatformService" test relies on
+    // createTestTenants leaving iam.clinic_hours empty (only
+    // PlatformService.createTenant()'s defaultScheduleRows, or this same
+    // opts.openAllHours, ever populates it for a test tenant). Any spec
+    // that actually needs to book appointments through the API opts in
+    // below instead.
+    if (opts.openAllHours) {
+      await pool.query(
+        `INSERT INTO iam.clinic_hours (tenant_id, weekday, start_time, end_time)
+         SELECT $1, wd, '00:00', '23:59'
+         FROM generate_series(0, 6) AS wd`,
+        [tenantId],
+      );
+    }
 
     const patientFirstName = label;
     const patientLastName = `Patient ${runId}`;

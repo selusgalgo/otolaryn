@@ -1,12 +1,17 @@
 import { toDateKey } from "@/lib/calendar-grid";
 import type { AppointmentStatus, Schedule } from "@/lib/types";
 
-export type DayOccupancy = "closed" | "free" | "full";
+export type DayOccupancy = "closed" | "free" | "partial" | "full";
 
 interface OccupancyAppointment {
   scheduledAt: string;
   durationMinutes: number;
   status: AppointmentStatus;
+  // Optional only so call sites that already scoped their data to one
+  // practitioner (e.g. findNextFreeSlots, always called with a single
+  // practitionerId already picked) don't have to carry it around for
+  // nothing — see groupByPractitioner below for what an absent value means.
+  practitionerId?: string | null;
 }
 
 interface MinuteRange {
@@ -48,18 +53,74 @@ function overlapMinutes(a: MinuteRange, b: MinuteRange): number {
   return Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start));
 }
 
-// Verde/rojo/gris, nada de matices intermedios: verde en cuanto queda
-// algún hueco reservable ese día (recién abierto o casi lleno, da igual),
-// rojo solo cuando no queda ninguno, gris cuando la clínica no atiende ese
-// día (cerrado o vacaciones — sin tramos configurados). Se mide contra las
-// horas *abiertas* de la clínica, no un recuento de citas — una cita larga
-// llena un tramo tanto como varias cortas. Las citas canceladas liberan su
-// hueco y no cuentan; el resto (scheduled, completed, no_show) sigue
-// contando como ocupado aunque ya haya pasado.
+function busyRangesFor(appointments: OccupancyAppointment[]): MinuteRange[] {
+  return mergeRanges(
+    appointments
+      .filter((a) => a.status !== "cancelled")
+      .map((a) => {
+        const start = new Date(a.scheduledAt);
+        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        return { start: startMinutes, end: startMinutes + a.durationMinutes };
+      }),
+  );
+}
+
+// Several practitioners work the clinic's same open hours *in parallel* —
+// one busy calendar each, not one shared calendar for the whole clinic.
+// Treating every appointment as blocking the slot for everyone (the
+// original design here) meant a single practitioner's fully-booked day
+// made the whole clinic read as "Completo" even with two others wide open
+// that same day, and hid every slot they were free at from "Todos los
+// profesionales" — confirmed against a real clinic with 3 profesionales.
+//
+// `practitionerIds` (every practitioner that exists, only meaningful for
+// that aggregate "Todos" view — a caller already scoped to one
+// practitioner has no reason to pass it) makes sure someone with zero
+// appointments that day still gets their own empty-and-therefore-fully-
+// free bucket below, instead of vanishing from the comparison entirely.
+// Without it (or with none of it caller-relevant, e.g. findNextFreeSlots'
+// single already-picked practitioner), every real appointment's own
+// practitionerId groups it correctly on its own regardless.
+function groupByPractitioner(
+  appointments: OccupancyAppointment[],
+  practitionerIds?: string[],
+): MinuteRange[][] {
+  const byPractitioner = new Map<string, OccupancyAppointment[]>();
+  for (const appointment of appointments) {
+    const key = appointment.practitionerId ?? "";
+    const list = byPractitioner.get(key);
+    if (list) {
+      list.push(appointment);
+    } else {
+      byPractitioner.set(key, [appointment]);
+    }
+  }
+  for (const id of practitionerIds ?? []) {
+    if (!byPractitioner.has(id)) byPractitioner.set(id, []);
+  }
+  // No appointments and no known practitioner roster at all — nothing to
+  // group, but callers below still need at least one (empty) bucket to
+  // treat the day as simply free rather than vacuously "full".
+  if (byPractitioner.size === 0) return [[]];
+  return [...byPractitioner.values()].map(busyRangesFor);
+}
+
+// Verde en cuanto *ningún* profesional tiene el día completo, naranja en
+// cuanto *alguno* lo tiene completo pero no todos (p.ej. un médico lleno y
+// el otro con huecos), rojo solo cuando *todos* lo tienen completo, gris
+// cuando la clínica no atiende ese día (cerrado o vacaciones — sin tramos
+// configurados). Con un solo profesional en juego (ya filtrado a uno
+// concreto) "naranja" nunca puede darse — solo tiene sentido en la vista
+// agregada de "Todos los profesionales". Se mide contra las horas
+// *abiertas* de la clínica, no un recuento de citas — una cita larga llena
+// un tramo tanto como varias cortas. Las citas canceladas liberan su hueco
+// y no cuentan; el resto (scheduled, completed, no_show) sigue contando
+// como ocupado aunque ya haya pasado.
 export function computeDayOccupancy(
   date: Date,
   appointmentsThatDay: OccupancyAppointment[],
   schedule: Schedule,
+  practitionerIds?: string[],
 ): DayOccupancy {
   const weekday = weekdayOf(date);
   const day = schedule.days.find((d) => d.weekday === weekday);
@@ -73,24 +134,23 @@ export function computeDayOccupancy(
   }));
   const openMinutes = openRanges.reduce((sum, r) => sum + (r.end - r.start), 0);
 
-  const busyRanges = mergeRanges(
-    appointmentsThatDay
-      .filter((a) => a.status !== "cancelled")
-      .map((a) => {
-        const start = new Date(a.scheduledAt);
-        const startMinutes = start.getHours() * 60 + start.getMinutes();
-        return { start: startMinutes, end: startMinutes + a.durationMinutes };
-      }),
-  );
-
-  let busyWithinOpenMinutes = 0;
-  for (const open of openRanges) {
-    for (const busy of busyRanges) {
-      busyWithinOpenMinutes += overlapMinutes(open, busy);
+  let anyFull = false;
+  let anyFree = false;
+  for (const busyRanges of groupByPractitioner(appointmentsThatDay, practitionerIds)) {
+    let busyWithinOpenMinutes = 0;
+    for (const open of openRanges) {
+      for (const busy of busyRanges) {
+        busyWithinOpenMinutes += overlapMinutes(open, busy);
+      }
+    }
+    if (busyWithinOpenMinutes < openMinutes) {
+      anyFree = true;
+    } else {
+      anyFull = true;
     }
   }
-
-  return busyWithinOpenMinutes >= openMinutes ? "full" : "free";
+  if (anyFull && anyFree) return "partial";
+  return anyFull ? "full" : "free";
 }
 
 function minutesToTime(minutes: number): string {
@@ -109,6 +169,7 @@ export function computeDayFreeSlots(
   appointmentsThatDay: OccupancyAppointment[],
   schedule: Schedule,
   slotMinutes = 30,
+  practitionerIds?: string[],
 ): string[] {
   const daySchedule = schedule.days.find((d) => d.weekday === weekdayOf(date));
   if (!daySchedule || daySchedule.slots.length === 0) return [];
@@ -120,15 +181,11 @@ export function computeDayFreeSlots(
   // (only *today* gets clamped to the current time below).
   if (date < todayStart) return [];
 
-  const busyRanges = mergeRanges(
-    appointmentsThatDay
-      .filter((a) => a.status !== "cancelled")
-      .map((a) => {
-        const start = new Date(a.scheduledAt);
-        const startMinutes = start.getHours() * 60 + start.getMinutes();
-        return { start: startMinutes, end: startMinutes + a.durationMinutes };
-      }),
-  );
+  // One list of busy ranges per practitioner (see groupByPractitioner) — a
+  // slot is bookable if *any* of them is free then, same "Todos los
+  // profesionales is a union, not a shared calendar" fix as
+  // computeDayOccupancy above.
+  const busyRangesByPractitioner = groupByPractitioner(appointmentsThatDay, practitionerIds);
 
   const isToday = date.toDateString() === now.toDateString();
   const nowMinutes = isToday ? Math.ceil((now.getHours() * 60 + now.getMinutes()) / slotMinutes) * slotMinutes : 0;
@@ -139,7 +196,10 @@ export function computeDayFreeSlots(
     let cursor = Math.max(timeToMinutes(openSlot.startTime), nowMinutes);
     while (cursor + slotMinutes <= openEnd) {
       const candidate = { start: cursor, end: cursor + slotMinutes };
-      if (!busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0)) {
+      const someoneIsFree = busyRangesByPractitioner.some(
+        (busyRanges) => !busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0),
+      );
+      if (someoneIsFree) {
         slots.push(minutesToTime(cursor));
       }
       cursor += slotMinutes;
@@ -153,16 +213,21 @@ export function computeDayFreeSlots(
 // for the verde/rojo/gris palette and its legend labels, so the two
 // calendars can't drift out of sync with each other.
 export const OCCUPANCY_STYLES: Record<DayOccupancy, string> = {
-  // Semantic color rule: 700 for the foreground, 100 for the background.
-  free: "bg-green-100 text-green-700 hover:bg-green-200",
+  // Same emerald/orange/red/gray families as the legend's swatch dots
+  // below, but as a pale tint (100 bg / 700 text) rather than a solid
+  // 400 fill — a whole calendar cell filled solid read as too heavy, a
+  // small legend dot doesn't have that problem.
+  free: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+  partial: "bg-orange-100 text-orange-700 hover:bg-orange-200",
   full: "bg-red-100 text-red-700 hover:bg-red-200",
-  closed: "bg-muted/50 text-muted-foreground/60",
+  closed: "bg-gray-100 text-gray-700 hover:bg-gray-200",
 };
 
 export const OCCUPANCY_LEGEND: { key: DayOccupancy; label: string; swatch: string }[] = [
-  { key: "free", label: "Disponible", swatch: "bg-green-700" },
-  { key: "full", label: "Completo", swatch: "bg-red-700" },
-  { key: "closed", label: "Cerrado", swatch: "bg-muted-foreground/40" },
+  { key: "free", label: "Disponible", swatch: "bg-emerald-400" },
+  { key: "partial", label: "Algún profesional completo", swatch: "bg-orange-400" },
+  { key: "full", label: "Completo", swatch: "bg-red-400" },
+  { key: "closed", label: "Cerrado", swatch: "bg-gray-300" },
 ];
 
 export interface FreeSlotOptions {
@@ -176,9 +241,12 @@ export interface FreeSlotOptions {
 // day by day up to `daysAhead` days. A slot only counts as free if it falls
 // entirely within one of the clinic's open tramos for that weekday and
 // doesn't overlap any non-cancelled appointment. Backs the "Próximos
-// horarios libres" suggestions in AppointmentForm — same aggregate,
-// all-practitioners notion of "busy" as computeDayOccupancy above (this
-// app doesn't track per-practitioner free/busy, only whole-clinic).
+// horarios libres" suggestions in AppointmentForm — unlike
+// computeDayOccupancy/computeDayFreeSlots above, this never needs the
+// per-practitioner union: AppointmentForm only ever calls it once a
+// specific practitioner is already picked (or is auto-scoped to a
+// profesional caller server-side), so `appointmentsByDay` here is always
+// already just that one practitioner's own appointments.
 export function findNextFreeSlots(
   from: Date,
   appointmentsByDay: Map<string, OccupancyAppointment[]>,

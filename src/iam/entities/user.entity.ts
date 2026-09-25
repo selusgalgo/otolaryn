@@ -7,6 +7,12 @@ import {
 
 export type UserRole = 'superadmin' | 'admin' | 'profesional' | 'recepcion';
 
+// Only meaningful when role = 'admin' (see AdminStaffFunction migration's
+// DB-level CHECK) — an owner/manager who also practices or also staffs the
+// front desk, without giving up admin access. Never set for the other
+// roles: they already say which one they are via role itself.
+export type StaffFunction = 'profesional' | 'recepcion';
+
 // Deliberately NOT row-level-secured: login must look up a user by email
 // before any tenant context exists, so this table can't depend on
 // app.tenant_id being set. Isolation for this table is enforced the
@@ -42,6 +48,9 @@ export class User {
 
   @Column({ default: 'profesional' })
   role: UserRole;
+
+  @Column({ name: 'staff_function', type: 'text', nullable: true })
+  staffFunction: StaffFunction | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

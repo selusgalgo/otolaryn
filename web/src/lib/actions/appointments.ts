@@ -19,6 +19,7 @@ export interface CalendarAppointment {
   status: AppointmentStatus;
   patientId: string;
   patientName: string;
+  practitionerId: string | null;
 }
 
 // Backs the Escritorio's mini-calendar: one call per visible month, called
@@ -62,6 +63,7 @@ export async function getMonthAppointmentsAction(
       status: a.status,
       patientId: a.patientId,
       patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
+      practitionerId: a.practitionerId,
     };
   });
 }

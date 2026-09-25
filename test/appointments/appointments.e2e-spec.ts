@@ -37,6 +37,15 @@ interface PaginatedAppointments {
   pageSize: number;
 }
 
+interface DayScheduleResponse {
+  weekday: number;
+  slots: { startTime: string; endTime: string }[];
+}
+
+interface ScheduleResponse {
+  days: DayScheduleResponse[];
+}
+
 function decodeSub(token: string): string {
   const payload = JSON.parse(
     Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
@@ -67,7 +76,7 @@ describe('Agenda (appointments)', () => {
 
   beforeAll(async () => {
     owner = ownerPool();
-    [tenantA, tenantB] = await createTestTenants(owner);
+    [tenantA, tenantB] = await createTestTenants(owner, { openAllHours: true });
 
     // A second, unrelated practitioner in the same tenant — needed to prove
     // the no-double-booking constraint is scoped per practitioner, not a
@@ -356,5 +365,86 @@ describe('Agenda (appointments)', () => {
     expect(res.status).toBe(200);
     const body = res.body as PaginatedAppointments;
     expect(body.data.every((a) => a.tenantId === tenantB.id)).toBe(true);
+  });
+
+  // These come last on purpose: createTestTenants({ openAllHours: true })
+  // seeds tenantA wide open (00:00-23:59, every weekday) so every test
+  // above can pick an arbitrary timestamp without also having to think
+  // about clinic hours. These narrow one specific day each and don't
+  // restore it afterwards — every test above this point already ran
+  // against its own date, so nothing later depends on the wide-open state.
+  describe('clinic hours validation', () => {
+    it('rejects creating an appointment outside the clinic hours configured for that day', async () => {
+      const current = await request(server)
+        .get('/settings/schedule')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const days = (current.body as ScheduleResponse).days;
+      // 2027-09-01 is a Wednesday (weekday 2, Monday=0).
+      const narrowed = days.map((d) =>
+        d.weekday === 2
+          ? { ...d, slots: [{ startTime: '09:00', endTime: '13:00' }] }
+          : d,
+      );
+      const patched = await request(server)
+        .patch('/settings/schedule')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ days: narrowed });
+      expect(patched.status).toBe(200);
+
+      // 14:00 UTC is 16:00 in Madrid (CEST in September) — outside the
+      // 09:00-13:00 tramo just configured.
+      const outside = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-01T14:00:00.000Z', 30, practitionerA));
+      expect(outside.status).toBe(400);
+
+      // 08:00 UTC is 10:00 in Madrid — inside that same tramo.
+      const inside = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-01T08:00:00.000Z', 30, practitionerA));
+      expect(inside.status).toBe(201);
+    });
+
+    it('rejects creating an appointment on a day the clinic has no configured hours at all', async () => {
+      const current = await request(server)
+        .get('/settings/schedule')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const days = (current.body as ScheduleResponse).days;
+      // 2027-09-05 is a Sunday (weekday 6) — close it entirely.
+      const closed = days.map((d) =>
+        d.weekday === 6 ? { ...d, slots: [] } : d,
+      );
+      const patched = await request(server)
+        .patch('/settings/schedule')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ days: closed });
+      expect(patched.status).toBe(200);
+
+      const res = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-05T10:00:00.000Z', 30, practitionerA));
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects rescheduling an appointment to a time outside the clinic hours', async () => {
+      // Different practitioner than the tests above, same already-narrowed
+      // Wednesday tramo (09:00-13:00) — avoids a 409 from double-booking
+      // practitionerA and isolates this to the clinic-hours check alone.
+      const created = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-01T08:00:00.000Z', 30, practitionerA2));
+      expect(created.status).toBe(201);
+      const id = (created.body as AppointmentResponse).id;
+
+      const res = await request(server)
+        .patch(`/appointments/${id}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ scheduledAt: '2027-09-01T14:00:00.000Z' });
+      expect(res.status).toBe(400);
+    });
   });
 });

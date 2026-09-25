@@ -5,9 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
+import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
+import { groupByWeekday } from '../settings/schedule.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto';
@@ -16,17 +19,96 @@ import { Appointment } from './entities/appointment.entity';
 
 const EXCLUSION_VIOLATION = '23P01';
 
+// The whole app is built for one clinic in Spain (Spanish UI, no
+// per-tenant locale/timezone setting anywhere) — hardcoding this here
+// mirrors that same assumption the frontend's calendar math already makes
+// implicitly via the browser's own local clock. A serverless host commonly
+// runs Node with TZ=UTC regardless of where the request came from, so
+// Date#getHours()/getDay() can't be trusted here the way the frontend
+// trusts them; Intl.DateTimeFormat with an explicit IANA zone sidesteps
+// that (and handles the CET/CEST switch correctly, a fixed offset wouldn't).
+const CLINIC_TIME_ZONE = 'Europe/Madrid';
+
+// Same Monday=0..Sunday=6 convention as schedule.util's DaySchedule and the
+// frontend's calendar grid.
+const WEEKDAY_INDEX: Record<string, number> = {
+  Mon: 0,
+  Tue: 1,
+  Wed: 2,
+  Thu: 3,
+  Fri: 4,
+  Sat: 5,
+  Sun: 6,
+};
+
+function weekdayAndMinutesInClinicTimeZone(date: Date): {
+  weekday: number;
+  minutes: number;
+} {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: CLINIC_TIME_ZONE,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return {
+    weekday: WEEKDAY_INDEX[get('weekday')],
+    minutes: Number(get('hour')) * 60 + Number(get('minute')),
+  };
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
 @Injectable()
 export class AppointmentsService {
   constructor(
     private readonly tenancyContext: TenancyContext,
     private readonly patients: PatientsService,
+    // iam.clinic_hours carries no RLS (same as iam.users/iam.tenants) — a
+    // direct repo, not TenancyContext, same reasoning as SettingsService.
+    @InjectRepository(ClinicHour)
+    private readonly clinicHours: Repository<ClinicHour>,
   ) {}
 
   private get repo() {
     // No explicit WHERE tenant_id here on purpose: RLS is what must filter
     // this, not application code remembering to.
     return this.tenancyContext.manager.getRepository(Appointment);
+  }
+
+  // Rejects a time that falls outside the clinic's configured tramos for
+  // that weekday (including a day with no tramos at all, i.e. closed) —
+  // the calendar's colors/free-slot popover already steer people away from
+  // these times, but nothing stopped a manually typed date/time from
+  // landing outside them until now.
+  private async assertWithinClinicHours(
+    scheduledAt: Date,
+    durationMinutes: number,
+  ): Promise<void> {
+    const rows = await this.clinicHours.find({
+      where: { tenantId: this.tenancyContext.tenantId },
+    });
+    const days = groupByWeekday(rows);
+    const { weekday, minutes: startMinutes } =
+      weekdayAndMinutesInClinicTimeZone(scheduledAt);
+    const endMinutes = startMinutes + durationMinutes;
+
+    const day = days.find((d) => d.weekday === weekday);
+    const fits = (day?.slots ?? []).some(
+      (slot) =>
+        startMinutes >= timeToMinutes(slot.startTime) &&
+        endMinutes <= timeToMinutes(slot.endTime),
+    );
+    if (!fits) {
+      throw new BadRequestException(
+        'La hora elegida está fuera del horario configurado de la clínica para ese día',
+      );
+    }
   }
 
   async create(
@@ -52,17 +134,21 @@ export class AppointmentsService {
       practitionerId = user.userId;
     } else {
       if (!dto.practitionerId) {
-        throw new BadRequestException('practitionerId is required');
+        throw new BadRequestException('Selecciona un profesional');
       }
       practitionerId = dto.practitionerId;
     }
+
+    const scheduledAt = new Date(dto.scheduledAt);
+    const durationMinutes = dto.durationMinutes ?? 30;
+    await this.assertWithinClinicHours(scheduledAt, durationMinutes);
 
     const appointment = this.repo.create({
       tenantId: this.tenancyContext.tenantId,
       patientId,
       practitionerId,
-      scheduledAt: new Date(dto.scheduledAt),
-      durationMinutes: dto.durationMinutes ?? 30,
+      scheduledAt,
+      durationMinutes,
       status: 'scheduled',
       notes: dto.notes ?? null,
     });
@@ -112,7 +198,7 @@ export class AppointmentsService {
   async findOne(id: string): Promise<Appointment> {
     const appointment = await this.repo.findOne({ where: { id } });
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
     return appointment;
   }
@@ -128,14 +214,21 @@ export class AppointmentsService {
       user.role === 'profesional' &&
       appointment.practitionerId !== user.userId
     ) {
-      throw new ForbiddenException('You can only modify your own appointments');
+      throw new ForbiddenException('Solo puede modificar sus propias citas');
     }
 
-    if (dto.scheduledAt !== undefined) {
-      appointment.scheduledAt = new Date(dto.scheduledAt);
-    }
-    if (dto.durationMinutes !== undefined) {
-      appointment.durationMinutes = dto.durationMinutes;
+    if (dto.scheduledAt !== undefined || dto.durationMinutes !== undefined) {
+      const scheduledAt =
+        dto.scheduledAt !== undefined
+          ? new Date(dto.scheduledAt)
+          : appointment.scheduledAt;
+      const durationMinutes =
+        dto.durationMinutes !== undefined
+          ? dto.durationMinutes
+          : appointment.durationMinutes;
+      await this.assertWithinClinicHours(scheduledAt, durationMinutes);
+      appointment.scheduledAt = scheduledAt;
+      appointment.durationMinutes = durationMinutes;
     }
     if (dto.practitionerId !== undefined && user.role !== 'profesional') {
       // A profesional can't reassign their own appointment to someone
@@ -162,7 +255,7 @@ export class AppointmentsService {
       (err as { code?: string }).code === EXCLUSION_VIOLATION
     ) {
       return new ConflictException(
-        'This practitioner already has an appointment overlapping that time',
+        'Ese profesional ya tiene una cita que se solapa con ese horario',
       );
     }
     return err instanceof Error ? err : new Error(String(err));

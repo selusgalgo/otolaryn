@@ -258,7 +258,7 @@ export class ClinicalEntriesService {
   async findOne(id: string): Promise<ClinicalEntry> {
     const entry = await this.repo.findOne({ where: { id } });
     if (!entry) {
-      throw new NotFoundException('Clinical entry not found');
+      throw new NotFoundException('Consulta no encontrada');
     }
     return entry;
   }
