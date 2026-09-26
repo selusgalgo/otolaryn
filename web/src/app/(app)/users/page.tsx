@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
-import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import { RoleBadge } from "@/components/users/role-badge";
+import { UserRowActions } from "@/components/users/user-row-actions";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { apiFetch } from "@/lib/api";
-import { updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
+import { deleteUserAction, updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
 import { getCurrentUser } from "@/lib/auth";
 import { STAFF_FUNCTION_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
@@ -66,10 +66,11 @@ export default async function UsersPage() {
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <EditUserDialog
+                  <UserRowActions
                     user={user}
                     updateAction={updateUserAction.bind(null, user.id)}
                     resetPasswordAction={resetUserPasswordAction.bind(null, user.id)}
+                    deleteAction={deleteUserAction.bind(null, user.id)}
                   />
                 </TableCell>
               </TableRow>

@@ -95,3 +95,22 @@ export async function resetUserPasswordAction(
 
   return { success: true };
 }
+
+// A hard delete (no form fields, just an id) — called directly from the
+// confirm dialog, not through useActionState/a <form>. The backend rejects
+// deleting your own account, the clinic's last admin, or anyone with
+// appointments/clinical entries already tied to them; that message is
+// shown as-is, it's already written for the person reading it.
+export async function deleteUserAction(userId: string): Promise<{ error?: string }> {
+  try {
+    await apiFetch(`/users/${userId}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo eliminar el usuario." };
+  }
+
+  revalidatePath("/users");
+  return {};
+}

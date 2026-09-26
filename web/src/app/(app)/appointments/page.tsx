@@ -23,7 +23,13 @@ function formatDateTime(iso: string): string {
 export default async function AppointmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; page?: string; practitionerId?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    page?: string;
+    practitionerId?: string;
+    openDay?: string;
+  }>;
 }) {
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
@@ -60,9 +66,17 @@ export default async function AppointmentsPage({
 
   // The calendar's own grid always shows whatever month "from" falls in.
   const fromDate = new Date(`${from}T00:00:00`);
-  const [schedule, appointments, practitioners, me] = await Promise.all([
+  const [schedule, appointments, allAppointments, practitioners, me] = await Promise.all([
     apiFetch<Schedule>("/settings/schedule"),
     getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth(), practitionerId),
+    // Deliberately unfiltered, regardless of the practitionerId above — the
+    // calendar's per-profesional availability dots (see OccupancyCalendar)
+    // always need every profesional's own appointments to judge each of
+    // them individually, even while the main view is filtered down to just
+    // one. Reusing `appointments` there would make everyone else's dot read
+    // "free" whenever a specific profesional is selected, since their
+    // appointments would never have been fetched at all.
+    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
     getPractitionerOptions(),
     getCurrentUser(),
   ]);
@@ -103,12 +117,14 @@ export default async function AppointmentsPage({
         year={fromDate.getFullYear()}
         month={fromDate.getMonth()}
         appointments={appointments}
+        allAppointments={allAppointments}
         schedule={schedule}
         selectedDateKey={selectedDateKey}
         practitioners={practitioners}
         from={from}
         to={to}
         practitionerId={practitionerId}
+        initialOpenDayKey={params.openDay}
       />
 
       <div className="rounded-md border bg-background">
