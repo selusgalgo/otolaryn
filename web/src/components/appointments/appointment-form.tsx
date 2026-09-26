@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { getNextFreeSlotsAction } from "@/lib/actions/appointments";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
+import { clinicDateInputValue, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 
@@ -60,24 +61,17 @@ interface AppointmentFormProps {
 
 const initialState: AppointmentFormState = {};
 
-// Uses local getters, not toISOString() — the create/update actions parse
-// "<date>T<time>" as local time (that's how the browser's native
-// date/time inputs work), so pre-filling from the UTC-formatted
-// toISOString() would show a shifted time in any timezone away from UTC.
-function toDateInputValue(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function toTimeInputValue(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
+// Clinic-timezone getters, not the viewer's/process's own — the create/
+// update actions parse "<date>T<time>" as clinic-local (Europe/Madrid)
+// wall-clock time (see clinicLocalToUtcIso), so pre-filling from anything
+// else would show a shifted time for anyone (or any server) outside that
+// zone.
+const toDateInputValue = clinicDateInputValue;
+const toTimeInputValue = clinicTimeInputValue;
 
 function formatSlotLabel(iso: string): string {
-  const d = new Date(iso);
-  const datePart = d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
-  const timePart = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const datePart = formatInClinicTimeZone(iso, { weekday: "short", day: "numeric", month: "short" });
+  const timePart = formatInClinicTimeZone(iso, { hour: "2-digit", minute: "2-digit" });
   return `${datePart} · ${timePart}`;
 }
 

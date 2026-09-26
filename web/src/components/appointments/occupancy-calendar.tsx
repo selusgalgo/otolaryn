@@ -9,6 +9,7 @@ import { NewAppointmentDialog } from "@/components/appointments/new-appointment-
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
 import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
+import { clinicDateInputValue } from "@/lib/clinic-time";
 import {
   OCCUPANCY_LEGEND,
   OCCUPANCY_STYLES,
@@ -93,11 +94,14 @@ export function OccupancyCalendar({
   practitionerId,
   initialOpenDayKey,
 }: OccupancyCalendarProps) {
-  const today = new Date();
-  const todayKey = toDateKey(today);
+  // Derived from the clinic's own calendar day, not the viewer's/process's
+  // — see clinic-time.ts. This can render server-side during SSR on Vercel
+  // (UTC), where reading the date directly off `new Date()` would be wrong
+  // right around midnight Madrid time.
+  const todayKey = clinicDateInputValue(new Date().toISOString());
   // Date-only, local midnight — comparing against cell.date (also local
   // midnight, see buildGrid) so "today" itself never counts as past.
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayStart = parseDateKey(todayKey);
   // "" = Todos los profesionales.
   const selectedPractitionerId = practitionerId ?? "";
   // Only meaningful for the "Todos" aggregate view — computeDayOccupancy/
@@ -174,7 +178,7 @@ export function OccupancyCalendar({
   const grid = buildGrid(year, month);
   const appointmentsByDay = new Map<string, CalendarAppointment[]>();
   for (const appointment of appointments) {
-    const key = toDateKey(new Date(appointment.scheduledAt));
+    const key = clinicDateInputValue(appointment.scheduledAt);
     const list = appointmentsByDay.get(key);
     if (list) {
       list.push(appointment);
@@ -188,7 +192,7 @@ export function OccupancyCalendar({
   // scoped to whatever the current filter is.
   const allAppointmentsByDay = new Map<string, CalendarAppointment[]>();
   for (const appointment of allAppointments) {
-    const key = toDateKey(new Date(appointment.scheduledAt));
+    const key = clinicDateInputValue(appointment.scheduledAt);
     const list = allAppointmentsByDay.get(key);
     if (list) {
       list.push(appointment);

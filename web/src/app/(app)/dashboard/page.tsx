@@ -4,27 +4,32 @@ import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
 import { stripHtml } from "@/lib/utils";
 
+// The clinic's own calendar day, not the executing process's — this page
+// renders server-side on Vercel (UTC), where reading the date directly off
+// `new Date()` would show the wrong day/month right around midnight Madrid
+// time.
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return clinicDateInputValue(new Date().toISOString());
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
+  return formatInClinicTimeZone(iso, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function DashboardPage() {
   const date = todayIso();
-  const today = new Date();
+  const [todayYear, todayMonth] = date.split("-").map(Number); // todayMonth is 1-12
   const [me, dashboard, monthAppointments, practitioners, schedule] = await Promise.all([
     getCurrentUser(),
     apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
     // Feeds the calendar's initial month — see AgendaCalendar, which takes
     // over with its own fetches (getMonthAppointmentsAction) on navigation.
-    getMonthAppointmentsAction(today.getFullYear(), today.getMonth()),
+    getMonthAppointmentsAction(todayYear, todayMonth - 1),
     getPractitionerOptions(),
     // Read-only for every tenant role here too (see SettingsController) —
     // needed to color each day by occupancy, same as Agenda's calendar.
@@ -52,8 +57,8 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-bold">Hola, {me.firstName}</h1>
 
       <AgendaCalendar
-        initialYear={today.getFullYear()}
-        initialMonth={today.getMonth()}
+        initialYear={todayYear}
+        initialMonth={todayMonth - 1}
         initialAppointments={monthAppointments}
         practitioners={practitioners}
         schedule={schedule}

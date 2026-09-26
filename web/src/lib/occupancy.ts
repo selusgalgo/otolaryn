@@ -1,4 +1,5 @@
 import { toDateKey } from "@/lib/calendar-grid";
+import { clinicDateInputValue, clinicLocalToUtcIso, clinicMinutesOfDay } from "@/lib/clinic-time";
 import type { AppointmentStatus, Schedule } from "@/lib/types";
 
 export type DayOccupancy = "closed" | "free" | "partial" | "full";
@@ -58,8 +59,7 @@ function busyRangesFor(appointments: OccupancyAppointment[]): MinuteRange[] {
     appointments
       .filter((a) => a.status !== "cancelled")
       .map((a) => {
-        const start = new Date(a.scheduledAt);
-        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        const startMinutes = clinicMinutesOfDay(a.scheduledAt);
         return { start: startMinutes, end: startMinutes + a.durationMinutes };
       }),
   );
@@ -175,7 +175,11 @@ export function computeDayFreeSlots(
   if (!daySchedule || daySchedule.slots.length === 0) return [];
 
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Derived from the clinic's own calendar day, not the executing process's
+  // — this can run server-side during SSR on Vercel (UTC), where "today"
+  // near midnight Madrid time would otherwise be off by a day.
+  const todayKey = clinicDateInputValue(now.toISOString());
+  const todayStart = new Date(`${todayKey}T00:00:00`);
   // A day already gone has no "free hours" in any bookable sense — without
   // this, a fully-past day would wrongly list its whole schedule as open
   // (only *today* gets clamped to the current time below).
@@ -187,8 +191,10 @@ export function computeDayFreeSlots(
   // computeDayOccupancy above.
   const busyRangesByPractitioner = groupByPractitioner(appointmentsThatDay, practitionerIds);
 
-  const isToday = date.toDateString() === now.toDateString();
-  const nowMinutes = isToday ? Math.ceil((now.getHours() * 60 + now.getMinutes()) / slotMinutes) * slotMinutes : 0;
+  const isToday = toDateKey(date) === todayKey;
+  const nowMinutes = isToday
+    ? Math.ceil(clinicMinutesOfDay(now.toISOString()) / slotMinutes) * slotMinutes
+    : 0;
 
   const slots: string[] = [];
   for (const openSlot of daySchedule.slots) {
@@ -254,21 +260,29 @@ export function findNextFreeSlots(
   { slotMinutes = 30, count = 5, daysAhead = 14 }: FreeSlotOptions = {},
 ): Date[] {
   const slots: Date[] = [];
-  const searchStartDay = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const nowMinutesOnStartDay = from.getHours() * 60 + from.getMinutes();
+  // Both derived from the clinic's own calendar day/clock, not the
+  // executing process's — `from` can be "now" computed server-side during
+  // SSR on Vercel (UTC), where the wrong day/hour would shift every
+  // suggested slot by the clinic's UTC offset. searchStartDay itself stays
+  // a plain process-local Date used only for day-by-day arithmetic
+  // (.setDate/.getDate never touch its hour), so building it from the
+  // Madrid-derived key is enough to keep it correct end to end.
+  const searchStartKey = clinicDateInputValue(from.toISOString());
+  const searchStartDay = new Date(`${searchStartKey}T00:00:00`);
+  const nowMinutesOnStartDay = clinicMinutesOfDay(from.toISOString());
 
   for (let dayOffset = 0; dayOffset <= daysAhead && slots.length < count; dayOffset++) {
     const day = new Date(searchStartDay);
     day.setDate(day.getDate() + dayOffset);
+    const dayKey = toDateKey(day);
     const daySchedule = schedule.days.find((d) => d.weekday === weekdayOf(day));
     if (!daySchedule || daySchedule.slots.length === 0) continue;
 
     const busyRanges = mergeRanges(
-      (appointmentsByDay.get(toDateKey(day)) ?? [])
+      (appointmentsByDay.get(dayKey) ?? [])
         .filter((a) => a.status !== "cancelled")
         .map((a) => {
-          const start = new Date(a.scheduledAt);
-          const startMinutes = start.getHours() * 60 + start.getMinutes();
+          const startMinutes = clinicMinutesOfDay(a.scheduledAt);
           return { start: startMinutes, end: startMinutes + a.durationMinutes };
         }),
     );
@@ -285,9 +299,7 @@ export function findNextFreeSlots(
       while (cursor + slotMinutes <= openEnd && slots.length < count) {
         const candidate = { start: cursor, end: cursor + slotMinutes };
         if (!busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0)) {
-          const slotDate = new Date(day);
-          slotDate.setHours(Math.floor(cursor / 60), cursor % 60, 0, 0);
-          slots.push(slotDate);
+          slots.push(new Date(clinicLocalToUtcIso(dayKey, minutesToTime(cursor))));
         }
         cursor += slotMinutes;
       }
