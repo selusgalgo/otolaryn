@@ -5,11 +5,12 @@ import { CancelAppointmentButton } from "@/components/appointments/cancel-appoin
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
 import { ApiError, apiFetch } from "@/lib/api";
+import { formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Patient } from "@/lib/types";
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" });
+  return formatInClinicTimeZone(iso, { dateStyle: "full", timeStyle: "short" });
 }
 
 export default async function AppointmentDetailPage({ params }: { params: Promise<{ id: string }> }) {

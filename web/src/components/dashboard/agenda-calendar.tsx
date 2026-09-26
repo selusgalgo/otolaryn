@@ -10,13 +10,14 @@ import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
 import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import type { DayCell } from "@/lib/calendar-grid";
+import { clinicDateInputValue, clinicMinutesOfDay, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Schedule } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  return formatInClinicTimeZone(iso, { hour: "2-digit", minute: "2-digit" });
 }
 
 // Common Spain convention, not tied to the clinic's actual tramos (those
@@ -65,11 +66,12 @@ export function AgendaCalendar({
   practitioners,
   schedule,
 }: AgendaCalendarProps) {
-  const today = new Date();
-  const todayKey = toDateKey(today);
+  // Derived from the clinic's own calendar day, not the viewer's/process's
+  // — see clinic-time.ts.
+  const todayKey = clinicDateInputValue(new Date().toISOString());
   // Date-only, local midnight — comparing against cell.date (also local
   // midnight, see buildGrid) so "today" itself never counts as past.
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayStart = parseDateKey(todayKey);
 
   const [viewYear, setViewYear] = useState(initialYear);
   const [viewMonth, setViewMonth] = useState(initialMonth);
@@ -111,7 +113,7 @@ export function AgendaCalendar({
   const grid = buildGrid(viewYear, viewMonth);
   const appointmentsByDay = new Map<string, CalendarAppointment[]>();
   for (const appointment of appointments) {
-    const key = toDateKey(new Date(appointment.scheduledAt));
+    const key = clinicDateInputValue(appointment.scheduledAt);
     const list = appointmentsByDay.get(key);
     if (list) {
       list.push(appointment);
@@ -120,13 +122,13 @@ export function AgendaCalendar({
     }
   }
   const dayAppointments = appointments
-    .filter((a) => toDateKey(new Date(a.scheduledAt)) === selectedDateKey)
+    .filter((a) => clinicDateInputValue(a.scheduledAt) === selectedDateKey)
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const morningAppointments = dayAppointments.filter(
-    (a) => new Date(a.scheduledAt).getHours() < AFTERNOON_START_HOUR,
+    (a) => clinicMinutesOfDay(a.scheduledAt) < AFTERNOON_START_HOUR * 60,
   );
   const afternoonAppointments = dayAppointments.filter(
-    (a) => new Date(a.scheduledAt).getHours() >= AFTERNOON_START_HOUR,
+    (a) => clinicMinutesOfDay(a.scheduledAt) >= AFTERNOON_START_HOUR * 60,
   );
 
   const monthLabel = formatMonthLabel(viewYear, viewMonth);

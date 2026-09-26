@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
-import { toDateKey } from "@/lib/calendar-grid";
+import { clinicDateInputValue, clinicLocalToUtcIso } from "@/lib/clinic-time";
 import { findNextFreeSlots } from "@/lib/occupancy";
 import type { Appointment, AppointmentStatus, Paginated, Patient, Schedule } from "@/lib/types";
 
@@ -86,7 +86,7 @@ export async function getNextFreeSlotsAction(
   practitionerId?: string,
 ): Promise<string[]> {
   const now = new Date();
-  const anchorFromKey = fromDateKey ? new Date(`${fromDateKey}T00:00:00`) : now;
+  const anchorFromKey = fromDateKey ? new Date(clinicLocalToUtcIso(fromDateKey, "00:00")) : now;
   const from = anchorFromKey > now ? anchorFromKey : now;
 
   const daysAhead = 14;
@@ -106,7 +106,7 @@ export async function getNextFreeSlotsAction(
 
   const appointmentsByDay = new Map<string, Appointment[]>();
   for (const appointment of result.data) {
-    const key = toDateKey(new Date(appointment.scheduledAt));
+    const key = clinicDateInputValue(appointment.scheduledAt);
     const list = appointmentsByDay.get(key);
     if (list) {
       list.push(appointment);
@@ -136,7 +136,7 @@ function newAppointmentBody(
   }
 
   return {
-    scheduledAt: new Date(`${date}T${time}`).toISOString(),
+    scheduledAt: clinicLocalToUtcIso(date, time),
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     ...(notes ? { notes } : {}),
     ...(practitionerId ? { practitionerId } : {}),
@@ -301,7 +301,7 @@ export async function updateAppointmentAction(
   }
 
   const body = {
-    scheduledAt: new Date(`${date}T${time}`).toISOString(),
+    scheduledAt: clinicLocalToUtcIso(date, time),
     ...(durationMinutes ? { durationMinutes: Number(durationMinutes) } : {}),
     notes: notes || null,
     ...(status ? { status } : {}),

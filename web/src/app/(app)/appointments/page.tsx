@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { getCurrentUser } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar-grid";
+import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Paginated, Patient, Schedule } from "@/lib/types";
 import { formatDocumentId, splitName } from "@/lib/utils";
@@ -17,7 +18,7 @@ import { formatDocumentId, splitName } from "@/lib/utils";
 const PAGE_SIZE = 20;
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
+  return formatInClinicTimeZone(iso, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function AppointmentsPage({
@@ -39,9 +40,16 @@ export default async function AppointmentsPage({
   // Nothing in the URL yet means "the whole visible month" (today's);
   // navigating months or clicking a day (see OccupancyCalendar) sets
   // from/to explicitly instead.
-  const now = new Date();
-  const defaultFrom = toDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
-  const defaultTo = toDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  // Year/month for "the current month" derived from the clinic's own
+  // calendar day, not the executing process's — this page renders
+  // server-side on Vercel (UTC), where reading the date directly off
+  // `new Date()` would show the wrong month right around midnight Madrid
+  // time.
+  const [todayYear, todayMonth] = clinicDateInputValue(new Date().toISOString())
+    .split("-")
+    .map(Number);
+  const defaultFrom = toDateKey(new Date(todayYear, todayMonth - 1, 1));
+  const defaultTo = toDateKey(new Date(todayYear, todayMonth, 0));
   const from = params.from || defaultFrom;
   const to = params.to || defaultTo;
 
