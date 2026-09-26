@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,14 @@ interface OccupancyCalendarProps {
   year: number;
   month: number; // 0-indexed, JS Date convention
   appointments: CalendarAppointment[];
+  // Always every profesional's appointments for the month, regardless of
+  // practitionerId below — `appointments` itself is server-scoped to
+  // whichever profesional is currently selected (or everyone, under
+  // "Todos"), which is exactly right for the calendar's own day coloring
+  // but wrong for the per-profesional dots in the side panel: those need
+  // to judge each profesional on their own appointments even while the
+  // main view is filtered down to just one other person.
+  allAppointments: CalendarAppointment[];
   schedule: Schedule;
   selectedDateKey?: string;
   practitioners?: PractitionerOption[] | null;
@@ -32,6 +40,11 @@ interface OccupancyCalendarProps {
   from: string;
   to?: string;
   practitionerId?: string;
+  // Mirrors the URL's own "openDay" param (see appointments/page.tsx) — set
+  // when a practitioner switch in the side panel carried over whichever
+  // day's popover was open at the time, so that day reopens here instead
+  // of the switch silently closing it.
+  initialOpenDayKey?: string;
 }
 
 function formatDayHeading(date: Date): string {
@@ -71,12 +84,14 @@ export function OccupancyCalendar({
   year,
   month,
   appointments,
+  allAppointments,
   schedule,
   selectedDateKey,
   practitioners,
   from,
   to,
   practitionerId,
+  initialOpenDayKey,
 }: OccupancyCalendarProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
@@ -95,7 +110,25 @@ export function OccupancyCalendar({
   // Which day's popover is open — at most one at a time, keyed by
   // toDateKey. Also doubles as the anchor for the quick-book dialog: once
   // an hour is picked, quickBook carries {date, time} and this is cleared.
-  const [openDayKey, setOpenDayKey] = useState<string | null>(null);
+  // Seeded from initialOpenDayKey (the URL's "openDay") rather than always
+  // null, so switching profesional in the side panel — a full navigation,
+  // which would otherwise silently close whatever day you had open — lands
+  // back on that same day already open.
+  const [openDayKey, setOpenDayKey] = useState<string | null>(initialOpenDayKey ?? null);
+  // A practitioner switch is a Link, not a hard reload — Next's router
+  // keeps this same component instance mounted and just hands it new
+  // props, so useState's initializer above only ever ran once, back when
+  // there was no "openDay" yet. Re-syncing here is what actually makes the
+  // day reopen after switching. Depending on practitionerId too (not just
+  // initialOpenDayKey) matters: clicking a profesional in the side panel is
+  // itself an outside click on the open popover, which Radix's own
+  // dismiss-on-outside-click already closes before this runs — if the day
+  // being carried over happens to be the *same* one as last time (still
+  // "2026-09-30", say), initialOpenDayKey wouldn't change and this
+  // wouldn't re-fire to undo that dismissal.
+  useEffect(() => {
+    if (initialOpenDayKey) setOpenDayKey(initialOpenDayKey);
+  }, [initialOpenDayKey, practitionerId]);
   const [quickBook, setQuickBook] = useState<{ date: string; time: string } | null>(null);
   // Shared across whichever day's popover is open — picking "Tarde" once
   // and then browsing to the next day keeps that same narrowing instead of
@@ -115,6 +148,9 @@ export function OccupancyCalendar({
     qs.set("from", from);
     if (to) qs.set("to", to);
     if (id) qs.set("practitionerId", id);
+    // Carries whichever day's popover is currently open across the switch
+    // — see initialOpenDayKey above for the other half of this.
+    if (openDayKey) qs.set("openDay", openDayKey);
     return `/appointments?${qs.toString()}`;
   }
 
@@ -144,6 +180,20 @@ export function OccupancyCalendar({
       list.push(appointment);
     } else {
       appointmentsByDay.set(key, [appointment]);
+    }
+  }
+
+  // Backs only the side panel's per-profesional dots — everything else in
+  // this component keeps using appointmentsByDay above, which is correctly
+  // scoped to whatever the current filter is.
+  const allAppointmentsByDay = new Map<string, CalendarAppointment[]>();
+  for (const appointment of allAppointments) {
+    const key = toDateKey(new Date(appointment.scheduledAt));
+    const list = allAppointmentsByDay.get(key);
+    if (list) {
+      list.push(appointment);
+    } else {
+      allAppointmentsByDay.set(key, [appointment]);
     }
   }
 
@@ -371,7 +421,7 @@ export function OccupancyCalendar({
               const active = selectedPractitionerId === p.id;
               const dotStatus = computeDayOccupancy(
                 activeDate,
-                (appointmentsByDay.get(activeDayKey) ?? []).filter(
+                (allAppointmentsByDay.get(activeDayKey) ?? []).filter(
                   (a) => a.practitionerId === p.id,
                 ),
                 schedule,
