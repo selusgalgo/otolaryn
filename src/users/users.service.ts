@@ -1,10 +1,14 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { QueryFailedError } from 'typeorm';
+import { Appointment } from '../appointments/entities/appointment.entity';
+import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
+import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { User, UserRole } from '../iam/entities/user.entity';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -125,6 +129,49 @@ export class UsersService {
       type: argon2.argon2id,
     });
     await this.repo.save(user);
+  }
+
+  // A hard delete — iam.users has no soft-delete concept (unlike patients),
+  // and an account someone no longer works with isn't clinical data worth
+  // retaining. Three guards, in order: never your own account (would lock
+  // you out mid-session), never the clinic's last admin (would leave it
+  // unmanageable — currently only reachable if a future platform-level
+  // delete route calls this without also being that admin, since today
+  // only an admin can call this route at all, so a lone admin always hits
+  // the self-check first), and never someone with real history behind
+  // them — same "must never orphan real data" rule as
+  // InsuranceService.remove/AntecedentesService.removeType, just against
+  // appointments/clinical_entries instead of patients.
+  async remove(userId: string, currentUser: CurrentUserPayload): Promise<void> {
+    const user = await this.findInOwnTenant(userId);
+
+    if (userId === currentUser.userId) {
+      throw new BadRequestException('No puedes eliminar tu propia cuenta');
+    }
+
+    if (user.role === 'admin') {
+      const remainingAdmins = await this.repo.count({
+        where: { tenantId: this.tenancyContext.tenantId, role: 'admin' },
+      });
+      if (remainingAdmins <= 1) {
+        throw new ConflictException(
+          'No puedes eliminar al único administrador de la clínica',
+        );
+      }
+    }
+
+    const manager = this.tenancyContext.manager;
+    const [hasAppointments, hasClinicalEntries] = await Promise.all([
+      manager.exists(Appointment, { where: { practitionerId: userId } }),
+      manager.exists(ClinicalEntry, { where: { authorUserId: userId } }),
+    ]);
+    if (hasAppointments || hasClinicalEntries) {
+      throw new ConflictException(
+        'Este usuario tiene citas o entradas de historia clínica asociadas — no se puede eliminar.',
+      );
+    }
+
+    await this.repo.delete({ id: userId });
   }
 }
 

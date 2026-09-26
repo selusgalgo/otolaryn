@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
-import { EditUserDialog } from "@/components/users/edit-user-dialog";
+import { UserRowActions } from "@/components/users/user-row-actions";
 import { apiFetch } from "@/lib/api";
 import { formatDocumentId } from "@/lib/utils";
 import {
@@ -126,7 +126,7 @@ export default async function TenantOverviewPage({
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <EditUserDialog
+                          <UserRowActions
                             user={user}
                             updateAction={updateTenantUserAction.bind(null, id, user.id)}
                             resetPasswordAction={resetTenantUserPasswordAction.bind(null, id, user.id)}

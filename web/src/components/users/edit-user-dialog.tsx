@@ -1,15 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
@@ -22,6 +15,11 @@ interface EditUserDialogProps {
   user: AppUser;
   updateAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
   resetPasswordAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
+  // Opened from the row's ⋮ menu (see UserRowActions) rather than its own
+  // trigger button, so the menu and this dialog can share one place to
+  // close from.
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // Two independent forms in one dialog — editing a user's data and
@@ -31,8 +29,13 @@ interface EditUserDialogProps {
 // field on the reset side: this is admin/superadmin setting a new one
 // directly (e.g. because the owner is locked out), not the account
 // holder changing their own.
-export function EditUserDialog({ user, updateAction, resetPasswordAction }: EditUserDialogProps) {
-  const [open, setOpen] = useState(false);
+export function EditUserDialog({
+  user,
+  updateAction,
+  resetPasswordAction,
+  open,
+  onOpenChange,
+}: EditUserDialogProps) {
   const [role, setRole] = useState<string>(user.role);
   const [staffFunction, setStaffFunction] = useState<string>(user.staffFunction ?? "");
   const [dataState, dataFormAction, dataPending] = useActionState(updateAction, initialState);
@@ -64,13 +67,7 @@ export function EditUserDialog({ user, updateAction, resetPasswordAction }: Edit
   }, [dataState]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <PencilIcon data-icon="inline-start" />
-          Editar
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>

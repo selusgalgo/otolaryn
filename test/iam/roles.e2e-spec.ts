@@ -385,6 +385,103 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect((demoted.body as UserResponse).staffFunction).toBeNull();
   });
 
+  it('lets admin delete a user in their own tenant', async () => {
+    const email = `roles-deletable-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Se',
+        lastName: 'Elimina',
+        password: 'RolesTest-Deletable1!',
+        role: 'recepcion',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    const removed = await request(server)
+      .delete(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(removed.status).toBe(204);
+
+    const stillThere = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ firstName: 'Ya no existe' });
+    expect(stillThere.status).toBe(404);
+  });
+
+  it('blocks profesional and recepcion from deleting a user', async () => {
+    const email = `roles-delete-blocked-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'No',
+        lastName: 'Borrable',
+        password: 'RolesTest-NotDeletable1!',
+        role: 'recepcion',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    for (const token of [tokenProfesional, tokenRecepcion]) {
+      const blocked = await request(server)
+        .delete(`/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(blocked.status).toBe(403);
+    }
+  });
+
+  it('blocks an admin from deleting their own account', async () => {
+    const res = await request(server)
+      .delete(`/users/${decodeSub(tokenAdmin)}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('blocks deleting a user with an appointment tied to them', async () => {
+    const email = `roles-has-history-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Con',
+        lastName: 'Historial',
+        password: 'RolesTest-HasHistory1!',
+        role: 'profesional',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    const appointment = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        scheduledAt: '2027-08-20T09:00:00.000Z',
+        durationMinutes: 30,
+        practitionerId: userId,
+      });
+    expect(appointment.status).toBe(201);
+
+    const blocked = await request(server)
+      .delete(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(blocked.status).toBe(409);
+  });
+
+  it("never lets an admin delete another tenant's user", async () => {
+    const loginB = await request(server)
+      .post('/auth/login')
+      .send({ identifier: tenantB.userEmail, password: tenantB.userPassword });
+    const tokenB = (loginB.body as LoginResponse).accessToken;
+
+    const res = await request(server)
+      .delete(`/users/${decodeSub(tokenAdmin)}`)
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(res.status).toBe(404);
+  });
+
   it('hides a patient from profesional until they have an appointment or entry with them, then shows it', async () => {
     const notYetLinked = await request(server)
       .get(`/patients/${tenantA.patientId}`)
