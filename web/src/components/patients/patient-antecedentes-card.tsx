@@ -7,10 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { updatePatientAntecedentesAction } from "@/lib/actions/antecedentes";
-import type { AntecedenteType, PatientAntecedente } from "@/lib/types";
+import type { AntecedenteCategory, AntecedenteType, PatientAntecedente } from "@/lib/types";
 
 interface PatientAntecedentesCardProps {
   patientId: string;
+  category: AntecedenteCategory;
+  title: string;
+  // Already filtered to `category` by the caller (patients/[id]/page.tsx) —
+  // this component doesn't re-filter by category itself, only by active.
   types: AntecedenteType[];
   initialMarked: PatientAntecedente[];
 }
@@ -45,6 +49,8 @@ function buildRows(
 // ScheduleForm/AntecedenteTypesForm rather than a save per row.
 export function PatientAntecedentesCard({
   patientId,
+  category,
+  title,
   types,
   initialMarked,
 }: PatientAntecedentesCardProps) {
@@ -89,7 +95,7 @@ export function PatientAntecedentesCard({
         ...(row.detalle.trim() ? { detalle: row.detalle.trim() } : {}),
       }));
     startTransition(async () => {
-      const state = await updatePatientAntecedentesAction(patientId, items);
+      const state = await updatePatientAntecedentesAction(patientId, category, items);
       if (state.error) {
         setError(state.error);
         return;
@@ -102,7 +108,7 @@ export function PatientAntecedentesCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Antecedentes</CardTitle>
+        <CardTitle className="text-base">{title}</CardTitle>
         {editing ? (
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={cancelEdit} disabled={pending}>

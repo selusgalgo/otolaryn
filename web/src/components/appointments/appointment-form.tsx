@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
-import { getNextFreeSlotsAction } from "@/lib/actions/appointments";
+import { getAppointmentDefaultDurationAction, getNextFreeSlotsAction } from "@/lib/actions/appointments";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
 import { clinicDateInputValue, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import type { PractitionerOption } from "@/lib/practitioners";
@@ -72,6 +72,12 @@ interface AppointmentFormProps {
 
 const initialState: AppointmentFormState = {};
 
+// Only a last-resort starting value before the clinic's own configured
+// default (Configuración → Citas) loads — see the effect below that
+// replaces it via durationInputRef, same imperative-ref pattern as
+// applySlot for date/time.
+const FALLBACK_DURATION_MINUTES = 30;
+
 // Clinic-timezone getters, not the viewer's/process's own — the create/
 // update actions parse "<date>T<time>" as clinic-local (Europe/Madrid)
 // wall-clock time (see clinicLocalToUtcIso), so pre-filling from anything
@@ -104,6 +110,7 @@ export function AppointmentForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
+  const durationInputRef = useRef<HTMLInputElement>(null);
 
   // Controlled (not defaultValue): admin/recepcion's suggestions below need
   // to know which profesional is picked *right now* to fetch that specific
@@ -139,6 +146,22 @@ export function AppointmentForm({
     // practitionerId scopes it — re-fetch whenever either changes so the
     // suggestions stay relevant to whichever day/profesional is selected.
   }, [canFetchSuggestions, defaultDate, practitionerId]);
+
+  // Only for a brand-new appointment — editing always keeps whatever
+  // durationMinutes the appointment already has (set via initialValues'
+  // own defaultValue below), never the clinic's current default. Only
+  // overwrites the field if it's still untouched (the static fallback),
+  // so a value the person already typed while this fetch was in flight
+  // isn't clobbered once it resolves.
+  useEffect(() => {
+    if (initialValues) return;
+    getAppointmentDefaultDurationAction().then((minutes) => {
+      const input = durationInputRef.current;
+      if (input && input.value === String(FALLBACK_DURATION_MINUTES)) {
+        input.value = String(minutes);
+      }
+    });
+  }, [initialValues]);
 
   function applySlot(iso: string) {
     if (dateInputRef.current) dateInputRef.current.value = toDateInputValue(iso);
@@ -238,13 +261,14 @@ export function AppointmentForm({
     <div className="space-y-2">
       <Label htmlFor="durationMinutes">Duración (minutos)</Label>
       <Input
+        ref={durationInputRef}
         id="durationMinutes"
         name="durationMinutes"
         type="number"
         min={5}
         max={480}
         step={5}
-        defaultValue={initialValues?.durationMinutes ?? 30}
+        defaultValue={initialValues?.durationMinutes ?? FALLBACK_DURATION_MINUTES}
         disabled={pending}
       />
     </div>

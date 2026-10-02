@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  CalendarDaysIcon,
   ChevronRightIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
@@ -24,6 +25,12 @@ const SECTIONS: {
     title: "Horario de la clínica",
     description: "Días y tramos horarios en los que la clínica atiende citas.",
     icon: ClockIcon,
+  },
+  {
+    href: "/settings/appointments",
+    title: "Citas",
+    description: "Duración con la que se precarga una cita nueva.",
+    icon: CalendarDaysIcon,
   },
   {
     href: "/settings/antecedentes",

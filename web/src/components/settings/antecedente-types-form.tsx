@@ -11,9 +11,10 @@ import {
   deleteAntecedenteTypeAction,
   updateAntecedenteTypeAction,
 } from "@/lib/actions/settings";
-import type { AntecedenteType } from "@/lib/types";
+import type { AntecedenteCategory, AntecedenteType } from "@/lib/types";
 
 interface AntecedenteTypesFormProps {
+  category: AntecedenteCategory;
   initialTypes: AntecedenteType[];
 }
 
@@ -22,7 +23,9 @@ interface AntecedenteTypesFormProps {
 // already marked on a real patient can never be hard-deleted (see
 // AntecedentesService.removeType) — desactivar is the everyday "remove
 // this from the list" action, delete is only for one added by mistake.
-export function AntecedenteTypesForm({ initialTypes }: AntecedenteTypesFormProps) {
+// Rendered twice on /settings/antecedentes, once per category — each
+// instance only ever lists and creates types for its own category.
+export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteTypesFormProps) {
   const [types, setTypes] = useState(
     [...initialTypes].sort((a, b) => a.displayOrder - b.displayOrder),
   );
@@ -35,7 +38,7 @@ export function AntecedenteTypesForm({ initialTypes }: AntecedenteTypesFormProps
     if (!name) return;
     setError(null);
     startTransition(async () => {
-      const state = await createAntecedenteTypeAction(name);
+      const state = await createAntecedenteTypeAction(name, category);
       if (state.error) {
         setError(state.error);
         return;

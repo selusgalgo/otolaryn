@@ -14,6 +14,8 @@ export default async function AntecedentesSettingsPage() {
   }
 
   const antecedenteTypes = await apiFetch<AntecedenteType[]>("/antecedente-types");
+  const personalTypes = antecedenteTypes.filter((t) => t.category === "personal");
+  const familiarTypes = antecedenteTypes.filter((t) => t.category === "familiar");
 
   return (
     <div className="space-y-4">
@@ -30,10 +32,19 @@ export default async function AntecedentesSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Etiquetas de antecedentes</CardTitle>
+          <CardTitle className="text-base">Antecedentes personales</CardTitle>
         </CardHeader>
         <CardContent>
-          <AntecedenteTypesForm initialTypes={antecedenteTypes} />
+          <AntecedenteTypesForm category="personal" initialTypes={personalTypes} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Antecedentes familiares</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AntecedenteTypesForm category="familiar" initialTypes={familiarTypes} />
         </CardContent>
       </Card>
     </div>

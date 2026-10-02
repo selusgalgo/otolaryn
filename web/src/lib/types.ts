@@ -121,10 +121,23 @@ export interface TenantSchedule extends Schedule {
   tenantName: string;
 }
 
+// Pre-fills a new appointment's Duración field — see
+// AppointmentsService.create() and Configuración → Citas.
+export interface AppointmentDefaults {
+  defaultDurationMinutes: number;
+}
+
+export interface TenantAppointmentDefaults extends AppointmentDefaults {
+  tenantName: string;
+}
+
+export type AntecedenteCategory = "personal" | "familiar";
+
 export interface AntecedenteType {
   id: string;
   tenantId: string;
   name: string;
+  category: AntecedenteCategory;
   active: boolean;
   displayOrder: number;
 }

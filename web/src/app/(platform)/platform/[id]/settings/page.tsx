@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppointmentDefaultsForm } from "@/components/settings/appointment-defaults-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
-import { updateTenantScheduleAction } from "@/lib/actions/platform";
+import { updateTenantAppointmentDefaultsAction, updateTenantScheduleAction } from "@/lib/actions/platform";
 import { apiFetch } from "@/lib/api";
-import type { TenantSchedule } from "@/lib/types";
+import type { TenantAppointmentDefaults, TenantSchedule } from "@/lib/types";
 
 export default async function TenantSettingsPage({
   params,
@@ -12,8 +13,12 @@ export default async function TenantSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const schedule = await apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`);
-  const action = updateTenantScheduleAction.bind(null, id);
+  const [schedule, appointmentDefaults] = await Promise.all([
+    apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`),
+    apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
+  ]);
+  const scheduleAction = updateTenantScheduleAction.bind(null, id);
+  const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
 
   return (
     <div className="space-y-4">
@@ -28,7 +33,19 @@ export default async function TenantSettingsPage({
           <CardTitle className="text-base">Horario de la clínica</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScheduleForm action={action} initialDays={schedule.days} />
+          <ScheduleForm action={scheduleAction} initialDays={schedule.days} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Duración de las citas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AppointmentDefaultsForm
+            action={appointmentDefaultsAction}
+            initialDefaultDurationMinutes={appointmentDefaults.defaultDurationMinutes}
+          />
         </CardContent>
       </Card>
     </div>

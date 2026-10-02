@@ -2,10 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { ScheduleFormState } from "@/lib/actions/settings";
+import type { AppointmentDefaultsFormState, ScheduleFormState } from "@/lib/actions/settings";
 import type { UserFormState } from "@/lib/actions/users";
 import { scheduleFromFormData } from "@/lib/schedule";
-import type { AppUser, Tenant, TenantSchedule } from "@/lib/types";
+import type {
+  AppUser,
+  Tenant,
+  TenantAppointmentDefaults,
+  TenantSchedule,
+} from "@/lib/types";
 
 export interface TenantFormState {
   error?: string;
@@ -55,6 +60,30 @@ export async function updateTenantScheduleAction(
       return { error: err.message };
     }
     return { error: "No se pudo guardar el horario." };
+  }
+
+  revalidatePath(`/platform/${tenantId}/settings`);
+  return { success: true };
+}
+
+// superadmin, any clinic — same binding shape as updateTenantScheduleAction.
+export async function updateTenantAppointmentDefaultsAction(
+  tenantId: string,
+  _prevState: AppointmentDefaultsFormState,
+  formData: FormData,
+): Promise<AppointmentDefaultsFormState> {
+  const defaultDurationMinutes = Number(formData.get("defaultDurationMinutes"));
+
+  try {
+    await apiFetch<TenantAppointmentDefaults>(
+      `/platform/tenants/${tenantId}/appointment-defaults`,
+      { method: "PATCH", body: { defaultDurationMinutes } },
+    );
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar la duración por defecto." };
   }
 
   revalidatePath(`/platform/${tenantId}/settings`);

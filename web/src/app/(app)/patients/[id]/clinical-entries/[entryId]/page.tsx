@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ApiError, apiFetch } from "@/lib/api";
@@ -73,8 +75,14 @@ export default async function ClinicalEntryDetailPage({
 
       {entry.treatment && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Tratamiento</CardTitle>
+            <Button asChild size="sm" variant="outline">
+              <a href={`/patients/${id}/clinical-entries/${entryId}/treatment-pdf`}>
+                <ArrowDownTrayIcon data-icon="inline-start" />
+                Descargar (PDF)
+              </a>
+            </Button>
           </CardHeader>
           <CardContent>
             <RichTextContent html={entry.treatment} />

@@ -70,6 +70,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         insuranceOptions={insuranceOptions}
         insuranceName={insuranceName}
         practitionerOptions={practitioners}
+        showPdfExport={entries !== null}
       />
 
       {/* Debajo, a ancho completo: Consultas y Antecedentes (solo
@@ -146,11 +147,22 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           </Card>
 
           {antecedentes !== null && (
-            <PatientAntecedentesCard
-              patientId={id}
-              types={antecedentes[0]}
-              initialMarked={antecedentes[1]}
-            />
+            <div className="space-y-4">
+              <PatientAntecedentesCard
+                patientId={id}
+                category="personal"
+                title="Antecedentes personales"
+                types={antecedentes[0].filter((t) => t.category === "personal")}
+                initialMarked={antecedentes[1]}
+              />
+              <PatientAntecedentesCard
+                patientId={id}
+                category="familiar"
+                title="Antecedentes familiares"
+                types={antecedentes[0].filter((t) => t.category === "familiar")}
+                initialMarked={antecedentes[1]}
+              />
+            </div>
           )}
         </div>
       )}

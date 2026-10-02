@@ -5,7 +5,14 @@ import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clinicDateInputValue, clinicLocalToUtcIso } from "@/lib/clinic-time";
 import { findNextFreeSlots } from "@/lib/occupancy";
-import type { Appointment, AppointmentStatus, Paginated, Patient, Schedule } from "@/lib/types";
+import type {
+  Appointment,
+  AppointmentDefaults,
+  AppointmentStatus,
+  Paginated,
+  Patient,
+  Schedule,
+} from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
@@ -118,6 +125,21 @@ export async function getNextFreeSlotsAction(
   return findNextFreeSlots(from, appointmentsByDay, schedule, { count, daysAhead }).map((d) =>
     d.toISOString(),
   );
+}
+
+// Backs AppointmentForm's Duración field for a brand-new appointment —
+// called imperatively from that Client Component (same pattern as
+// getNextFreeSlotsAction) rather than threaded as a prop through every
+// dialog that renders the form. 30 here is only a last-resort fallback for
+// if the fetch itself fails (network hiccup) — the real default always
+// comes from the clinic's own Configuración → Citas.
+export async function getAppointmentDefaultDurationAction(): Promise<number> {
+  try {
+    const defaults = await apiFetch<AppointmentDefaults>("/settings/appointment-defaults");
+    return defaults.defaultDurationMinutes;
+  } catch {
+    return 30;
+  }
 }
 
 function newAppointmentBody(

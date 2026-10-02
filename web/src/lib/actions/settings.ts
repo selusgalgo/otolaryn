@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { apiFetch, ApiError } from "@/lib/api";
 import { scheduleFromFormData } from "@/lib/schedule";
-import type { AntecedenteType, InsuranceEntity, Schedule } from "@/lib/types";
+import type {
+  AntecedenteCategory,
+  AntecedenteType,
+  AppointmentDefaults,
+  InsuranceEntity,
+  Schedule,
+} from "@/lib/types";
 
 export interface ScheduleFormState {
   error?: string;
@@ -31,6 +37,34 @@ export async function updateScheduleAction(
   return { success: true };
 }
 
+export interface AppointmentDefaultsFormState {
+  error?: string;
+  success?: boolean;
+}
+
+// admin, own clinic.
+export async function updateAppointmentDefaultsAction(
+  _prevState: AppointmentDefaultsFormState,
+  formData: FormData,
+): Promise<AppointmentDefaultsFormState> {
+  const defaultDurationMinutes = Number(formData.get("defaultDurationMinutes"));
+
+  try {
+    await apiFetch<AppointmentDefaults>("/settings/appointment-defaults", {
+      method: "PATCH",
+      body: { defaultDurationMinutes },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar la duración por defecto." };
+  }
+
+  revalidatePath("/settings");
+  return { success: true };
+}
+
 export interface CatalogActionState {
   error?: string;
 }
@@ -40,11 +74,12 @@ export interface CatalogActionState {
 // small mutation, not one big submit like ScheduleForm's whole week.
 export async function createAntecedenteTypeAction(
   name: string,
+  category: AntecedenteCategory,
 ): Promise<{ error?: string; type?: AntecedenteType }> {
   try {
     const type = await apiFetch<AntecedenteType>("/antecedente-types", {
       method: "POST",
-      body: { name },
+      body: { name, category },
     });
     revalidatePath("/settings");
     return { type };
