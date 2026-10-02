@@ -72,15 +72,18 @@ export function NewAppointmentDialog({
           </Button>
         </DialogTrigger>
       )}
-      {/* max-h + overflow-y: this form is taller than the other dialogs in
-          the app (appointment fields + the full PatientPicker, including
-          its inline new-patient fields) — tall enough to clip against the
-          viewport on shorter screens without an explicit scroll area. */}
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+      {/* flex column + overflow-hidden: the header and the form's own footer
+          stay pinned, and only the fields area in between scrolls — this
+          form is taller than the other dialogs in the app (appointment
+          fields + the full PatientPicker, including its inline new-patient
+          fields), tall enough to clip against the viewport on shorter
+          screens without an explicit scroll area. */}
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nueva cita</DialogTitle>
         </DialogHeader>
         <AppointmentForm
+          layout="columns"
           action={createAppointmentFromAgendaAction}
           submitLabel="Crear cita"
           submitIcon={<PlusIcon data-icon="inline-start" />}
