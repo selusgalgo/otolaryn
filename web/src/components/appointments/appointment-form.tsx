@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +13,7 @@ import type { AppointmentFormState } from "@/lib/actions/appointments";
 import { clinicDateInputValue, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface AppointmentFormProps {
   action: (prevState: AppointmentFormState, formData: FormData) => Promise<AppointmentFormState>;
@@ -57,6 +60,14 @@ interface AppointmentFormProps {
   // Called after a successful submit — used by the dialog wrappers to
   // close themselves, since those actions revalidate instead of redirecting.
   onSuccess?: () => void;
+  // "columns" is Agenda's "Nueva cita" modal — the one with both a patient
+  // picker and a profesional picker, wide enough to earn a two-column
+  // layout with its own scrolling middle (see the dialog wrapper, which
+  // pins the header/footer and only scrolls this form's own flex-1 area).
+  // Every other caller (editing, a patient's own "Nueva cita" with no
+  // picker to show, the plain /appointments/new page) keeps the original
+  // single-column stack, unchanged.
+  layout?: "stacked" | "columns";
 }
 
 const initialState: AppointmentFormState = {};
@@ -88,6 +99,7 @@ export function AppointmentForm({
   suggestSlots,
   children,
   onSuccess,
+  layout = "stacked",
 }: AppointmentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -133,128 +145,160 @@ export function AppointmentForm({
     if (timeInputRef.current) timeInputRef.current.value = toTimeInputValue(iso);
   }
 
-  return (
-    <form action={formAction} className="grid max-w-md gap-4">
-      {children}
-      {/* Antes de las horas libres, no después: para admin/recepcion, qué
-          horas están libres depende de qué profesional se elige — sin
-          escogerlo primero no hay una respuesta única que ofrecer. */}
-      {practitioners != null && (
-        <div className="space-y-2">
-          <Label htmlFor="practitionerId">Profesional</Label>
-          <select
-            id="practitionerId"
-            name="practitionerId"
-            required
-            value={practitionerId}
-            onChange={(e) => setPractitionerId(e.target.value)}
-            disabled={pending}
-            className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-          >
-            <option value="" disabled>
-              Selecciona un profesional
-            </option>
-            {practitioners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+  const columns = layout === "columns";
+
+  // Antes de las horas libres, no después: para admin/recepcion, qué horas
+  // están libres depende de qué profesional se elige — sin escogerlo
+  // primero no hay una respuesta única que ofrecer.
+  const practitionerField = practitioners != null && (
+    <div className="space-y-2">
+      <Label htmlFor="practitionerId">Profesional</Label>
+      <select
+        id="practitionerId"
+        name="practitionerId"
+        required
+        value={practitionerId}
+        onChange={(e) => setPractitionerId(e.target.value)}
+        disabled={pending}
+        className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+      >
+        <option value="" disabled>
+          Selecciona un profesional
+        </option>
+        {practitioners.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const suggestionsField = showSuggestions && (
+    <div className="space-y-2">
+      <Label>Próximos horarios libres</Label>
+      {needsPractitionerFirst && practitionerId === "" ? (
+        <p className="text-sm text-muted-foreground">
+          Selecciona un profesional para ver sus horarios libres.
+        </p>
+      ) : suggestedSlots === null ? (
+        <p className="text-sm text-muted-foreground">Buscando horarios libres…</p>
+      ) : suggestedSlots.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No se encontraron horarios libres en las próximas dos semanas.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {suggestedSlots.map((iso) => (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => applySlot(iso)}
+              disabled={pending}
+              className="rounded-full border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              {formatSlotLabel(iso)}
+            </button>
+          ))}
         </div>
       )}
-      {showSuggestions && (
-        <div className="space-y-2">
-          <Label>Próximos horarios libres</Label>
-          {needsPractitionerFirst && practitionerId === "" ? (
-            <p className="text-sm text-muted-foreground">
-              Selecciona un profesional para ver sus horarios libres.
-            </p>
-          ) : suggestedSlots === null ? (
-            <p className="text-sm text-muted-foreground">Buscando horarios libres…</p>
-          ) : suggestedSlots.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No se encontraron horarios libres en las próximas dos semanas.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {suggestedSlots.map((iso) => (
-                <button
-                  key={iso}
-                  type="button"
-                  onClick={() => applySlot(iso)}
-                  disabled={pending}
-                  className="rounded-full border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
-                >
-                  {formatSlotLabel(iso)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="date">Fecha</Label>
-          <Input
-            ref={dateInputRef}
-            id="date"
-            name="date"
-            type="date"
-            defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
-            required
-            disabled={pending}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="time">Hora</Label>
-          <Input
-            ref={timeInputRef}
-            id="time"
-            name="time"
-            type="time"
-            defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : defaultTime}
-            required
-            disabled={pending}
-          />
-        </div>
-      </div>
+    </div>
+  );
+
+  const dateTimeField = (
+    <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="durationMinutes">Duración (minutos)</Label>
+        <Label htmlFor="date">Fecha</Label>
         <Input
-          id="durationMinutes"
-          name="durationMinutes"
-          type="number"
-          min={5}
-          max={480}
-          step={5}
-          defaultValue={initialValues?.durationMinutes ?? 30}
+          ref={dateInputRef}
+          id="date"
+          name="date"
+          type="date"
+          defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
+          required
           disabled={pending}
         />
       </div>
-      {showStatus && (
-        <div className="space-y-2">
-          <Label htmlFor="status">Estado</Label>
-          <select
-            id="status"
-            name="status"
-            defaultValue={initialValues?.status}
-            disabled={pending}
-            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-          >
-            {APPOINTMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {APPOINTMENT_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       <div className="space-y-2">
-        <Label htmlFor="notes">Notas</Label>
-        <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} />
+        <Label htmlFor="time">Hora</Label>
+        <Input
+          ref={timeInputRef}
+          id="time"
+          name="time"
+          type="time"
+          defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : defaultTime}
+          required
+          disabled={pending}
+        />
       </div>
+    </div>
+  );
+
+  const durationField = (
+    <div className="space-y-2">
+      <Label htmlFor="durationMinutes">Duración (minutos)</Label>
+      <Input
+        id="durationMinutes"
+        name="durationMinutes"
+        type="number"
+        min={5}
+        max={480}
+        step={5}
+        defaultValue={initialValues?.durationMinutes ?? 30}
+        disabled={pending}
+      />
+    </div>
+  );
+
+  const statusField = showStatus && (
+    <div className="space-y-2">
+      <Label htmlFor="status">Estado</Label>
+      <select
+        id="status"
+        name="status"
+        defaultValue={initialValues?.status}
+        disabled={pending}
+        className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+      >
+        {APPOINTMENT_STATUSES.map((s) => (
+          <option key={s} value={s}>
+            {APPOINTMENT_STATUS_LABELS[s]}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  // Plegado por defecto en el layout de dos columnas — la mayoría de citas
+  // no llevan notas, así que empezar replegado deja ver el resto del
+  // formulario sin desplazarse. Sigue siendo un <Textarea> normal por
+  // dentro: plegarlo es solo una cuestión de visibilidad, no cambia cómo
+  // se envía el valor.
+  const notesField = columns ? (
+    <Collapsible defaultOpen={Boolean(initialValues?.notes)}>
+      <CollapsibleTrigger
+        type="button"
+        disabled={pending}
+        className="group flex w-full items-center justify-between text-sm font-medium disabled:opacity-50"
+      >
+        Notas
+        <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-open:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} />
+      </CollapsibleContent>
+    </Collapsible>
+  ) : (
+    <div className="space-y-2">
+      <Label htmlFor="notes">Notas</Label>
+      <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} />
+    </div>
+  );
+
+  const footer = (
+    <div className={cn("flex items-center gap-4", columns && "justify-between border-t pt-4")}>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending} className="w-fit">
+      <Button type="submit" disabled={pending} className={cn("w-fit", columns && "ml-auto")}>
         {pending ? (
           "Guardando..."
         ) : (
@@ -264,6 +308,40 @@ export function AppointmentForm({
           </>
         )}
       </Button>
+    </div>
+  );
+
+  if (columns) {
+    return (
+      <form action={formAction} className="flex min-h-0 flex-1 flex-col">
+        <div className="grid flex-1 gap-x-6 gap-y-4 overflow-y-auto px-1 py-1 sm:grid-cols-2">
+          <div className="space-y-4">
+            {children}
+            {practitionerField}
+          </div>
+          <div className="space-y-4">
+            {suggestionsField}
+            {dateTimeField}
+            {durationField}
+            {statusField}
+            {notesField}
+          </div>
+        </div>
+        {footer}
+      </form>
+    );
+  }
+
+  return (
+    <form action={formAction} className="grid max-w-md gap-4">
+      {children}
+      {practitionerField}
+      {suggestionsField}
+      {dateTimeField}
+      {durationField}
+      {statusField}
+      {notesField}
+      {footer}
     </form>
   );
 }
