@@ -11,6 +11,7 @@ import { defaultAntecedenteTypeRows } from '../antecedentes/default-antecedente-
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
+import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import {
   assertNoOverlap,
@@ -30,6 +31,11 @@ const UNIQUE_VIOLATION = '23505';
 export interface TenantSchedule {
   tenantName: string;
   days: DaySchedule[];
+}
+
+export interface TenantAppointmentDefaults {
+  tenantName: string;
+  defaultDurationMinutes: number;
 }
 
 function stripPasswordHash(user: User): SafeUser {
@@ -163,6 +169,27 @@ export class PlatformService {
 
     const rows = await this.clinicHours.find({ where: { tenantId: id } });
     return { tenantName: tenant.name, days: groupByWeekday(rows) };
+  }
+
+  async getAppointmentDefaults(id: string): Promise<TenantAppointmentDefaults> {
+    const tenant = await this.findTenant(id);
+    return {
+      tenantName: tenant.name,
+      defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+    };
+  }
+
+  async updateAppointmentDefaults(
+    id: string,
+    dto: UpdateAppointmentDefaultsDto,
+  ): Promise<TenantAppointmentDefaults> {
+    const tenant = await this.findTenant(id);
+    tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
+    await this.tenants.save(tenant);
+    return {
+      tenantName: tenant.name,
+      defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+    };
   }
 
   // --- Users, scoped to a clinic chosen by superadmin -----------------

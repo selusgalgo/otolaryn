@@ -42,6 +42,7 @@ export class AntecedentesService {
     const type = this.typesRepo.create({
       tenantId: this.tenancyContext.tenantId,
       name: dto.name,
+      category: dto.category ?? 'personal',
     });
     try {
       return await this.typesRepo.save(type);
@@ -102,22 +103,41 @@ export class AntecedentesService {
     await this.patients.findOne(patientId);
 
     const typeIds = dto.items.map((item) => item.antecedenteTypeId);
+    let types: AntecedenteType[] = [];
     if (typeIds.length > 0) {
-      const knownCount = await this.typesRepo.count({
-        where: { id: In(typeIds) },
-      });
-      if (knownCount !== new Set(typeIds).size) {
+      types = await this.typesRepo.find({ where: { id: In(typeIds) } });
+      if (types.length !== new Set(typeIds).size) {
         throw new BadRequestException(
           'Alguno de los antecedentes indicados no existe',
+        );
+      }
+      if (dto.category && types.some((t) => t.category !== dto.category)) {
+        throw new BadRequestException(
+          'Alguno de los antecedentes indicados no pertenece a esta categoría',
         );
       }
     }
 
     // Full replace inside one transaction — same "the whole form submits
     // its current state" shape as SettingsService.updateSchedule, simpler
-    // and correct for a checklist that submits all at once.
+    // and correct for a checklist that submits all at once. Scoped to
+    // dto.category when given, so saving Antecedentes personales never
+    // touches whatever Antecedentes familiares already had marked (and
+    // vice versa) — see the DTO comment for the no-category fallback.
     await this.tenancyContext.manager.transaction(async (manager) => {
-      await manager.delete(PatientAntecedente, { patientId });
+      if (dto.category) {
+        const typeIdsInCategory = await manager
+          .getRepository(AntecedenteType)
+          .find({ where: { category: dto.category }, select: ['id'] });
+        if (typeIdsInCategory.length > 0) {
+          await manager.delete(PatientAntecedente, {
+            patientId,
+            antecedenteTypeId: In(typeIdsInCategory.map((t) => t.id)),
+          });
+        }
+      } else {
+        await manager.delete(PatientAntecedente, { patientId });
+      }
       if (dto.items.length > 0) {
         await manager.insert(
           PatientAntecedente,

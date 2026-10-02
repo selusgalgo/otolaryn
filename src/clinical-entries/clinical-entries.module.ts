@@ -11,5 +11,6 @@ import { ClinicalEntriesService } from './clinical-entries.service';
   imports: [TenancyModule, PatientsModule, InsuranceModule],
   controllers: [ClinicalEntriesController],
   providers: [ClinicalEntriesService],
+  exports: [ClinicalEntriesService],
 })
 export class ClinicalEntriesModule {}

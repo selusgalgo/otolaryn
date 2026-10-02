@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
+import { Tenant } from '../iam/entities/tenant.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { groupByWeekday } from '../settings/schedule.util';
@@ -69,10 +70,12 @@ export class AppointmentsService {
   constructor(
     private readonly tenancyContext: TenancyContext,
     private readonly patients: PatientsService,
-    // iam.clinic_hours carries no RLS (same as iam.users/iam.tenants) — a
+    // iam.clinic_hours/iam.tenants carry no RLS (same as iam.users) — a
     // direct repo, not TenancyContext, same reasoning as SettingsService.
     @InjectRepository(ClinicHour)
     private readonly clinicHours: Repository<ClinicHour>,
+    @InjectRepository(Tenant)
+    private readonly tenants: Repository<Tenant>,
   ) {}
 
   private get repo() {
@@ -111,6 +114,19 @@ export class AppointmentsService {
     }
   }
 
+  // Falls back to the clinic's own configured default (Configuración →
+  // Citas) when the request doesn't specify a duration — see
+  // TenantAppointmentDuration1735100000000. Looked up fresh rather than
+  // cached: it's one cheap PK lookup, only ever hit when durationMinutes
+  // is truly absent from the payload, and a stale cached value would
+  // silently ignore an admin's just-saved change.
+  private async defaultDurationMinutes(): Promise<number> {
+    const tenant = await this.tenants.findOneOrFail({
+      where: { id: this.tenancyContext.tenantId },
+    });
+    return tenant.defaultAppointmentDurationMinutes;
+  }
+
   async create(
     patientId: string,
     dto: CreateAppointmentDto,
@@ -140,7 +156,8 @@ export class AppointmentsService {
     }
 
     const scheduledAt = new Date(dto.scheduledAt);
-    const durationMinutes = dto.durationMinutes ?? 30;
+    const durationMinutes =
+      dto.durationMinutes ?? (await this.defaultDurationMinutes());
     await this.assertWithinClinicHours(scheduledAt, durationMinutes);
 
     const appointment = this.repo.create({

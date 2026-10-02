@@ -197,6 +197,73 @@ describe('Antecedentes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('creates a familiar antecedente type, independent from personal ones', async () => {
+    const created = await request(server)
+      .post('/antecedente-types')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'Cáncer familiar de prueba', category: 'familiar' });
+    expect(created.status).toBe(201);
+    expect(
+      (created.body as AntecedenteTypeResponse & { category: string }).category,
+    ).toBe('familiar');
+
+    // No category sent at all -> defaults to 'personal', same as every
+    // type created before this field existed.
+    const defaulted = await request(server)
+      .post('/antecedente-types')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'Antecedente sin categoría de prueba' });
+    expect(defaulted.status).toBe(201);
+    expect(
+      (defaulted.body as AntecedenteTypeResponse & { category: string })
+        .category,
+    ).toBe('personal');
+  });
+
+  it('scopes PUT .../antecedentes by category: saving familiares never touches personales', async () => {
+    const types = (
+      await request(server)
+        .get('/antecedente-types')
+        .set('Authorization', `Bearer ${tokenA}`)
+    ).body as (AntecedenteTypeResponse & { category: string })[];
+    const tabacoId = types.find((t) => t.name === 'Tabaco')!.id;
+    const familiarId = types.find((t) => t.category === 'familiar')!.id;
+
+    // Mark a personal antecedente first.
+    await request(server)
+      .put(`/patients/${tenantA.patientId}/antecedentes`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ category: 'personal', items: [{ antecedenteTypeId: tabacoId }] })
+      .expect(200);
+
+    // Now save Antecedentes familiares — must not wipe out Tabaco above.
+    const savedFamiliar = await request(server)
+      .put(`/patients/${tenantA.patientId}/antecedentes`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        category: 'familiar',
+        items: [{ antecedenteTypeId: familiarId }],
+      });
+    expect(savedFamiliar.status).toBe(200);
+
+    const read = await request(server)
+      .get(`/patients/${tenantA.patientId}/antecedentes`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    const ids = (read.body as PatientAntecedenteResponse[]).map(
+      (i) => i.antecedenteTypeId,
+    );
+    expect(ids).toContain(tabacoId);
+    expect(ids).toContain(familiarId);
+
+    // Rejects a mismatched category: a personal type id sent under
+    // category: 'familiar'.
+    const mismatched = await request(server)
+      .put(`/patients/${tenantA.patientId}/antecedentes`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ category: 'familiar', items: [{ antecedenteTypeId: tabacoId }] });
+    expect(mismatched.status).toBe(400);
+  });
+
   it('forbids recepcion from reading or marking antecedentes', async () => {
     const read = await request(server)
       .get('/antecedente-types')

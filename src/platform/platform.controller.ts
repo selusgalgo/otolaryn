@@ -17,6 +17,7 @@ import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
 import { ListPatientsQueryDto } from '../patients/dto/list-patients-query.dto';
 import { PatientsService } from '../patients/patients.service';
+import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import { RouteTenantContextInterceptor } from '../tenancy/route-tenant-context.interceptor';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -66,6 +67,19 @@ export class PlatformController {
     @Body() dto: UpdateScheduleDto,
   ) {
     return this.platform.updateSchedule(id, dto);
+  }
+
+  @Get(':id/appointment-defaults')
+  getAppointmentDefaults(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platform.getAppointmentDefaults(id);
+  }
+
+  @Patch(':id/appointment-defaults')
+  updateAppointmentDefaults(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAppointmentDefaultsDto,
+  ) {
+    return this.platform.updateAppointmentDefaults(id, dto);
   }
 
   // Read-only, view-only on the frontend — reuses PatientsService.findAll()

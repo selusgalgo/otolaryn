@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
+import { Tenant } from '../iam/entities/tenant.entity';
+import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import {
   assertNoOverlap,
@@ -14,16 +16,22 @@ export interface Schedule {
   days: DaySchedule[];
 }
 
+export interface AppointmentDefaults {
+  defaultDurationMinutes: number;
+}
+
 // admin's own clinic only — tenantId always comes from the caller's JWT
 // (@CurrentUser), never from the body, so admin can't reach another
-// clinic's schedule by guessing an id. iam.clinic_hours carries no RLS
-// (same as iam.users/iam.tenants), so this is a direct repo access, no
+// clinic's schedule by guessing an id. iam.clinic_hours/iam.tenants carry
+// no RLS (same as iam.users), so this is a direct repo access, no
 // TenancyContext.
 @Injectable()
 export class SettingsService {
   constructor(
     @InjectRepository(ClinicHour)
     private readonly clinicHours: Repository<ClinicHour>,
+    @InjectRepository(Tenant)
+    private readonly tenants: Repository<Tenant>,
   ) {}
 
   async getSchedule(tenantId: string): Promise<Schedule> {
@@ -48,5 +56,30 @@ export class SettingsService {
     });
 
     return this.getSchedule(tenantId);
+  }
+
+  private async findTenant(tenantId: string): Promise<Tenant> {
+    const tenant = await this.tenants.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    return tenant;
+  }
+
+  async getAppointmentDefaults(tenantId: string): Promise<AppointmentDefaults> {
+    const tenant = await this.findTenant(tenantId);
+    return {
+      defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+    };
+  }
+
+  async updateAppointmentDefaults(
+    tenantId: string,
+    dto: UpdateAppointmentDefaultsDto,
+  ): Promise<AppointmentDefaults> {
+    const tenant = await this.findTenant(tenantId);
+    tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
+    await this.tenants.save(tenant);
+    return { defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes };
   }
 }

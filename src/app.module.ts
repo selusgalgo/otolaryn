@@ -11,6 +11,7 @@ import { DatabaseModule } from './database/database.module';
 import { IamModule } from './iam/iam.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { PatientsModule } from './patients/patients.module';
+import { PdfModule } from './pdf/pdf.module';
 import { PlatformModule } from './platform/platform.module';
 import { SettingsModule } from './settings/settings.module';
 import { TenancyModule } from './tenancy/tenancy.module';
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     SettingsModule,
     AntecedentesModule,
     InsuranceModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [AppService],

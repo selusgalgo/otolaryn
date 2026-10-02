@@ -255,6 +255,18 @@ export class ClinicalEntriesService {
     return { data, total, page, pageSize };
   }
 
+  // Backs the ficha PDF export — every consulta goes in that table, not
+  // just one page's worth, so this skips ListClinicalEntriesQueryDto's
+  // pageSize cap entirely rather than calling findAllForPatient with an
+  // artificially large page size.
+  async findAllForPatientUnpaged(patientId: string): Promise<ClinicalEntry[]> {
+    await this.patients.findOne(patientId);
+    return this.repo.find({
+      where: { patientId },
+      order: { visitDate: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
   async findOne(id: string): Promise<ClinicalEntry> {
     const entry = await this.repo.findOne({ where: { id } });
     if (!entry) {
