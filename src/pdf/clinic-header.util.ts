@@ -64,6 +64,7 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
     textStack.push({
       text: clinic.tagline,
       fontSize: 8,
+      bold: true,
       italics: true,
       color: HEADER_COLOR,
       margin: [0, 5, 0, 0],
