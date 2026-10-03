@@ -21,6 +21,10 @@ export interface ClinicProfileData {
 // exactly as far as the rest of the content does.
 const CONTENT_WIDTH = 515;
 
+// Every line of the header's text (name, tagline, address, phone) in one
+// consistent blue, rather than black name + grey details.
+const HEADER_COLOR = '#1F4E79';
+
 // 3cm (1cm = 28.3465pt) — a fixed logo box, set on the column itself (not
 // just the image's own `fit`) so the text column next to it always gets the
 // rest of the page width, however wide or narrow the actual logo image is.
@@ -54,14 +58,14 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
   // for attention under it, and each paragraph gets a real top margin (was
   // 3pt) instead of sitting nearly flush against the one above.
   const textStack: Content[] = [
-    { text: clinic.name, fontSize: 13, bold: true },
+    { text: clinic.name, fontSize: 13, bold: true, color: HEADER_COLOR },
   ];
   if (clinic.tagline) {
     textStack.push({
       text: clinic.tagline,
-      fontSize: 10,
+      fontSize: 8,
       italics: true,
-      color: '#666666',
+      color: HEADER_COLOR,
       margin: [0, 5, 0, 0],
     });
   }
@@ -71,7 +75,7 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
     textStack.push({
       text: clinic.address,
       fontSize: 9,
-      color: '#666666',
+      color: HEADER_COLOR,
       margin: [0, 5, 0, 0],
     });
   }
@@ -79,7 +83,7 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
     textStack.push({
       text: `Tel.: ${clinic.phone}`,
       fontSize: 9,
-      color: '#666666',
+      color: HEADER_COLOR,
       margin: [0, 2, 0, 0],
     });
   }
