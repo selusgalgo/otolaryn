@@ -200,6 +200,7 @@ export class PlatformService {
     const tenant = await this.findTenant(id);
     return {
       name: tenant.name,
+      tagline: tenant.tagline,
       address: tenant.address,
       phone: tenant.phone,
       logo: tenant.logo,
@@ -212,6 +213,7 @@ export class PlatformService {
   ): Promise<ClinicProfile> {
     const tenant = await this.findTenant(id);
     tenant.name = input.name;
+    tenant.tagline = input.tagline;
     tenant.address = input.address;
     tenant.phone = input.phone;
     if (input.logo !== undefined) {
@@ -220,6 +222,7 @@ export class PlatformService {
     await this.tenants.save(tenant);
     return {
       name: tenant.name,
+      tagline: tenant.tagline,
       address: tenant.address,
       phone: tenant.phone,
       logo: tenant.logo,

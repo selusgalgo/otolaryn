@@ -469,8 +469,9 @@ describe('Patients CRUD', () => {
       });
     const id = (created.body as PatientResponse).id;
     const documentId = (created.body as PatientResponse).documentId;
+    expect(documentId).not.toBeNull();
 
-    for (const search of ['zarago', 'VILLALOBOS', documentId.toLowerCase()]) {
+    for (const search of ['zarago', 'VILLALOBOS', documentId!.toLowerCase()]) {
       const res = await request(server)
         .get(`/patients?search=${encodeURIComponent(search)}`)
         .set('Authorization', `Bearer ${tokenA}`);

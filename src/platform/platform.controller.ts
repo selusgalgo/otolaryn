@@ -96,9 +96,10 @@ export class PlatformController {
   // — see logoFileToDataUri for the validation both share.
   @Patch(':id/clinic-profile')
   @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
-  updateClinicProfile(
+  async updateClinicProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('name') name?: string,
+    @Body('tagline') tagline?: string,
     @Body('address') address?: string,
     @Body('phone') phone?: string,
     @Body('removeLogo') removeLogoRaw?: string,
@@ -117,13 +118,14 @@ export class PlatformController {
       );
     }
     const logo = hasFile
-      ? logoFileToDataUri(file!)
+      ? await logoFileToDataUri(file!)
       : removeLogo
         ? null
         : undefined;
 
     return this.platform.updateClinicProfile(id, {
       name: name.trim(),
+      tagline: tagline?.trim() || null,
       address: address?.trim() || null,
       phone: phone?.trim() || null,
       logo,

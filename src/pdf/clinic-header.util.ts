@@ -2,12 +2,17 @@ import type { Content } from 'pdfmake/interfaces';
 
 export interface ClinicProfileData {
   name: string;
+  // Short subtitle under the name (e.g. "Otorrinolaringología — Cirugía de
+  // cara y cuello").
+  tagline: string | null;
   address: string | null;
   phone: string | null;
   // A data: URI (base64) or null — see Tenant.logo's own comment for why
   // this is never a file path/URL. pdfmake's `image` content accepts a
   // data: URI directly, so this never touches PdfService's
-  // local/url access policies at all.
+  // local/url access policies at all. Already cropped into a circle by
+  // logoFileToDataUri (clinic-logo.util.ts) at upload time — nothing left
+  // for this header to do but place it.
   logo: string | null;
 }
 
@@ -39,12 +44,11 @@ function divider(): Content {
 }
 
 // The letterhead every exported PDF (ficha de paciente, tratamiento) opens
-// with — logo (if the clinic has configured one) beside name/address/phone,
-// then a divider line, echoing the look of the legacy system's own printed
-// fichas without trying to reproduce it pixel for pixel (centered text,
-// underlines on every line) — this is plainer on purpose, there being
-// nothing in the data model for a specialties subtitle the legacy letterhead
-// also had.
+// with — logo (if the clinic has configured one) beside name/tagline/
+// address/phone, then a divider line, echoing the look of the legacy
+// system's own printed fichas without trying to reproduce it pixel for
+// pixel (centered text, underlines on every line) — this is plainer on
+// purpose.
 export function clinicHeader(clinic: ClinicProfileData): Content[] {
   const details = [
     clinic.address,
@@ -53,15 +57,27 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
     .filter(Boolean)
     .join('  ·  ');
 
+  // Smaller than before (was 16) now that there's a tagline line competing
+  // for attention under it, and each paragraph gets a real top margin (was
+  // 3pt) instead of sitting nearly flush against the one above.
   const textStack: Content[] = [
-    { text: clinic.name, fontSize: 16, bold: true },
+    { text: clinic.name, fontSize: 13, bold: true },
   ];
+  if (clinic.tagline) {
+    textStack.push({
+      text: clinic.tagline,
+      fontSize: 10,
+      italics: true,
+      color: '#666666',
+      margin: [0, 5, 0, 0],
+    });
+  }
   if (details) {
     textStack.push({
       text: details,
-      fontSize: 10,
+      fontSize: 9,
       color: '#666666',
-      margin: [0, 3, 0, 0],
+      margin: [0, 5, 0, 0],
     });
   }
 

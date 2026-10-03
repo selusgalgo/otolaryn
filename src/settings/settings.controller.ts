@@ -87,9 +87,10 @@ export class SettingsController {
   @Patch('clinic-profile')
   @Roles('admin')
   @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
-  updateClinicProfile(
+  async updateClinicProfile(
     @CurrentUser() user: CurrentUserPayload,
     @Body('name') name?: string,
+    @Body('tagline') tagline?: string,
     @Body('address') address?: string,
     @Body('phone') phone?: string,
     @Body('removeLogo') removeLogoRaw?: string,
@@ -109,13 +110,14 @@ export class SettingsController {
       );
     }
     const logo = hasFile
-      ? logoFileToDataUri(file!)
+      ? await logoFileToDataUri(file!)
       : removeLogo
         ? null
         : undefined;
 
     return this.settings.updateClinicProfile(user.tenantId as string, {
       name: name.trim(),
+      tagline: tagline?.trim() || null,
       address: address?.trim() || null,
       phone: phone?.trim() || null,
       logo,

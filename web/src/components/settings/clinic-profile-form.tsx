@@ -58,6 +58,20 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="tagline">Subtítulo</Label>
+        <Input
+          id="tagline"
+          name="tagline"
+          defaultValue={initialProfile.tagline ?? ""}
+          disabled={pending}
+          placeholder="p. ej. Otorrinolaringología — Cirugía de cara y cuello"
+        />
+        <p className="text-xs text-muted-foreground">
+          Una frase corta debajo del nombre en la cabecera de los PDF exportados.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="address">Dirección</Label>
         <Input
           id="address"
