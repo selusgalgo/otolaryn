@@ -73,13 +73,15 @@ function datosPacienteColumns(
   insuranceName: string | null,
   entries: ClinicalEntry[],
 ): Content {
+  // Both phones in one field, "-"-separated, instead of a separate
+  // "Teléfono 2" row.
+  const phones = [patient.phone, patient.phone2].filter(Boolean).join(' - ');
+
   const rows: [string, string][] = [
     ['Nombre', `${patient.firstName} ${patient.lastName}`],
-    ['Documento', patient.documentId ?? '—'],
+    ['DNI', patient.documentId ?? '—'],
     ['Fecha de nacimiento', formatCalendarDate(patient.dateOfBirth)],
-    ['Fecha de primera consulta', firstConsultationDate(entries)],
-    ['Teléfono', patient.phone],
-    ['Teléfono 2', patient.phone2 ?? '—'],
+    ['Teléfono', phones || '—'],
     ['Email', patient.email ?? '—'],
     [
       'Dirección',
@@ -89,6 +91,7 @@ function datosPacienteColumns(
     ],
     ['Profesión', patient.profession ?? '—'],
     ['Aseguradora', insuranceName ?? '—'],
+    ['Fecha de primera consulta', firstConsultationDate(entries)],
   ];
 
   const perColumn = Math.ceil(rows.length / 2);
