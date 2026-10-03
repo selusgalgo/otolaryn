@@ -36,6 +36,25 @@ const STANDARD_FONT_NAMES = new Set([
 // harmless (addFonts just re-sets the same entry) but there's no reason to
 // repeat it on every request, so it's guarded once per process instead.
 
+// Same clinic timezone every other PDF date in this app uses (see
+// patient-record-pdf.util.ts's own CLINIC_TIME_ZONE comment) — this app is
+// built for one clinic in Spain, so "today" always means the clinic's day,
+// not whatever zone the Vercel function generating the PDF happens to run
+// in (UTC, typically).
+const CLINIC_TIME_ZONE = 'Europe/Madrid';
+
+function defaultFooter(): TDocumentDefinitions['footer'] {
+  const exportedOn = new Intl.DateTimeFormat('es-ES', {
+    timeZone: CLINIC_TIME_ZONE,
+  }).format(new Date());
+  return {
+    text: `Generado el ${exportedOn}`,
+    fontSize: 8,
+    color: '#999999',
+    margin: [40, 0, 40, 20],
+  };
+}
+
 function ensurePdfMakeConfigured(): void {
   if (fontsRegistered) return;
   pdfMake.addFonts(HELVETICA_FONTS);
@@ -57,6 +76,7 @@ export class PdfService {
     const pdf = pdfMake.createPdf({
       pageMargins: [40, 40, 40, 40],
       defaultStyle: { font: 'Helvetica', fontSize: 10 },
+      footer: defaultFooter(),
       ...docDefinition,
     });
     return pdf.getBuffer();

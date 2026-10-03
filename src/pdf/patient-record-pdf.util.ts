@@ -52,15 +52,33 @@ function sectionTitle(text: string): Content {
   return { text, fontSize: 13, bold: true, margin: [0, 14, 0, 6] };
 }
 
-function datosPacienteTable(
+// entries is sorted newest-first (see
+// ClinicalEntriesService.findAllForPatientUnpaged), so the earliest visit —
+// "fecha de primera consulta" — is simply its last element. There's no
+// separate stored column for this (patients.first_consultation_date was
+// added then dropped early in the project, see
+// DropPatientFirstConsultationDate1734600000000): the patient's own
+// consultas are already the source of truth for when they were first seen.
+function firstConsultationDate(entries: ClinicalEntry[]): string {
+  if (entries.length === 0) return '—';
+  return formatClinicDate(entries[entries.length - 1].visitDate);
+}
+
+// Three columns of label/value pairs rather than one long two-column table
+// — with Nº de historia dropped (internal bookkeeping, not meant for a
+// patient-facing export) and Fecha de primera consulta added, there are few
+// enough short fields that three columns read as a compact block instead of
+// a half-empty page-width table.
+function datosPacienteColumns(
   patient: Patient,
   insuranceName: string | null,
+  entries: ClinicalEntry[],
 ): Content {
   const rows: [string, string][] = [
     ['Nombre', `${patient.firstName} ${patient.lastName}`],
-    ['Nº de historia', patient.legacyId ?? '—'],
     ['Documento', patient.documentId ?? '—'],
     ['Fecha de nacimiento', formatCalendarDate(patient.dateOfBirth)],
+    ['Fecha de primera consulta', firstConsultationDate(entries)],
     ['Teléfono', patient.phone],
     ['Teléfono 2', patient.phone2 ?? '—'],
     ['Email', patient.email ?? '—'],
@@ -73,15 +91,26 @@ function datosPacienteTable(
     ['Profesión', patient.profession ?? '—'],
     ['Aseguradora', insuranceName ?? '—'],
   ];
+
+  const perColumn = Math.ceil(rows.length / 3);
+  const columnRows = [
+    rows.slice(0, perColumn),
+    rows.slice(perColumn, perColumn * 2),
+    rows.slice(perColumn * 2),
+  ];
+
   return {
-    table: {
-      widths: ['auto', '*'],
-      body: rows.map(([label, value]) => [
-        { text: label, bold: true, fontSize: 9 },
-        { text: value, fontSize: 9 },
-      ]),
-    },
-    layout: 'lightHorizontalLines',
+    columns: columnRows.map((chunk) => ({
+      table: {
+        widths: ['auto', '*'],
+        body: chunk.map(([label, value]) => [
+          { text: label, bold: true, fontSize: 8 },
+          { text: value, fontSize: 8 },
+        ]),
+      },
+      layout: 'lightHorizontalLines',
+    })),
+    columnGap: 12,
   };
 }
 
@@ -209,7 +238,7 @@ export function buildPatientRecordPdf(
       },
 
       sectionTitle('Datos del paciente'),
-      datosPacienteTable(patient, insuranceName),
+      datosPacienteColumns(patient, insuranceName, entries),
 
       sectionTitle('Antecedentes personales'),
       antecedentesList(data.personalAntecedentes),

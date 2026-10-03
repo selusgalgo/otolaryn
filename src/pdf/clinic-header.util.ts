@@ -16,6 +16,11 @@ export interface ClinicProfileData {
 // exactly as far as the rest of the content does.
 const CONTENT_WIDTH = 515;
 
+// 3cm (1cm = 28.3465pt) — a fixed logo box, set on the column itself (not
+// just the image's own `fit`) so the text column next to it always gets the
+// rest of the page width, however wide or narrow the actual logo image is.
+const LOGO_SIZE_PT = 85;
+
 function divider(): Content {
   return {
     canvas: [
@@ -49,22 +54,30 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
     .join('  ·  ');
 
   const textStack: Content[] = [
-    { text: clinic.name, fontSize: 14, bold: true },
+    { text: clinic.name, fontSize: 16, bold: true },
   ];
   if (details) {
     textStack.push({
       text: details,
-      fontSize: 9,
+      fontSize: 10,
       color: '#666666',
-      margin: [0, 2, 0, 0],
+      margin: [0, 3, 0, 0],
     });
   }
 
+  // The logo gets a fixed 3x3cm box (`width` on the column reserves that
+  // space regardless of the image's own aspect ratio; `fit` inside it keeps
+  // the image from stretching) — everything else goes to the name/address/
+  // phone column, which is what should actually fill most of the header.
   const header: Content = clinic.logo
     ? {
         columns: [
-          { image: clinic.logo, fit: [48, 48] },
-          { stack: textStack, margin: [10, 2, 0, 0] },
+          {
+            image: clinic.logo,
+            fit: [LOGO_SIZE_PT, LOGO_SIZE_PT],
+            width: LOGO_SIZE_PT,
+          },
+          { stack: textStack, width: '*', margin: [14, 4, 0, 0] },
         ],
         columnGap: 0,
       }
