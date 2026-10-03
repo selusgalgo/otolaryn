@@ -125,14 +125,9 @@ export class PdfController {
         'Esta consulta no tiene tratamiento indicado',
       );
     }
-    const [clinic, patient] = await Promise.all([
-      this.clinicProfile(),
-      this.patients.findOne(entry.patientId),
-    ]);
+    const patient = await this.patients.findOne(entry.patientId);
 
-    const buffer = await this.pdf.render(
-      buildTreatmentPdf({ clinic, patient, entry }),
-    );
+    const buffer = await this.pdf.render(buildTreatmentPdf({ patient, entry }));
 
     res.set({
       'Content-Type': 'application/pdf',
