@@ -64,11 +64,10 @@ function firstConsultationDate(entries: ClinicalEntry[]): string {
   return formatClinicDate(entries[entries.length - 1].visitDate);
 }
 
-// Three columns of label/value pairs rather than one long two-column table
-// — with Nº de historia dropped (internal bookkeeping, not meant for a
-// patient-facing export) and Fecha de primera consulta added, there are few
-// enough short fields that three columns read as a compact block instead of
-// a half-empty page-width table.
+// Two columns of label/value pairs, no row borders — with Nº de historia
+// dropped (internal bookkeeping, not meant for a patient-facing export) and
+// Fecha de primera consulta added. A single divider (below, not between
+// rows) closes off the whole block instead.
 function datosPacienteColumns(
   patient: Patient,
   insuranceName: string | null,
@@ -92,25 +91,21 @@ function datosPacienteColumns(
     ['Aseguradora', insuranceName ?? '—'],
   ];
 
-  const perColumn = Math.ceil(rows.length / 3);
-  const columnRows = [
-    rows.slice(0, perColumn),
-    rows.slice(perColumn, perColumn * 2),
-    rows.slice(perColumn * 2),
-  ];
+  const perColumn = Math.ceil(rows.length / 2);
+  const columnRows = [rows.slice(0, perColumn), rows.slice(perColumn)];
 
   return {
     columns: columnRows.map((chunk) => ({
       table: {
         widths: ['auto', '*'],
         body: chunk.map(([label, value]) => [
-          { text: label, bold: true, fontSize: 8 },
-          { text: value, fontSize: 8 },
+          { text: label, bold: true, fontSize: 9 },
+          { text: value, fontSize: 9 },
         ]),
       },
-      layout: 'lightHorizontalLines',
+      layout: 'noBorders',
     })),
-    columnGap: 12,
+    columnGap: 20,
   };
 }
 
@@ -143,7 +138,10 @@ function richOrDash(html: string | null | undefined): Content {
     : { text: '—', fontSize: 9 };
 }
 
-function consultaDivider(): Content {
+// Shared by the end of "Datos del paciente" and between each consulta block
+// below — a light horizontal rule spanning the page's content width (see
+// clinic-header.util.ts's own CONTENT_WIDTH for where 515 comes from).
+function divider(): Content {
   return {
     canvas: [
       {
@@ -167,7 +165,7 @@ function consultaDivider(): Content {
 // which exists for the same reason: free-text fields don't fit a table.
 function consultaBlock(entry: ClinicalEntry): Content[] {
   const blocks: Content[] = [
-    consultaDivider(),
+    divider(),
     {
       text: [
         { text: 'Fecha de consulta: ', bold: true },
@@ -230,15 +228,10 @@ export function buildPatientRecordPdf(
     },
     content: [
       ...clinicHeader(clinic),
-      {
-        text: 'Ficha de paciente',
-        fontSize: 18,
-        bold: true,
-        margin: [0, 0, 0, 10],
-      },
 
       sectionTitle('Datos del paciente'),
       datosPacienteColumns(patient, insuranceName, entries),
+      divider(),
 
       sectionTitle('Antecedentes personales'),
       antecedentesList(data.personalAntecedentes),

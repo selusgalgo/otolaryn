@@ -55,6 +55,7 @@ export class PdfController {
     });
     return {
       name: tenant.name,
+      tagline: tenant.tagline,
       address: tenant.address,
       phone: tenant.phone,
       logo: tenant.logo,

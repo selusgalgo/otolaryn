@@ -22,6 +22,7 @@ export interface AppointmentDefaults {
 
 export interface ClinicProfile {
   name: string;
+  tagline: string | null;
   address: string | null;
   phone: string | null;
   logo: string | null;
@@ -32,6 +33,7 @@ export interface ClinicProfile {
 // it with that data: URI — see UpdateClinicProfile's own comment on Tenant.
 export interface UpdateClinicProfileInput {
   name: string;
+  tagline: string | null;
   address: string | null;
   phone: string | null;
   logo?: string | null;
@@ -104,6 +106,7 @@ export class SettingsService {
     const tenant = await this.findTenant(tenantId);
     return {
       name: tenant.name,
+      tagline: tenant.tagline,
       address: tenant.address,
       phone: tenant.phone,
       logo: tenant.logo,
@@ -116,6 +119,7 @@ export class SettingsService {
   ): Promise<ClinicProfile> {
     const tenant = await this.findTenant(tenantId);
     tenant.name = input.name;
+    tenant.tagline = input.tagline;
     tenant.address = input.address;
     tenant.phone = input.phone;
     if (input.logo !== undefined) {
@@ -124,6 +128,7 @@ export class SettingsService {
     await this.tenants.save(tenant);
     return {
       name: tenant.name,
+      tagline: tenant.tagline,
       address: tenant.address,
       phone: tenant.phone,
       logo: tenant.logo,

@@ -28,6 +28,11 @@ export class Tenant {
   // — see PdfController/patient-record-pdf.util.ts. All optional: a clinic
   // that hasn't configured these yet still gets a PDF, just without a logo
   // or an address/phone line.
+  // Short subtitle under the clinic name in the PDF letterhead (e.g.
+  // "Otorrinolaringología — Cirugía de cara y cuello").
+  @Column({ type: 'text', nullable: true })
+  tagline: string | null;
+
   @Column({ type: 'text', nullable: true })
   address: string | null;
 

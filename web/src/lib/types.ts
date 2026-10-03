@@ -137,6 +137,7 @@ export interface TenantAppointmentDefaults extends AppointmentDefaults {
 // Tenant.logo for why.
 export interface ClinicProfile {
   name: string;
+  tagline: string | null;
   address: string | null;
   phone: string | null;
   logo: string | null;

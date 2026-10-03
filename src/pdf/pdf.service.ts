@@ -44,11 +44,16 @@ const STANDARD_FONT_NAMES = new Set([
 const CLINIC_TIME_ZONE = 'Europe/Madrid';
 
 function defaultFooter(): TDocumentDefinitions['footer'] {
+  // "3 de octubre de 2026", not a slashed d/m/y — the long form reads as a
+  // deliberate "exported on" stamp rather than a data field.
   const exportedOn = new Intl.DateTimeFormat('es-ES', {
     timeZone: CLINIC_TIME_ZONE,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   }).format(new Date());
   return {
-    text: `Generado el ${exportedOn}`,
+    text: exportedOn,
     fontSize: 8,
     color: '#999999',
     margin: [40, 0, 40, 20],
