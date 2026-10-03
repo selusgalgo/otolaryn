@@ -50,13 +50,6 @@ function divider(): Content {
 // pixel (centered text, underlines on every line) — this is plainer on
 // purpose.
 export function clinicHeader(clinic: ClinicProfileData): Content[] {
-  const details = [
-    clinic.address,
-    clinic.phone ? `Tel.: ${clinic.phone}` : null,
-  ]
-    .filter(Boolean)
-    .join('  ·  ');
-
   // Smaller than before (was 16) now that there's a tagline line competing
   // for attention under it, and each paragraph gets a real top margin (was
   // 3pt) instead of sitting nearly flush against the one above.
@@ -72,12 +65,22 @@ export function clinicHeader(clinic: ClinicProfileData): Content[] {
       margin: [0, 5, 0, 0],
     });
   }
-  if (details) {
+  // Address and phone each get their own line now, phone below address —
+  // previously joined on one line with a "·" separator.
+  if (clinic.address) {
     textStack.push({
-      text: details,
+      text: clinic.address,
       fontSize: 9,
       color: '#666666',
       margin: [0, 5, 0, 0],
+    });
+  }
+  if (clinic.phone) {
+    textStack.push({
+      text: `Tel.: ${clinic.phone}`,
+      fontSize: 9,
+      color: '#666666',
+      margin: [0, 2, 0, 0],
     });
   }
 
