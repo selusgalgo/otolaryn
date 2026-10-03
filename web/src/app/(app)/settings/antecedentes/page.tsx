@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AntecedenteCategoryCard } from "@/components/settings/antecedente-category-card";
 import { AntecedenteTypesForm } from "@/components/settings/antecedente-types-form";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -30,23 +30,15 @@ export default async function AntecedentesSettingsPage() {
         <h1 className="mt-2 text-2xl font-bold">Antecedentes</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Antecedentes personales</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="grid gap-4 md:grid-cols-2">
+        <AntecedenteCategoryCard title="Antecedentes personales">
           <AntecedenteTypesForm category="personal" initialTypes={personalTypes} />
-        </CardContent>
-      </Card>
+        </AntecedenteCategoryCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Antecedentes familiares</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <AntecedenteCategoryCard title="Antecedentes familiares">
           <AntecedenteTypesForm category="familiar" initialTypes={familiarTypes} />
-        </CardContent>
-      </Card>
+        </AntecedenteCategoryCard>
+      </div>
     </div>
   );
 }

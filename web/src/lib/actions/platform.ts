@@ -1,12 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiError } from "@/lib/api";
-import type { AppointmentDefaultsFormState, ScheduleFormState } from "@/lib/actions/settings";
+import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
+import type {
+  AppointmentDefaultsFormState,
+  ClinicProfileFormState,
+  ScheduleFormState,
+} from "@/lib/actions/settings";
 import type { UserFormState } from "@/lib/actions/users";
 import { scheduleFromFormData } from "@/lib/schedule";
 import type {
   AppUser,
+  ClinicProfile,
   Tenant,
   TenantAppointmentDefaults,
   TenantSchedule,
@@ -84,6 +89,30 @@ export async function updateTenantAppointmentDefaultsAction(
       return { error: err.message };
     }
     return { error: "No se pudo guardar la duración por defecto." };
+  }
+
+  revalidatePath(`/platform/${tenantId}/settings`);
+  return { success: true };
+}
+
+// superadmin, any clinic — same binding shape as updateTenantScheduleAction,
+// multipart for the same reason as updateClinicProfileAction (settings.ts).
+export async function updateTenantClinicProfileAction(
+  tenantId: string,
+  _prevState: ClinicProfileFormState,
+  formData: FormData,
+): Promise<ClinicProfileFormState> {
+  try {
+    await apiFetchMultipart<ClinicProfile>(
+      `/platform/tenants/${tenantId}/clinic-profile`,
+      formData,
+      "PATCH",
+    );
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar el perfil de la clínica." };
   }
 
   revalidatePath(`/platform/${tenantId}/settings`);

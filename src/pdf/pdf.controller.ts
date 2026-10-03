@@ -22,6 +22,7 @@ import { InsuranceService } from '../insurance/insurance.service';
 import { PatientsService } from '../patients/patients.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
+import type { ClinicProfileData } from './clinic-header.util';
 import { buildPatientRecordPdf } from './patient-record-pdf.util';
 import { PdfService } from './pdf.service';
 import { buildTreatmentPdf } from './treatment-pdf.util';
@@ -48,11 +49,16 @@ export class PdfController {
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
   ) {}
 
-  private async clinicName(): Promise<string> {
+  private async clinicProfile(): Promise<ClinicProfileData> {
     const tenant = await this.tenants.findOneOrFail({
       where: { id: this.tenancyContext.tenantId },
     });
-    return tenant.name;
+    return {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.phone,
+      logo: tenant.logo,
+    };
   }
 
   @Get('patients/:id/pdf')
@@ -65,9 +71,9 @@ export class PdfController {
     // patient's clinical content.
     const patient = await this.patients.findOne(id);
 
-    const [clinicName, types, marked, entries, insuranceEntities] =
+    const [clinic, types, marked, entries, insuranceEntities] =
       await Promise.all([
-        this.clinicName(),
+        this.clinicProfile(),
         this.antecedentes.findAllTypes(),
         this.antecedentes.findForPatient(id),
         this.clinicalEntries.findAllForPatientUnpaged(id),
@@ -91,7 +97,7 @@ export class PdfController {
 
     const buffer = await this.pdf.render(
       buildPatientRecordPdf({
-        clinicName,
+        clinic,
         patient,
         insuranceName,
         personalAntecedentes: resolved.filter((a) => a.category === 'personal'),
@@ -118,13 +124,13 @@ export class PdfController {
         'Esta consulta no tiene tratamiento indicado',
       );
     }
-    const [clinicName, patient] = await Promise.all([
-      this.clinicName(),
+    const [clinic, patient] = await Promise.all([
+      this.clinicProfile(),
       this.patients.findOne(entry.patientId),
     ]);
 
     const buffer = await this.pdf.render(
-      buildTreatmentPdf({ clinicName, patient, entry }),
+      buildTreatmentPdf({ clinic, patient, entry }),
     );
 
     res.set({

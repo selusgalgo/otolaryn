@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  BuildingOffice2Icon,
   CalendarDaysIcon,
   ChevronRightIcon,
   ClipboardDocumentListIcon,
@@ -20,6 +21,12 @@ const SECTIONS: {
   description: string;
   icon: typeof ClockIcon;
 }[] = [
+  {
+    href: "/settings/clinic-profile",
+    title: "Perfil de la clínica",
+    description: "Nombre, dirección, teléfono y logotipo que aparecen en los PDF exportados.",
+    icon: BuildingOffice2Icon,
+  },
   {
     href: "/settings/schedule",
     title: "Horario de la clínica",

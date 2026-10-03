@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
 import { scheduleFromFormData } from "@/lib/schedule";
 import type {
   AntecedenteCategory,
   AntecedenteType,
   AppointmentDefaults,
+  ClinicProfile,
   InsuranceEntity,
   Schedule,
 } from "@/lib/types";
@@ -59,6 +60,32 @@ export async function updateAppointmentDefaultsAction(
       return { error: err.message };
     }
     return { error: "No se pudo guardar la duración por defecto." };
+  }
+
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+export interface ClinicProfileFormState {
+  error?: string;
+  success?: boolean;
+}
+
+// admin, own clinic. FormData (not a JSON body) because the logo field is a
+// real <input type="file"> — a Server Action can receive that File straight
+// from the form, and it survives being re-packed into the FormData
+// apiFetchMultipart forwards to the API untouched.
+export async function updateClinicProfileAction(
+  _prevState: ClinicProfileFormState,
+  formData: FormData,
+): Promise<ClinicProfileFormState> {
+  try {
+    await apiFetchMultipart<ClinicProfile>("/settings/clinic-profile", formData, "PATCH");
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar el perfil de la clínica." };
   }
 
   revalidatePath("/settings");

@@ -1,10 +1,12 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { Patient } from '../patients/entities/patient.entity';
+import { clinicHeader } from './clinic-header.util';
+import type { ClinicProfileData } from './clinic-header.util';
 import { richTextToPdfContent } from './rich-text-to-pdf.util';
 
 export interface TreatmentPdfData {
-  clinicName: string;
+  clinic: ClinicProfileData;
   patient: Patient;
   entry: ClinicalEntry;
 }
@@ -26,19 +28,19 @@ function formatClinicDate(value: Date): string {
 export function buildTreatmentPdf(
   data: TreatmentPdfData,
 ): TDocumentDefinitions {
-  const { clinicName, patient, entry } = data;
+  const { clinic, patient, entry } = data;
 
   return {
     info: {
       title: `Tratamiento — ${patient.firstName} ${patient.lastName}`,
     },
     content: [
-      { text: clinicName, fontSize: 12, bold: true },
+      ...clinicHeader(clinic),
       {
         text: 'Pauta de tratamiento',
         fontSize: 16,
         bold: true,
-        margin: [0, 4, 0, 16],
+        margin: [0, 0, 0, 16],
       },
 
       {

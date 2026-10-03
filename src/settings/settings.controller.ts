@@ -1,9 +1,21 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Patch,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../iam/current-user.decorator';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
+import { logoFileToDataUri } from './clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { SettingsService } from './settings.service';
@@ -58,5 +70,55 @@ export class SettingsController {
       user.tenantId as string,
       dto,
     );
+  }
+
+  // Read access for every role — the clinic's name/address/phone/logo show
+  // up wherever a PDF is exported (ficha de paciente, tratamiento), which
+  // admin and profesional can both trigger. Writing stays admin-only, below.
+  @Get('clinic-profile')
+  @Roles('admin', 'profesional', 'recepcion')
+  getClinicProfile(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.getClinicProfile(user.tenantId as string);
+  }
+
+  // Multipart, not a plain JSON @Body() DTO, since it may carry a logo file
+  // alongside the text fields — same FileInterceptor + memoryStorage shape
+  // as PatientsController's import endpoints (small-file, no disk write).
+  @Patch('clinic-profile')
+  @Roles('admin')
+  @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
+  updateClinicProfile(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body('name') name?: string,
+    @Body('address') address?: string,
+    @Body('phone') phone?: string,
+    @Body('removeLogo') removeLogoRaw?: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!name?.trim()) {
+      throw new BadRequestException('El nombre de la clínica es obligatorio');
+    }
+    // A submitted <input type="file"> with nothing picked still shows up
+    // here as a zero-byte file (empty filename, generic mimetype) rather
+    // than undefined — size > 0 is what actually means "a file was chosen".
+    const hasFile = Boolean(file && file.size > 0);
+    const removeLogo = removeLogoRaw === 'true';
+    if (hasFile && removeLogo) {
+      throw new BadRequestException(
+        'No se puede subir un logo nuevo y quitarlo a la vez',
+      );
+    }
+    const logo = hasFile
+      ? logoFileToDataUri(file!)
+      : removeLogo
+        ? null
+        : undefined;
+
+    return this.settings.updateClinicProfile(user.tenantId as string, {
+      name: name.trim(),
+      address: address?.trim() || null,
+      phone: phone?.trim() || null,
+      logo,
+    });
   }
 }
