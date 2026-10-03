@@ -77,7 +77,11 @@ function errorFromResponse(status: number, data: unknown): ApiError {
 // Content-Type header here on purpose: fetch sets the multipart boundary
 // itself from the FormData, and overriding it manually is the classic way
 // to send a boundary-less body the server can't parse.
-export async function apiFetchMultipart<T>(path: string, formData: FormData): Promise<T> {
+export async function apiFetchMultipart<T>(
+  path: string,
+  formData: FormData,
+  method: "POST" | "PATCH" = "POST",
+): Promise<T> {
   const headers: Record<string, string> = {};
   const token = await getSessionToken();
   if (token) {
@@ -85,7 +89,7 @@ export async function apiFetchMultipart<T>(path: string, formData: FormData): Pr
   }
 
   const res = await fetch(`${API_URL}${path}`, {
-    method: "POST",
+    method,
     headers,
     body: formData,
     cache: "no-store",

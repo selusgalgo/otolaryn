@@ -13,6 +13,10 @@ import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
+import type {
+  ClinicProfile,
+  UpdateClinicProfileInput,
+} from '../settings/settings.service';
 import {
   assertNoOverlap,
   DaySchedule,
@@ -189,6 +193,36 @@ export class PlatformService {
     return {
       tenantName: tenant.name,
       defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+    };
+  }
+
+  async getClinicProfile(id: string): Promise<ClinicProfile> {
+    const tenant = await this.findTenant(id);
+    return {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.phone,
+      logo: tenant.logo,
+    };
+  }
+
+  async updateClinicProfile(
+    id: string,
+    input: UpdateClinicProfileInput,
+  ): Promise<ClinicProfile> {
+    const tenant = await this.findTenant(id);
+    tenant.name = input.name;
+    tenant.address = input.address;
+    tenant.phone = input.phone;
+    if (input.logo !== undefined) {
+      tenant.logo = input.logo;
+    }
+    await this.tenants.save(tenant);
+    return {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.phone,
+      logo: tenant.logo,
     };
   }
 

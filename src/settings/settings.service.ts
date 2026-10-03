@@ -20,6 +20,23 @@ export interface AppointmentDefaults {
   defaultDurationMinutes: number;
 }
 
+export interface ClinicProfile {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  logo: string | null;
+}
+
+// logo: undefined leaves the stored logo untouched (no new file was
+// uploaded), null clears it (the "Quitar logo" action), a string replaces
+// it with that data: URI — see UpdateClinicProfile's own comment on Tenant.
+export interface UpdateClinicProfileInput {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  logo?: string | null;
+}
+
 // admin's own clinic only — tenantId always comes from the caller's JWT
 // (@CurrentUser), never from the body, so admin can't reach another
 // clinic's schedule by guessing an id. iam.clinic_hours/iam.tenants carry
@@ -81,5 +98,35 @@ export class SettingsService {
     tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
     await this.tenants.save(tenant);
     return { defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes };
+  }
+
+  async getClinicProfile(tenantId: string): Promise<ClinicProfile> {
+    const tenant = await this.findTenant(tenantId);
+    return {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.phone,
+      logo: tenant.logo,
+    };
+  }
+
+  async updateClinicProfile(
+    tenantId: string,
+    input: UpdateClinicProfileInput,
+  ): Promise<ClinicProfile> {
+    const tenant = await this.findTenant(tenantId);
+    tenant.name = input.name;
+    tenant.address = input.address;
+    tenant.phone = input.phone;
+    if (input.logo !== undefined) {
+      tenant.logo = input.logo;
+    }
+    await this.tenants.save(tenant);
+    return {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.phone,
+      logo: tenant.logo,
+    };
   }
 }

@@ -2,10 +2,15 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentDefaultsForm } from "@/components/settings/appointment-defaults-form";
+import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
-import { updateTenantAppointmentDefaultsAction, updateTenantScheduleAction } from "@/lib/actions/platform";
+import {
+  updateTenantAppointmentDefaultsAction,
+  updateTenantClinicProfileAction,
+  updateTenantScheduleAction,
+} from "@/lib/actions/platform";
 import { apiFetch } from "@/lib/api";
-import type { TenantAppointmentDefaults, TenantSchedule } from "@/lib/types";
+import type { ClinicProfile, TenantAppointmentDefaults, TenantSchedule } from "@/lib/types";
 
 export default async function TenantSettingsPage({
   params,
@@ -13,12 +18,14 @@ export default async function TenantSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [schedule, appointmentDefaults] = await Promise.all([
+  const [schedule, appointmentDefaults, clinicProfile] = await Promise.all([
     apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`),
     apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
+    apiFetch<ClinicProfile>(`/platform/tenants/${id}/clinic-profile`),
   ]);
   const scheduleAction = updateTenantScheduleAction.bind(null, id);
   const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
+  const clinicProfileAction = updateTenantClinicProfileAction.bind(null, id);
 
   return (
     <div className="space-y-4">
@@ -27,6 +34,15 @@ export default async function TenantSettingsPage({
         Clínicas
       </Link>
       <h1 className="text-2xl font-bold">Configuración — {schedule.tenantName}</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Perfil de la clínica</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ClinicProfileForm action={clinicProfileAction} initialProfile={clinicProfile} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

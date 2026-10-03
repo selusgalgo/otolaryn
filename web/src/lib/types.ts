@@ -131,6 +131,17 @@ export interface TenantAppointmentDefaults extends AppointmentDefaults {
   tenantName: string;
 }
 
+// Identity shown on exported PDFs (ficha de paciente, tratamiento) — see
+// Configuración → Perfil de la clínica. logo is a data: URI (base64) or
+// null, never a file path/URL — see the backend's own comment on
+// Tenant.logo for why.
+export interface ClinicProfile {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  logo: string | null;
+}
+
 export type AntecedenteCategory = "personal" | "familiar";
 
 export interface AntecedenteType {

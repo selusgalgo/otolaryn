@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,9 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../iam/current-user.decorator';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
@@ -17,6 +21,7 @@ import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
 import { ListPatientsQueryDto } from '../patients/dto/list-patients-query.dto';
 import { PatientsService } from '../patients/patients.service';
+import { logoFileToDataUri } from '../settings/clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import { RouteTenantContextInterceptor } from '../tenancy/route-tenant-context.interceptor';
@@ -80,6 +85,49 @@ export class PlatformController {
     @Body() dto: UpdateAppointmentDefaultsDto,
   ) {
     return this.platform.updateAppointmentDefaults(id, dto);
+  }
+
+  @Get(':id/clinic-profile')
+  getClinicProfile(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platform.getClinicProfile(id);
+  }
+
+  // Same multipart shape as SettingsController's own clinic-profile PATCH
+  // — see logoFileToDataUri for the validation both share.
+  @Patch(':id/clinic-profile')
+  @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
+  updateClinicProfile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('name') name?: string,
+    @Body('address') address?: string,
+    @Body('phone') phone?: string,
+    @Body('removeLogo') removeLogoRaw?: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!name?.trim()) {
+      throw new BadRequestException('El nombre de la clínica es obligatorio');
+    }
+    // See SettingsController's own clinic-profile PATCH for why size > 0,
+    // not just truthiness, is what means "a file was actually chosen".
+    const hasFile = Boolean(file && file.size > 0);
+    const removeLogo = removeLogoRaw === 'true';
+    if (hasFile && removeLogo) {
+      throw new BadRequestException(
+        'No se puede subir un logo nuevo y quitarlo a la vez',
+      );
+    }
+    const logo = hasFile
+      ? logoFileToDataUri(file!)
+      : removeLogo
+        ? null
+        : undefined;
+
+    return this.platform.updateClinicProfile(id, {
+      name: name.trim(),
+      address: address?.trim() || null,
+      phone: phone?.trim() || null,
+      logo,
+    });
   }
 
   // Read-only, view-only on the frontend — reuses PatientsService.findAll()
