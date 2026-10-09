@@ -24,12 +24,12 @@ function mmToPt(mm: number): number {
   return mm / MM_PER_PT;
 }
 
-// Left, top, right, bottom — top stays a full 2cm even with no header/logo
-// printed on this document (see below), so the layout still reads as
-// deliberately framed rather than text crammed into a corner.
+// Left, top, right, bottom — a wide top margin (6cm) so Paciente/
+// tratamiento starts well below where this slip gets folded or clipped,
+// and a wide left margin (3cm) to match. Right/bottom stay as before.
 const PAGE_MARGINS: [number, number, number, number] = [
-  mmToPt(10), // 1cm
-  mmToPt(20), // 2cm
+  mmToPt(30), // 3cm
+  mmToPt(60), // 6cm
   mmToPt(10), // 1cm
   mmToPt(15), // 1.5cm
 ];
