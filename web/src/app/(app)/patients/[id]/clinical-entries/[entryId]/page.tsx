@@ -78,9 +78,13 @@ export default async function ClinicalEntryDetailPage({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Tratamiento</CardTitle>
             <Button asChild size="sm" variant="outline">
-              <a href={`/patients/${id}/clinical-entries/${entryId}/treatment-pdf`}>
+              <a
+                href={`/patients/${id}/clinical-entries/${entryId}/treatment-pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ArrowDownTrayIcon data-icon="inline-start" />
-                Descargar (PDF)
+                Imprimir
               </a>
             </Button>
           </CardHeader>

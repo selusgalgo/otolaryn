@@ -68,9 +68,9 @@ export function PatientProfileSection({
           <div className="flex gap-2">
             {showPdfExport && (
               <Button variant="outline" asChild>
-                <a href={`/patients/${patient.id}/pdf`}>
+                <a href={`/patients/${patient.id}/pdf`} target="_blank" rel="noopener noreferrer">
                   <ArrowDownTrayIcon data-icon="inline-start" />
-                  Exportar PDF
+                  Imprimir
                 </a>
               </Button>
             )}

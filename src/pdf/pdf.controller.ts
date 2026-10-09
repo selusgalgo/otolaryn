@@ -109,7 +109,7 @@ export class PdfController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="ficha-${patient.legacyId ?? patient.id}.pdf"`,
+      'Content-Disposition': `inline; filename="ficha-${patient.legacyId ?? patient.id}.pdf"`,
     });
     return new StreamableFile(buffer);
   }
@@ -131,7 +131,7 @@ export class PdfController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="tratamiento-${patient.legacyId ?? patient.id}.pdf"`,
+      'Content-Disposition': `inline; filename="tratamiento-${patient.legacyId ?? patient.id}.pdf"`,
     });
     return new StreamableFile(buffer);
   }
