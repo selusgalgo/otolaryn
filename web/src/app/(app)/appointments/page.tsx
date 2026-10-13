@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar-grid";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
-import type { Appointment, Paginated, Patient, Schedule } from "@/lib/types";
+import type { Appointment, AppointmentDefaults, Paginated, Patient, Schedule } from "@/lib/types";
 import { formatDocumentId, splitName } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -74,20 +74,22 @@ export default async function AppointmentsPage({
 
   // The calendar's own grid always shows whatever month "from" falls in.
   const fromDate = new Date(`${from}T00:00:00`);
-  const [schedule, appointments, allAppointments, practitioners, me] = await Promise.all([
-    apiFetch<Schedule>("/settings/schedule"),
-    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth(), practitionerId),
-    // Deliberately unfiltered, regardless of the practitionerId above — the
-    // calendar's per-profesional availability dots (see OccupancyCalendar)
-    // always need every profesional's own appointments to judge each of
-    // them individually, even while the main view is filtered down to just
-    // one. Reusing `appointments` there would make everyone else's dot read
-    // "free" whenever a specific profesional is selected, since their
-    // appointments would never have been fetched at all.
-    getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
-    getPractitionerOptions(),
-    getCurrentUser(),
-  ]);
+  const [schedule, appointmentDefaults, appointments, allAppointments, practitioners, me] =
+    await Promise.all([
+      apiFetch<Schedule>("/settings/schedule"),
+      apiFetch<AppointmentDefaults>("/settings/appointment-defaults"),
+      getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth(), practitionerId),
+      // Deliberately unfiltered, regardless of the practitionerId above — the
+      // calendar's per-profesional availability dots (see OccupancyCalendar)
+      // always need every profesional's own appointments to judge each of
+      // them individually, even while the main view is filtered down to just
+      // one. Reusing `appointments` there would make everyone else's dot read
+      // "free" whenever a specific profesional is selected, since their
+      // appointments would never have been fetched at all.
+      getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
+      getPractitionerOptions(),
+      getCurrentUser(),
+    ]);
   // A day is "selected" on the calendar only when the filter is pinned to
   // exactly one day (from === to) — the same state a day click produces,
   // so clicking a day highlights itself on reload.
@@ -132,6 +134,7 @@ export default async function AppointmentsPage({
         from={from}
         to={to}
         practitionerId={practitionerId}
+        defaultDurationMinutes={appointmentDefaults.defaultDurationMinutes}
         initialOpenDayKey={params.openDay}
       />
 

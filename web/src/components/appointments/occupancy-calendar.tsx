@@ -41,6 +41,12 @@ interface OccupancyCalendarProps {
   from: string;
   to?: string;
   practitionerId?: string;
+  // The clinic's configured default (Configuración → Citas) — sizes the
+  // gaps this popover's computeDayFreeSlots hunts for. Not tied to one
+  // specific profesional/cita here (unlike AppointmentForm's own
+  // suggestions), so the clinic-wide default is the best available
+  // approximation instead of a hardcoded 30.
+  defaultDurationMinutes: number;
   // Mirrors the URL's own "openDay" param (see appointments/page.tsx) — set
   // when a practitioner switch in the side panel carried over whichever
   // day's popover was open at the time, so that day reopens here instead
@@ -92,6 +98,7 @@ export function OccupancyCalendar({
   from,
   to,
   practitionerId,
+  defaultDurationMinutes,
   initialOpenDayKey,
 }: OccupancyCalendarProps) {
   // Derived from the clinic's own calendar day, not the viewer's/process's
@@ -279,7 +286,7 @@ export function OccupancyCalendar({
                 cell.date,
                 appointmentsByDay.get(key) ?? [],
                 schedule,
-                30,
+                defaultDurationMinutes,
                 allPractitionerIds,
               );
 

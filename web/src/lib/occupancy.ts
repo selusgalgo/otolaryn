@@ -153,6 +153,50 @@ export function computeDayOccupancy(
   return anyFull ? "full" : "free";
 }
 
+// The core of both "free slots" scanners below. Finds the earliest start
+// time >= cursor (and leaving room for `duration` minutes before tramoEnd)
+// at which *some* practitioner's calendar is free — jumping straight to
+// the moment a conflicting appointment ends instead of advancing by a
+// fixed step. That distinction matters once appointment durations are
+// irregular (10, 15, 30 min depending on the profesional): a fixed-step
+// scan can only ever land on multiples of that step from the tramo's own
+// start, so a 10-minute cita at 09:00 made 09:10 invisible to a 30-minute
+// stepper — it would skip straight to 09:30 even though 09:10 was free the
+// whole time. Returns null if nothing fits before tramoEnd.
+function nextFreeStart(
+  cursor: number,
+  duration: number,
+  tramoEnd: number,
+  busyRangesByPractitioner: MinuteRange[][],
+): number | null {
+  while (cursor + duration <= tramoEnd) {
+    const candidate = { start: cursor, end: cursor + duration };
+    let earliestConflictEnd: number | null = null;
+    let anyoneFree = false;
+    for (const busyRanges of busyRangesByPractitioner) {
+      const conflicts = busyRanges.filter((busy) => overlapMinutes(candidate, busy) > 0);
+      if (conflicts.length === 0) {
+        anyoneFree = true;
+        break;
+      }
+      // Rare in practice (busyRanges is already merged/non-overlapping per
+      // practitioner), but a wide enough `duration` could still span two of
+      // their appointments at once — the later end is what actually frees
+      // this practitioner up.
+      const end = Math.max(...conflicts.map((busy) => busy.end));
+      if (earliestConflictEnd === null || end < earliestConflictEnd) {
+        earliestConflictEnd = end;
+      }
+    }
+    if (anyoneFree) return cursor;
+    // Every practitioner was busy at `cursor` — jump to whichever of them
+    // frees up soonest and re-check from there, rather than creeping
+    // forward one step at a time.
+    cursor = earliestConflictEnd ?? cursor + duration;
+  }
+  return null;
+}
+
 function minutesToTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
@@ -164,6 +208,13 @@ function minutesToTime(minutes: number): string {
 // clicking today mid-afternoon shows only what's still actually bookable
 // and clicking a full day correctly shows none, rather than skipping ahead
 // to tomorrow.
+//
+// slotMinutes is the length of appointment this is hunting gaps for, not a
+// fixed display grid — callers without one specific cita in mind (this
+// popover isn't tied to a particular profesional/duración) should pass the
+// clinic's own configured default (Configuración → Citas), not a hardcoded
+// 30: a clinic whose profesionales mostly book 10-15 minute citas would
+// otherwise have real free time hidden behind a 30-minute-grid blind spot.
 export function computeDayFreeSlots(
   date: Date,
   appointmentsThatDay: OccupancyAppointment[],
@@ -200,15 +251,11 @@ export function computeDayFreeSlots(
   for (const openSlot of daySchedule.slots) {
     const openEnd = timeToMinutes(openSlot.endTime);
     let cursor = Math.max(timeToMinutes(openSlot.startTime), nowMinutes);
-    while (cursor + slotMinutes <= openEnd) {
-      const candidate = { start: cursor, end: cursor + slotMinutes };
-      const someoneIsFree = busyRangesByPractitioner.some(
-        (busyRanges) => !busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0),
-      );
-      if (someoneIsFree) {
-        slots.push(minutesToTime(cursor));
-      }
-      cursor += slotMinutes;
+    for (;;) {
+      const start = nextFreeStart(cursor, slotMinutes, openEnd, busyRangesByPractitioner);
+      if (start === null) break;
+      slots.push(minutesToTime(start));
+      cursor = start + slotMinutes;
     }
   }
   return slots;
@@ -253,6 +300,12 @@ export interface FreeSlotOptions {
 // specific practitioner is already picked (or is auto-scoped to a
 // profesional caller server-side), so `appointmentsByDay` here is always
 // already just that one practitioner's own appointments.
+//
+// slotMinutes should be the Duración the person is actually about to book
+// — AppointmentForm passes its own Duración field, kept in sync by its own
+// effect. A 10-minute cita searches for (and finds) genuinely 10-minute
+// gaps, landing suggestions on whatever minute the previous cita actually
+// ends at instead of only ever offering :00/:30.
 export function findNextFreeSlots(
   from: Date,
   appointmentsByDay: Map<string, OccupancyAppointment[]>,
@@ -296,12 +349,11 @@ export function findNextFreeSlots(
         const roundedNow = Math.ceil(nowMinutesOnStartDay / slotMinutes) * slotMinutes;
         cursor = Math.max(cursor, roundedNow);
       }
-      while (cursor + slotMinutes <= openEnd && slots.length < count) {
-        const candidate = { start: cursor, end: cursor + slotMinutes };
-        if (!busyRanges.some((busy) => overlapMinutes(candidate, busy) > 0)) {
-          slots.push(new Date(clinicLocalToUtcIso(dayKey, minutesToTime(cursor))));
-        }
-        cursor += slotMinutes;
+      while (slots.length < count) {
+        const start = nextFreeStart(cursor, slotMinutes, openEnd, [busyRanges]);
+        if (start === null) break;
+        slots.push(new Date(clinicLocalToUtcIso(dayKey, minutesToTime(start))));
+        cursor = start + slotMinutes;
       }
     }
   }

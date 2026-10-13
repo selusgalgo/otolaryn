@@ -73,9 +73,8 @@ interface AppointmentFormProps {
 const initialState: AppointmentFormState = {};
 
 // Only a last-resort starting value before the clinic's own configured
-// default (Configuración → Citas) loads — see the effect below that
-// replaces it via durationInputRef, same imperative-ref pattern as
-// applySlot for date/time.
+// default (Configuración → Citas) loads — see the duration-fetch effect
+// below, which replaces it via setDuration once that resolves.
 const FALLBACK_DURATION_MINUTES = 30;
 
 // Clinic-timezone getters, not the viewer's/process's own — the create/
@@ -110,7 +109,14 @@ export function AppointmentForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
-  const durationInputRef = useRef<HTMLInputElement>(null);
+
+  // Controlled (not defaultValue/ref): the suggestions effect below needs
+  // to know the duration someone's actually about to book *right now* to
+  // search for gaps of that size, the same way practitionerId already does
+  // — see findNextFreeSlots/getNextFreeSlotsAction.
+  const [duration, setDuration] = useState(
+    initialValues?.durationMinutes ?? FALLBACK_DURATION_MINUTES,
+  );
 
   // Controlled (not defaultValue): admin/recepcion's suggestions below need
   // to know which profesional is picked *right now* to fetch that specific
@@ -133,33 +139,31 @@ export function AppointmentForm({
   }, [state.success, onSuccess]);
 
   useEffect(() => {
-    if (!canFetchSuggestions) return;
+    if (!canFetchSuggestions || !duration) return;
     let cancelled = false;
     setSuggestedSlots(null);
-    getNextFreeSlotsAction(defaultDate, 5, practitionerId || undefined).then((slots) => {
+    getNextFreeSlotsAction(defaultDate, 5, practitionerId || undefined, duration).then((slots) => {
       if (!cancelled) setSuggestedSlots(slots);
     });
     return () => {
       cancelled = true;
     };
-    // defaultDate anchors the search (e.g. Escritorio's selected day) and
-    // practitionerId scopes it — re-fetch whenever either changes so the
-    // suggestions stay relevant to whichever day/profesional is selected.
-  }, [canFetchSuggestions, defaultDate, practitionerId]);
+    // defaultDate anchors the search (e.g. Escritorio's selected day),
+    // practitionerId scopes it, and duration sizes the gaps being searched
+    // for — re-fetch whenever any of them changes so the suggestions stay
+    // relevant to whichever day/profesional/duración is currently picked.
+  }, [canFetchSuggestions, defaultDate, practitionerId, duration]);
 
   // Only for a brand-new appointment — editing always keeps whatever
   // durationMinutes the appointment already has (set via initialValues'
-  // own defaultValue below), never the clinic's current default. Only
-  // overwrites the field if it's still untouched (the static fallback),
-  // so a value the person already typed while this fetch was in flight
-  // isn't clobbered once it resolves.
+  // own initial state above), never the clinic's current default. Only
+  // overwrites it if it's still untouched (the static fallback), so a
+  // value the person already typed while this fetch was in flight isn't
+  // clobbered once it resolves.
   useEffect(() => {
     if (initialValues) return;
     getAppointmentDefaultDurationAction().then((minutes) => {
-      const input = durationInputRef.current;
-      if (input && input.value === String(FALLBACK_DURATION_MINUTES)) {
-        input.value = String(minutes);
-      }
+      setDuration((current) => (current === FALLBACK_DURATION_MINUTES ? minutes : current));
     });
   }, [initialValues]);
 
@@ -261,14 +265,17 @@ export function AppointmentForm({
     <div className="space-y-2">
       <Label htmlFor="durationMinutes">Duración (minutos)</Label>
       <Input
-        ref={durationInputRef}
         id="durationMinutes"
         name="durationMinutes"
         type="number"
         min={5}
         max={480}
         step={5}
-        defaultValue={initialValues?.durationMinutes ?? FALLBACK_DURATION_MINUTES}
+        value={duration || ""}
+        onChange={(e) => {
+          const next = e.target.valueAsNumber;
+          setDuration(Number.isNaN(next) ? 0 : next);
+        }}
         disabled={pending}
       />
     </div>
