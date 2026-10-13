@@ -87,10 +87,15 @@ export async function getMonthAppointmentsAction(
 // profesional specifically — for admin/recepcion, AppointmentForm only
 // calls this once one is picked (see showSuggestions there); a profesional
 // caller is already scoped to themselves server-side regardless.
+// durationMinutes is the length of the cita actually being booked —
+// AppointmentForm re-calls this whenever its own Duración field changes,
+// so the suggested gaps are sized to match instead of always hunting for
+// 30-minute ones regardless of what's about to be created.
 export async function getNextFreeSlotsAction(
   fromDateKey?: string,
   count = 5,
   practitionerId?: string,
+  durationMinutes = 30,
 ): Promise<string[]> {
   const now = new Date();
   const anchorFromKey = fromDateKey ? new Date(clinicLocalToUtcIso(fromDateKey, "00:00")) : now;
@@ -122,9 +127,11 @@ export async function getNextFreeSlotsAction(
     }
   }
 
-  return findNextFreeSlots(from, appointmentsByDay, schedule, { count, daysAhead }).map((d) =>
-    d.toISOString(),
-  );
+  return findNextFreeSlots(from, appointmentsByDay, schedule, {
+    slotMinutes: durationMinutes,
+    count,
+    daysAhead,
+  }).map((d) => d.toISOString());
 }
 
 // Backs AppointmentForm's Duración field for a brand-new appointment —
