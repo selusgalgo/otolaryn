@@ -96,6 +96,34 @@ export async function resetUserPasswordAction(
   return { success: true };
 }
 
+// The non-destructive alternative to deleteUserAction below — called
+// directly from the row menu (see UserRowActions), not through a <form>.
+// The backend rejects deactivating your own account; that message is shown
+// as-is. Reactivating (active: true) has no such restriction.
+export async function setUserActiveAction(
+  userId: string,
+  active: boolean,
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch(`/users/${userId}/active`, {
+      method: "PATCH",
+      body: { active },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return {
+      error: active
+        ? "No se pudo reactivar el usuario."
+        : "No se pudo desactivar el usuario.",
+    };
+  }
+
+  revalidatePath("/users");
+  return {};
+}
+
 // A hard delete (no form fields, just an id) — called directly from the
 // confirm dialog, not through useActionState/a <form>. The backend rejects
 // deleting your own account, the clinic's last admin, or anyone with

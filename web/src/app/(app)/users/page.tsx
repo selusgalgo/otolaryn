@@ -5,7 +5,12 @@ import { RoleBadge } from "@/components/users/role-badge";
 import { UserRowActions } from "@/components/users/user-row-actions";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { apiFetch } from "@/lib/api";
-import { deleteUserAction, updateUserAction, resetUserPasswordAction } from "@/lib/actions/users";
+import {
+  deleteUserAction,
+  setUserActiveAction,
+  updateUserAction,
+  resetUserPasswordAction,
+} from "@/lib/actions/users";
 import { getCurrentUser } from "@/lib/auth";
 import { STAFF_FUNCTION_LABELS } from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
@@ -51,7 +56,14 @@ export default async function UsersPage() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <InitialsAvatar firstName={user.firstName} lastName={user.lastName} size="sm" />
-                    {user.firstName} {user.lastName}
+                    <span className={!user.active ? "text-muted-foreground line-through" : undefined}>
+                      {user.firstName} {user.lastName}
+                    </span>
+                    {!user.active && (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        Desactivado
+                      </span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
@@ -71,6 +83,7 @@ export default async function UsersPage() {
                     updateAction={updateUserAction.bind(null, user.id)}
                     resetPasswordAction={resetUserPasswordAction.bind(null, user.id)}
                     deleteAction={deleteUserAction.bind(null, user.id)}
+                    setActiveAction={setUserActiveAction.bind(null, user.id)}
                   />
                 </TableCell>
               </TableRow>
