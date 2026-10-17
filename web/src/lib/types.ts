@@ -84,6 +84,7 @@ export interface AppUser {
   lastName: string;
   role: Role;
   staffFunction: StaffFunction | null;
+  active: boolean;
   createdAt: string;
 }
 

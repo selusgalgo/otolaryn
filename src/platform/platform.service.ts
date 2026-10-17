@@ -52,6 +52,7 @@ function stripPasswordHash(user: User): SafeUser {
     lastName: user.lastName,
     role: user.role,
     staffFunction: user.staffFunction,
+    active: user.active,
     createdAt: user.createdAt,
   };
 }

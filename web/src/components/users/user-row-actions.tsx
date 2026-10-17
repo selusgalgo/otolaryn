@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { EllipsisVerticalIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useState, useTransition } from "react";
+import {
+  EllipsisVerticalIcon,
+  NoSymbolIcon,
+  PencilIcon,
+  TrashIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DeactivateUserDialog } from "@/components/users/deactivate-user-dialog";
 import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import type { UserFormState } from "@/lib/actions/users";
@@ -26,15 +33,26 @@ interface UserRowActionsProps {
   // dialog when this isn't passed, rather than needing a near-duplicate
   // component for that one page.
   deleteAction?: () => Promise<{ error?: string }>;
+  // Same reasoning/omission as deleteAction — deactivating is that clinic's
+  // own admin's call too.
+  setActiveAction?: (active: boolean) => Promise<{ error?: string }>;
 }
 
 // Same "dialogs live outside DropdownMenuContent, as siblings" pattern as
 // AppointmentRowActions/PatientRowActions — each dialog keeps its own open
 // state, driven by the menu items here, so it stays open after the menu
 // itself closes on select.
-export function UserRowActions({ user, updateAction, resetPasswordAction, deleteAction }: UserRowActionsProps) {
+export function UserRowActions({
+  user,
+  updateAction,
+  resetPasswordAction,
+  deleteAction,
+  setActiveAction,
+}: UserRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [reactivating, startReactivating] = useTransition();
 
   return (
     <>
@@ -53,6 +71,25 @@ export function UserRowActions({ user, updateAction, resetPasswordAction, delete
             <PencilIcon data-icon="inline-start" />
             Editar
           </DropdownMenuItem>
+          {setActiveAction &&
+            (user.active ? (
+              <DropdownMenuItem onSelect={() => setDeactivateOpen(true)}>
+                <NoSymbolIcon data-icon="inline-start" />
+                Desactivar
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                disabled={reactivating}
+                onSelect={() =>
+                  startReactivating(async () => {
+                    await setActiveAction(true);
+                  })
+                }
+              >
+                <CheckCircleIcon data-icon="inline-start" />
+                Reactivar
+              </DropdownMenuItem>
+            ))}
           {deleteAction && (
             <>
               <DropdownMenuSeparator />
@@ -75,6 +112,14 @@ export function UserRowActions({ user, updateAction, resetPasswordAction, delete
         open={editOpen}
         onOpenChange={setEditOpen}
       />
+      {setActiveAction && (
+        <DeactivateUserDialog
+          user={user}
+          deactivateAction={() => setActiveAction(false)}
+          open={deactivateOpen}
+          onOpenChange={setDeactivateOpen}
+        />
+      )}
       {deleteAction && (
         <DeleteUserDialog user={user} deleteAction={deleteAction} open={deleteOpen} onOpenChange={setDeleteOpen} />
       )}

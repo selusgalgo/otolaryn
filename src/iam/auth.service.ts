@@ -50,6 +50,18 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales no válidas');
     }
 
+    // Checked only after confirming the password is actually correct —
+    // same timing-safety intent as the dummy-hash verify above, applied
+    // one step further: a wrong-password guess always gets the same
+    // generic error regardless of whether the account happens to be
+    // deactivated, so failed attempts can't be used to probe who still
+    // works at the clinic.
+    if (!user.active) {
+      throw new UnauthorizedException(
+        'Esta cuenta ha sido desactivada. Contacta con el administrador de la clínica.',
+      );
+    }
+
     const accessToken = await this.jwt.signAsync({
       sub: user.id,
       tenant_id: user.tenantId,

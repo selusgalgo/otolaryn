@@ -1,7 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
 
 interface JwtPayload {
   sub: string;
@@ -13,7 +16,10 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    @InjectRepository(User) private readonly users: Repository<User>,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -27,8 +33,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   // Runs only after passport-jwt has already verified the signature and
-  // expiry — a tampered or expired token never reaches here.
-  validate(payload: JwtPayload) {
+  // expiry — a tampered or expired token never reaches here. The payload
+  // alone used to be enough, but it carries no notion of "still active":
+  // a token signed before an admin deactivates someone (or deletes them
+  // outright) would otherwise keep working until it naturally expires
+  // (JWT_EXPIRES_IN, 1h by default) — far too long a window for an
+  // account that just lost its job at the clinic. One extra lookup by id
+  // per authenticated request is a small, well-known price for that
+  // guarantee; iam.users is tiny and this is a PK lookup.
+  async validate(payload: JwtPayload) {
+    const user = await this.users.findOne({ where: { id: payload.sub } });
+    if (!user || !user.active) {
+      throw new UnauthorizedException();
+    }
+
     return {
       userId: payload.sub,
       tenantId: payload.tenant_id,

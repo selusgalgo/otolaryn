@@ -44,6 +44,11 @@ export class UsersService {
       qb.andWhere(
         "(u.role = 'profesional' OR (u.role = 'admin' AND u.staffFunction = 'profesional'))",
       );
+      // A deactivated profesional keeps every appointment/clinical entry
+      // already tied to them (see UserActive1735500000000) but has no
+      // business being offered for a *new* one — this is the only listing
+      // that feeds the "Profesional" picker when booking.
+      qb.andWhere('u.active = true');
     } else if (role) {
       qb.andWhere('u.role = :role', { role });
     }
@@ -150,10 +155,17 @@ export class UsersService {
     }
 
     if (user.role === 'admin') {
-      const remainingAdmins = await this.repo.count({
-        where: { tenantId: this.tenancyContext.tenantId, role: 'admin' },
+      // active: true here (not just role) — a clinic with one active admin
+      // and two already-deactivated ones only really has one, and deleting
+      // that last one would leave it with nobody who can log in at all.
+      const remainingActiveAdmins = await this.repo.count({
+        where: {
+          tenantId: this.tenancyContext.tenantId,
+          role: 'admin',
+          active: true,
+        },
       });
-      if (remainingAdmins <= 1) {
+      if (remainingActiveAdmins <= 1) {
         throw new ConflictException(
           'No puedes eliminar al único administrador de la clínica',
         );
@@ -173,6 +185,45 @@ export class UsersService {
 
     await this.repo.delete({ id: userId });
   }
+
+  // The non-destructive alternative to remove() — a profesional who left
+  // the clinic keeps every appointment/clinical entry they ever touched,
+  // just loses the ability to log in (AuthService.login/JwtStrategy both
+  // check this) and drops out of the "Profesional" bookable picker
+  // (findAll's bookableOnly branch above). Same two guards as remove()
+  // when deactivating (never yourself, never the clinic's last active
+  // admin) — reactivating needs neither, it only ever restores access.
+  async setActive(
+    userId: string,
+    active: boolean,
+    currentUser: CurrentUserPayload,
+  ): Promise<SafeUser> {
+    const user = await this.findInOwnTenant(userId);
+
+    if (!active) {
+      if (userId === currentUser.userId) {
+        throw new BadRequestException('No puedes desactivar tu propia cuenta');
+      }
+      if (user.role === 'admin') {
+        const remainingActiveAdmins = await this.repo.count({
+          where: {
+            tenantId: this.tenancyContext.tenantId,
+            role: 'admin',
+            active: true,
+          },
+        });
+        if (remainingActiveAdmins <= 1) {
+          throw new ConflictException(
+            'No puedes desactivar al único administrador activo de la clínica',
+          );
+        }
+      }
+    }
+
+    user.active = active;
+    const saved = await this.repo.save(user);
+    return stripPasswordHash(saved);
+  }
 }
 
 function stripPasswordHash(user: User): SafeUser {
@@ -185,6 +236,7 @@ function stripPasswordHash(user: User): SafeUser {
     lastName: user.lastName,
     role: user.role,
     staffFunction: user.staffFunction,
+    active: user.active,
     createdAt: user.createdAt,
   };
 }

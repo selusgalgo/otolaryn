@@ -52,6 +52,14 @@ export class User {
   @Column({ name: 'staff_function', type: 'text', nullable: true })
   staffFunction: StaffFunction | null;
 
+  // Blocks login (AuthService.login, JwtStrategy.validate) and drops the
+  // user out of the "Profesional" bookable picker (UsersService.findAll)
+  // without deleting the row — appointments/clinical_entries referencing
+  // them keep resolving their name normally. True for every existing user
+  // by default; only an admin flipping this to false is new.
+  @Column({ default: true })
+  active: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

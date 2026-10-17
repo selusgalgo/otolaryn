@@ -22,6 +22,7 @@ import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor'
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetUserActiveDto } from './dto/set-user-active.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -60,6 +61,16 @@ export class UsersController {
     @Body() dto: ResetPasswordDto,
   ) {
     return this.users.resetPassword(id, dto);
+  }
+
+  // Non-destructive alternative to DELETE below — see UsersService.setActive.
+  @Patch(':id/active')
+  setActive(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetUserActiveDto,
+  ) {
+    return this.users.setActive(id, dto.active, user);
   }
 
   @Delete(':id')

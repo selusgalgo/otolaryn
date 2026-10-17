@@ -482,6 +482,136 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(res.status).toBe(404);
   });
 
+  it('deactivates a profesional: login blocked, drops out of the bookable picker, keeps their history', async () => {
+    const email = `roles-deactivate-${Date.now()}@rls-test.local`;
+    const password = 'RolesTest-Deactivate1!';
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Se',
+        lastName: 'Desactiva',
+        password,
+        role: 'profesional',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    // Real history, same shape as the "blocks deleting a user with an
+    // appointment tied to them" case above — deactivation must survive
+    // this instead of being blocked by it.
+    const appointment = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        scheduledAt: '2027-08-21T09:00:00.000Z',
+        durationMinutes: 30,
+        practitionerId: userId,
+      });
+    expect(appointment.status).toBe(201);
+
+    const loginBefore = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password });
+    expect(loginBefore.status).toBe(200);
+    const tokenIssuedBeforeDeactivation = (loginBefore.body as LoginResponse)
+      .accessToken;
+
+    const deactivated = await request(server)
+      .patch(`/users/${userId}/active`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ active: false });
+    expect(deactivated.status).toBe(200);
+    expect((deactivated.body as UserResponse).active).toBe(false);
+
+    // Blocks a brand new login attempt...
+    const loginAfter = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password });
+    expect(loginAfter.status).toBe(401);
+
+    // ...and also kills a token issued *before* the deactivation — the
+    // whole point of JwtStrategy's own active check, not just AuthService's.
+    const stillLoggedIn = await request(server)
+      .get('/account')
+      .set('Authorization', `Bearer ${tokenIssuedBeforeDeactivation}`);
+    expect(stillLoggedIn.status).toBe(401);
+
+    // Drops out of the bookable picker...
+    const bookable = await request(server)
+      .get('/users?bookable=true')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect((bookable.body as UserResponse[]).map((u) => u.id)).not.toContain(
+      userId,
+    );
+
+    // ...but the appointment created earlier still resolves them fine, and
+    // a plain listing (not bookable-only) still shows the account to admin.
+    const stillOnAppointment = await request(server)
+      .get(`/appointments/${(appointment.body as AppointmentResponse).id}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(stillOnAppointment.status).toBe(200);
+    expect(
+      (stillOnAppointment.body as AppointmentResponse).practitionerId,
+    ).toBe(userId);
+    const plainListing = await request(server)
+      .get('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect((plainListing.body as UserResponse[]).map((u) => u.id)).toContain(
+      userId,
+    );
+
+    // Reactivating restores login.
+    const reactivated = await request(server)
+      .patch(`/users/${userId}/active`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ active: true });
+    expect(reactivated.status).toBe(200);
+    expect((reactivated.body as UserResponse).active).toBe(true);
+
+    const loginAfterReactivate = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password });
+    expect(loginAfterReactivate.status).toBe(200);
+  });
+
+  it('blocks profesional and recepcion from deactivating a user', async () => {
+    const email = `roles-deactivate-blocked-${Date.now()}@rls-test.local`;
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'No',
+        lastName: 'Desactivable',
+        password: 'RolesTest-NotDeactivatable1!',
+        role: 'recepcion',
+      });
+    const userId = (created.body as UserResponse).id;
+
+    for (const token of [tokenProfesional, tokenRecepcion]) {
+      const blocked = await request(server)
+        .patch(`/users/${userId}/active`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ active: false });
+      expect(blocked.status).toBe(403);
+    }
+  });
+
+  // The "last active admin" guard (same shape as remove()'s own, see its
+  // comment) is only reachable today if a caller other than that admin
+  // themselves invokes this — and since the route is admin-only and
+  // tenant-scoped, the lone admin of a tenant is always the one hitting
+  // the self-check above first. Not independently tested here for the
+  // same reason remove()'s equivalent branch isn't either.
+  it('blocks an admin from deactivating their own account', async () => {
+    const res = await request(server)
+      .patch(`/users/${decodeSub(tokenAdmin)}/active`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ active: false });
+    expect(res.status).toBe(400);
+  });
+
   it('hides a patient from profesional until they have an appointment or entry with them, then shows it', async () => {
     const notYetLinked = await request(server)
       .get(`/patients/${tenantA.patientId}`)
