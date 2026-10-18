@@ -101,6 +101,7 @@ export class UsersService {
 
   async update(userId: string, dto: UpdateUserDto): Promise<SafeUser> {
     const user = await this.findInOwnTenant(userId);
+    if (dto.email !== undefined) user.email = dto.email;
     if (dto.firstName !== undefined) user.firstName = dto.firstName;
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.username !== undefined) user.username = dto.username || null;

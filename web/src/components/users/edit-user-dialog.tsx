@@ -76,6 +76,17 @@ export function EditUserDialog({
         </DialogHeader>
 
         <form action={dataFormAction} className="grid gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="editEmail">Email</Label>
+            <Input
+              id="editEmail"
+              name="email"
+              type="email"
+              defaultValue={user.email}
+              required
+              disabled={dataPending}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="editFirstName">Nombre</Label>

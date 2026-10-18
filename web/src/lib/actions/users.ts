@@ -47,6 +47,7 @@ export async function updateUserAction(
     await apiFetch<AppUser>(`/users/${userId}`, {
       method: "PATCH",
       body: {
+        email: String(formData.get("email") ?? "").trim(),
         firstName: String(formData.get("firstName") ?? "").trim(),
         lastName: String(formData.get("lastName") ?? "").trim(),
         username: String(formData.get("username") ?? "").trim(),

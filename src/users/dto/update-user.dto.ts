@@ -1,12 +1,19 @@
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import type { StaffFunction, UserRole } from '../../iam/entities/user.entity';
 import { ASSIGNABLE_ROLES, STAFF_FUNCTIONS } from './create-user.dto';
 
-// All fields optional — a caller sends only what it's changing. Email is
-// deliberately not editable here (same call as Mi cuenta's own profile
-// form): it's the account's original identifier, changing it is a bigger
-// decision than fixing a typo in a name.
+// All fields optional — a caller sends only what it's changing.
 export class UpdateUserDto {
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)

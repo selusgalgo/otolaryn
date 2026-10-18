@@ -386,6 +386,49 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect((demoted.body as UserResponse).staffFunction).toBeNull();
   });
 
+  it("lets admin edit a user's email, and rejects it when it collides with another account", async () => {
+    const emailA = `roles-email-edit-a-${Date.now()}@rls-test.local`;
+    const emailB = `roles-email-edit-b-${Date.now()}@rls-test.local`;
+    const createdA = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email: emailA,
+        firstName: 'Cambia',
+        lastName: 'Email',
+        password: 'RolesTest-EmailEdit1!',
+        role: 'recepcion',
+      });
+    expect(createdA.status).toBe(201);
+    const userId = (createdA.body as UserResponse).id;
+
+    const createdB = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email: emailB,
+        firstName: 'Ya',
+        lastName: 'Existe',
+        password: 'RolesTest-EmailEdit2!',
+        role: 'recepcion',
+      });
+    expect(createdB.status).toBe(201);
+
+    const newEmail = `roles-email-edit-nuevo-${Date.now()}@rls-test.local`;
+    const updated = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ email: newEmail });
+    expect(updated.status).toBe(200);
+    expect((updated.body as UserResponse).email).toBe(newEmail);
+
+    const conflict = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ email: emailB });
+    expect(conflict.status).toBe(409);
+  });
+
   it('lets admin delete a user in their own tenant', async () => {
     const email = `roles-deletable-${Date.now()}@rls-test.local`;
     const created = await request(server)
