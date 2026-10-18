@@ -458,7 +458,7 @@ describe('Patients CRUD', () => {
     expect((page1.body as PaginatedPatients).total).toBeGreaterThanOrEqual(4);
   });
 
-  it('searches by first name, last name, and document id, case-insensitively', async () => {
+  it('searches by first name, last name, document id, and Nº de historia, case-insensitively', async () => {
     const created = await request(server)
       .post('/patients')
       .set('Authorization', `Bearer ${tokenA}`)
@@ -466,12 +466,46 @@ describe('Patients CRUD', () => {
         ...samplePatient('search-target'),
         firstName: 'Zaragoza',
         lastName: 'Villalobos',
+        legacyId: 'NH-SEARCH-101081',
       });
     const id = (created.body as PatientResponse).id;
     const documentId = (created.body as PatientResponse).documentId;
     expect(documentId).not.toBeNull();
 
-    for (const search of ['zarago', 'VILLALOBOS', documentId!.toLowerCase()]) {
+    for (const search of [
+      'zarago',
+      'VILLALOBOS',
+      documentId!.toLowerCase(),
+      'NH-SEARCH-101081',
+      'nh-search-101081',
+    ]) {
+      const res = await request(server)
+        .get(`/patients?search=${encodeURIComponent(search)}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      const ids = (res.body as PaginatedPatients).data.map((p) => p.id);
+      expect(ids).toContain(id);
+    }
+  });
+
+  // Real-world failure this covers: searching "Hector Sanchez" found
+  // nothing, because the old query matched the whole string against one
+  // field at a time — "Hector Sanchez" isn't a substring of either
+  // "Zaragoza" or "Villalobos" alone, even though it plainly names this
+  // patient once first/last name are considered together.
+  it('searches by first name and last name combined, as two separate words', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        ...samplePatient('combined-search-target'),
+        firstName: 'Hector',
+        lastName: 'Sanchez Cardona',
+      });
+    const id = (created.body as PatientResponse).id;
+
+    for (const search of ['Hector Sanchez', 'hector sanchez cardona', 'Sanchez Hector']) {
       const res = await request(server)
         .get(`/patients?search=${encodeURIComponent(search)}`)
         .set('Authorization', `Bearer ${tokenA}`);

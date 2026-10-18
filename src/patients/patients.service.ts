@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { QueryFailedError, SelectQueryBuilder } from 'typeorm';
+import { Brackets, QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
@@ -81,6 +81,30 @@ export class PatientsService {
     );
   }
 
+  // Splits the query into words and requires each one to match *somewhere*
+  // (name, documento, or Nº de historia) rather than treating the whole
+  // string as one substring against a single field — "Hector Sanchez"
+  // otherwise matches neither "HECTOR" alone nor "SANCHEZ CARDONA" alone,
+  // even though it's plainly this patient's name split across two fields.
+  // legacyId wasn't searched here at all before, so a real Nº de historia
+  // (the number staff actually have on hand from the old paper files)
+  // silently found nothing.
+  private applySearch(qb: SelectQueryBuilder<Patient>, search: string): void {
+    const terms = search.trim().split(/\s+/).filter(Boolean);
+    terms.forEach((term, i) => {
+      const param = `search${i}`;
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where(`p.firstName ILIKE :${param}`, { [param]: `%${term}%` })
+            .orWhere(`p.lastName ILIKE :${param}`, { [param]: `%${term}%` })
+            .orWhere(`p.documentId ILIKE :${param}`, { [param]: `%${term}%` })
+            .orWhere(`p.legacyId ILIKE :${param}`, { [param]: `%${term}%` });
+        }),
+      );
+    });
+  }
+
   async findAll(
     user: CurrentUserPayload,
     page: number,
@@ -101,10 +125,7 @@ export class PatientsService {
     this.restrictToOwnPatients(qb, user);
 
     if (search) {
-      qb.andWhere(
-        '(p.firstName ILIKE :search OR p.lastName ILIKE :search OR p.documentId ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      this.applySearch(qb, search);
     }
 
     qb.skip((page - 1) * pageSize).take(pageSize);
@@ -123,10 +144,7 @@ export class PatientsService {
     this.restrictToOwnPatients(qb, user);
 
     if (search) {
-      qb.andWhere(
-        '(p.firstName ILIKE :search OR p.lastName ILIKE :search OR p.documentId ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      this.applySearch(qb, search);
     }
 
     return qb.getMany();

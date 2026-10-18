@@ -53,10 +53,33 @@ function mapListItems(nodes: ChildNode[]): Content[] {
     .map((li) => ({ text: collectInline(li.children, {}) }));
 }
 
+const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'blockquote']);
+
+// Legacy-imported content (plainTextToRichText, used for the Pacientes/
+// Consultas bulk importers) is just text and <br> run together with no
+// wrapping <p> — valid HTML a browser renders fine, but mapBlocks below
+// only recognizes block-level tags at the top level, so that content used
+// to produce an empty PDF. This groups any run of bare text/inline nodes
+// sitting between (or before/after) real block tags into one implicit
+// paragraph, so it renders the same as if it had been wrapped in <p>.
 function mapBlocks(nodes: ChildNode[]): Content[] {
   const out: Content[] = [];
+  let pending: ChildNode[] = [];
+  const flushPending = () => {
+    if (pending.length === 0) return;
+    const inline = collectInline(pending, {});
+    pending = [];
+    if (inline.length > 0) out.push({ text: inline, margin: [0, 0, 0, 4] });
+  };
+
   for (const node of nodes) {
-    if (node.type !== ElementType.Tag) continue;
+    const isBlockTag =
+      node.type === ElementType.Tag && BLOCK_TAGS.has(node.name);
+    if (!isBlockTag) {
+      pending.push(node);
+      continue;
+    }
+    flushPending();
     switch (node.name) {
       case 'p':
         out.push({
@@ -102,12 +125,14 @@ function mapBlocks(nodes: ChildNode[]): Content[] {
         });
         break;
       default:
-        // Defensive only — sanitizeRichText's allowlist means this never
-        // actually fires, but falls back to the tag's own inline text
-        // rather than silently dropping content if it ever did.
+        // Unreachable — isBlockTag above already filters to BLOCK_TAGS
+        // members only — but kept so a future tag added to BLOCK_TAGS
+        // without a case here still renders its text instead of silently
+        // dropping it.
         out.push({ text: collectInline(node.children, {}) });
     }
   }
+  flushPending();
   return out;
 }
 
