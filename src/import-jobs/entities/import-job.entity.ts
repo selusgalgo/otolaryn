@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export type ImportJobType = 'patients' | 'clinical-entries';
+export type ImportJobType = 'patients' | 'patients-update' | 'clinical-entries';
 export type ImportJobStatus = 'running' | 'completed';
 
 // Holds a single bulk import's already-parsed rows plus a cursor, so the

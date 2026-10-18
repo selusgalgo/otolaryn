@@ -216,7 +216,8 @@ export type ColumnMapping = Partial<
     | "postalCode"
     | "notes"
     | "profession"
-    | "legacyId",
+    | "legacyId"
+    | "firstConsultationOverride",
     string
   >
 > & {
@@ -301,6 +302,100 @@ export async function continueImportJobAction(
     const progress = await apiFetch<ImportJobProgress>(`/patients/import/${jobId}/continue`, {
       method: "POST",
     });
+    if (progress.status === "completed") {
+      revalidatePath("/patients");
+    }
+    return { progress };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo continuar la importación." };
+  }
+}
+
+// Mirrors UpdateFieldMapping in patients-csv.util.ts — the narrow "update
+// patients" mode only ever touches Primera consulta + antecedentes on an
+// already-existing patient, located by Nº de historia, so its mapping has
+// far fewer fields than the full ColumnMapping above.
+export type UpdateColumnMapping = {
+  legacyId?: string;
+  firstConsultationOverride?: string;
+  notes?: string;
+  antecedentes?: Record<string, string | undefined>;
+};
+
+export interface UpdateImportPreview {
+  headers: string[];
+  sampleRows: Record<string, string>[];
+  suggestedMapping: UpdateColumnMapping;
+}
+
+export interface PreviewPatientsUpdateState {
+  error?: string;
+  preview?: UpdateImportPreview;
+}
+
+export async function previewPatientsUpdateAction(
+  formData: FormData,
+): Promise<PreviewPatientsUpdateState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecciona un fichero." };
+  }
+
+  const upstream = new FormData();
+  upstream.set("file", file, file.name);
+
+  try {
+    const preview = await apiFetchMultipart<UpdateImportPreview>(
+      "/patients/import-update/preview",
+      upstream,
+    );
+    return { preview };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo leer el fichero." };
+  }
+}
+
+export interface StartUpdatePatientsState {
+  error?: string;
+  progress?: ImportJobProgress;
+}
+
+export async function startUpdatePatientsAction(
+  file: File,
+  mapping: UpdateColumnMapping,
+): Promise<StartUpdatePatientsState> {
+  const upstream = new FormData();
+  upstream.set("file", file, file.name);
+  upstream.set("mapping", JSON.stringify(mapping));
+
+  try {
+    const progress = await apiFetchMultipart<ImportJobProgress>(
+      "/patients/import-update",
+      upstream,
+    );
+    return { progress };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo importar el fichero." };
+  }
+}
+
+export async function continueUpdateJobAction(
+  jobId: string,
+): Promise<StartUpdatePatientsState> {
+  try {
+    const progress = await apiFetch<ImportJobProgress>(
+      `/patients/import-update/${jobId}/continue`,
+      { method: "POST" },
+    );
     if (progress.status === "completed") {
       revalidatePath("/patients");
     }

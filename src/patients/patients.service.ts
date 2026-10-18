@@ -6,6 +6,7 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Brackets, QueryFailedError, SelectQueryBuilder } from 'typeorm';
+import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
 import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
@@ -23,7 +24,7 @@ import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { Patient } from './entities/patient.entity';
-import type { ImportRow } from './patients-csv.util';
+import type { ImportRow, UpdateRow } from './patients-csv.util';
 import type {
   PatientSortBy,
   SortDirection,
@@ -367,6 +368,129 @@ export class PatientsService {
       }
       throw err;
     }
+  }
+
+  // Separate job type from 'patients' on purpose — see the big comment on
+  // patients-csv.util's update-mode section. Re-importing a corrected
+  // legacy export onto patients that already exist, touching only
+  // firstConsultationOverride, notes (Historia clínica) and antecedentes,
+  // never the rest of the record.
+  async startBulkUpdateJob(rows: UpdateRow[]): Promise<ImportJobProgress> {
+    return this.importJobs.create('patients-update', rows);
+  }
+
+  async continueBulkUpdateJob(
+    jobId: string,
+    batchSize: number,
+  ): Promise<ImportJobProgress> {
+    // Loaded once per batch (not per row) — same reasoning as the
+    // insurance/patient caches elsewhere in this file. personalIdByName is
+    // what lets each row clean up the "also marked personal by mistake"
+    // duplicate the old import-mapping bug left behind, without a DB round
+    // trip per antecedente per row.
+    const types = await this.tenancyContext.manager
+      .getRepository(AntecedenteType)
+      .find();
+    const typeById = new Map(types.map((t) => [t.id, t]));
+    const personalIdByName = new Map(
+      types
+        .filter((t) => t.category === 'personal')
+        .map((t) => [t.name.trim().toLowerCase(), t.id]),
+    );
+    return this.importJobs.advance<UpdateRow>(
+      jobId,
+      'patients-update',
+      batchSize,
+      (row, rowNumber) =>
+        this.updateRow(row, rowNumber, typeById, personalIdByName),
+    );
+  }
+
+  private async updateRow(
+    row: UpdateRow,
+    rowNumber: number,
+    typeById: Map<string, AntecedenteType>,
+    personalIdByName: Map<string, string>,
+  ): Promise<RowOutcome> {
+    if (!row.legacyId) {
+      return { created: false, reason: 'Falta el nº de historia' };
+    }
+    const patient = await this.repo.findOne({
+      where: { legacyId: row.legacyId },
+    });
+    if (!patient) {
+      return {
+        created: false,
+        reason: `No existe ningún paciente con el nº de historia "${row.legacyId}" — impórtalo primero desde Pacientes`,
+      };
+    }
+
+    let touched = false;
+
+    if (
+      row.firstConsultationOverride &&
+      patient.firstConsultationOverride !== row.firstConsultationOverride
+    ) {
+      patient.firstConsultationOverride = row.firstConsultationOverride;
+      touched = true;
+    }
+    if (row.notes && patient.notes !== row.notes) {
+      patient.notes = row.notes;
+      touched = true;
+    }
+    if (touched) {
+      await this.repo.save(patient);
+    }
+
+    if (row.antecedentes && row.antecedentes.length > 0) {
+      const antecedenteRepo =
+        this.tenancyContext.manager.getRepository(PatientAntecedente);
+      for (const { antecedenteTypeId, detalle } of row.antecedentes) {
+        const type = typeById.get(antecedenteTypeId);
+        // Stale id (the type was deleted/renamed since the mapping was
+        // confirmed in the wizard) — skip just this antecedente, not the
+        // whole row; firstConsultationOverride above may still have gone
+        // through.
+        if (!type) continue;
+
+        await antecedenteRepo.upsert(
+          {
+            tenantId: this.tenancyContext.tenantId,
+            patientId: patient.id,
+            antecedenteTypeId,
+            detalle,
+          },
+          ['patientId', 'antecedenteTypeId'],
+        );
+        touched = true;
+
+        // The duplicate this whole update exists to fix: the original
+        // import mapped the same legacy column to both the personal and
+        // familiar antecedente of the same name (see suggestAntecedenteMapping).
+        // Marking the familiar one correctly here also means removing
+        // whatever got wrongly marked personal for that same patient.
+        if (type.category === 'familiar') {
+          const siblingPersonalId = personalIdByName.get(
+            type.name.trim().toLowerCase(),
+          );
+          if (siblingPersonalId) {
+            await antecedenteRepo.delete({
+              patientId: patient.id,
+              antecedenteTypeId: siblingPersonalId,
+            });
+          }
+        }
+      }
+    }
+
+    if (!touched) {
+      return {
+        created: false,
+        reason:
+          'Nada que actualizar en esta fila (sin Primera consulta, Historia clínica ni antecedentes marcados)',
+      };
+    }
+    return { created: true };
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {

@@ -29,6 +29,7 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "notes", label: "Notas", required: false },
   { field: "profession", label: "Profesión", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
+  { field: "firstConsultationOverride", label: "Primera consulta", required: false },
 ];
 
 // Up to 2 real sample values from the column currently chosen for a field,
@@ -74,6 +75,20 @@ export function ImportColumnMapping({
   disabled,
   antecedenteTypes,
 }: ImportColumnMappingProps) {
+  // A clinic can have the same antecedente name under both categories
+  // (e.g. "Tumores" personal and "Tumores" familiar) — the category is
+  // appended to the label only when it's actually needed to tell two rows
+  // apart, not on every row.
+  const nameCounts = new Map<string, number>();
+  for (const type of antecedenteTypes ?? []) {
+    nameCounts.set(type.name, (nameCounts.get(type.name) ?? 0) + 1);
+  }
+  function antecedenteLabel(type: AntecedenteType): string {
+    return (nameCounts.get(type.name) ?? 0) > 1
+      ? `${type.name} (${type.category === "familiar" ? "familiar" : "personal"})`
+      : type.name;
+  }
+
   function setPlainField(field: PlainField, header: string) {
     onChange({ ...mapping, [field]: header || undefined });
   }
@@ -156,7 +171,7 @@ export function ImportColumnMapping({
               const selected = mapping.antecedentes?.[type.id] ?? "";
               return (
                 <div key={type.id} className="space-y-1">
-                  <Label htmlFor={`mapping-antecedente-${type.id}`}>{type.name}</Label>
+                  <Label htmlFor={`mapping-antecedente-${type.id}`}>{antecedenteLabel(type)}</Label>
                   <select
                     id={`mapping-antecedente-${type.id}`}
                     value={selected}

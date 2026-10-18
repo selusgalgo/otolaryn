@@ -86,6 +86,43 @@ async function runImport(
   };
 }
 
+// Mirrors runImport above, but for the narrower "actualizar pacientes"
+// wizard (see patients-csv.util.ts's update-mode section): same
+// start-job/poll-continue shape, different endpoints, and the job never
+// creates a patient — only ever updates one matched by Nº de historia.
+async function runUpdateImport(
+  server: Server,
+  token: string,
+  buffer: Buffer,
+  filename: string,
+  mapping?: Record<string, unknown>,
+): Promise<{ status: number; body: ImportResult }> {
+  let req = request(server)
+    .post('/patients/import-update')
+    .set('Authorization', `Bearer ${token}`);
+  if (mapping) req = req.field('mapping', JSON.stringify(mapping));
+  const start = await req.attach('file', buffer, filename);
+  if (start.status !== 201) {
+    return { status: start.status, body: start.body as ImportResult };
+  }
+
+  let progress = start.body as ImportJobProgress;
+  while (progress.status !== 'completed') {
+    const res = await request(server)
+      .post(`/patients/import-update/${progress.jobId}/continue`)
+      .set('Authorization', `Bearer ${token}`);
+    progress = res.body as ImportJobProgress;
+  }
+  return {
+    status: 201,
+    body: {
+      totalRows: progress.totalRows,
+      created: progress.created,
+      skipped: progress.skipped,
+    },
+  };
+}
+
 // Used to build *upload* fixtures paired with csvRow() below — deliberately
 // stops short of "Nº de historia"; a file simply not having that at all is
 // a normal, valid case (that target just goes unmapped), unrelated to
@@ -95,7 +132,7 @@ const CSV_HEADER =
 
 // What GET /patients/export actually writes now that patients-csv.util's
 // COLUMNS also carries profession/legacyId/firstConsultationDate.
-const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de historia`;
+const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de historia,Primera consulta`;
 
 function csvRow(fields: {
   firstName: string;
@@ -881,5 +918,193 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(second.body.created).toBe(0);
     expect(second.body.skipped).toHaveLength(1);
     expect(second.body.skipped[0].reason).toContain('NH-200');
+  });
+
+  // Actualizar pacientes: localiza por Nº de historia y solo toca Primera
+  // consulta, Historia clínica y antecedentes — nunca el resto de la
+  // ficha. Ver patients-csv.util.ts's update-mode section y
+  // PatientsService.updateRow.
+  describe('update mode (import-update)', () => {
+    it('updates Primera consulta, Historia clínica and antecedentes for a patient matched by Nº de historia, leaving the rest of the record untouched', async () => {
+      const createCsv = [
+        'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia,Notas',
+        'ActualizaUno,Test,UPD-001,1990-01-01,+34600000040,NH-UPD-1,Nota original',
+      ].join('\n');
+      const created = await runImport(
+        server,
+        tokenA,
+        Buffer.from(createCsv, 'utf-8'),
+        'pacientes.csv',
+      );
+      expect(created.body.created).toBe(1);
+
+      const updateCsv = [
+        'Nº de historia,Primera consulta,Historia clínica,Tabaco',
+        'NH-UPD-1,15/03/2010,Historia clínica actualizada,Sí',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(1);
+      expect(res.body.skipped).toHaveLength(0);
+
+      const list = await request(server)
+        .get('/patients?search=ActualizaUno')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const patient = (list.body as PaginatedPatients).data[0];
+
+      const full = await request(server)
+        .get(`/patients/${patient.id}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      const body = full.body as {
+        firstName: string;
+        phone: string;
+        notes: string | null;
+        firstConsultationOverride: string | null;
+      };
+      expect(body.notes).toBe('Historia clínica actualizada');
+      expect(body.firstConsultationOverride).toBe('2010-03-15');
+      // El resto de la ficha, intacto.
+      expect(body.firstName).toBe('ActualizaUno');
+      expect(body.phone).toBe('+34600000040');
+
+      const antecedentes = await request(server)
+        .get(`/patients/${patient.id}/antecedentes`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      type Marked = { antecedenteTypeId: string; detalle: string | null }[];
+      expect(
+        (antecedentes.body as Marked).map((m) => m.antecedenteTypeId),
+      ).toContain(tabacoTypeId);
+    });
+
+    it('skips a row whose Nº de historia matches no existing patient', async () => {
+      const updateCsv = [
+        'Nº de historia,Primera consulta',
+        'NH-UPD-NOPE,15/03/2010',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(0);
+      expect(res.body.skipped).toHaveLength(1);
+      expect(res.body.skipped[0].reason).toContain('NH-UPD-NOPE');
+    });
+
+    it('does not erase an existing Historia clínica when the file leaves the cell blank', async () => {
+      // NH-UPD-1 ya tiene "Historia clínica actualizada" desde el primer
+      // test de este describe — una celda vacía aquí no debe borrarla.
+      const updateCsv = [
+        'Nº de historia,Primera consulta,Historia clínica',
+        'NH-UPD-1,,',
+      ].join('\n');
+      await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+
+      const list = await request(server)
+        .get('/patients?search=ActualizaUno')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const patient = (list.body as PaginatedPatients).data[0];
+      const full = await request(server)
+        .get(`/patients/${patient.id}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      expect((full.body as { notes: string | null }).notes).toBe(
+        'Historia clínica actualizada',
+      );
+    });
+
+    it('maps a legacy column to only the familiar antecedente when the same name exists in both categories, and removes any stray personal mark', async () => {
+      // Siembra "Tumores" en ambas categorías — justo la ambigüedad que
+      // suggestAntecedenteMapping existe para resolver (ver
+      // patients-csv.util.ts): una sola columna legada con ese nombre debe
+      // terminar marcando solo la familiar.
+      const client = await owner.connect();
+      let tumoresFamiliarId: string;
+      let tumoresPersonalId: string;
+      try {
+        await client.query('BEGIN');
+        await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+          tenantA.id,
+        ]);
+        const {
+          rows: [familiar],
+        } = await client.query<{ id: string }>(
+          `INSERT INTO public.antecedente_types (tenant_id, name, category, display_order) VALUES ($1, 'Tumores', 'familiar', 2) RETURNING id`,
+          [tenantA.id],
+        );
+        const {
+          rows: [personal],
+        } = await client.query<{ id: string }>(
+          `INSERT INTO public.antecedente_types (tenant_id, name, category, display_order) VALUES ($1, 'Tumores', 'personal', 3) RETURNING id`,
+          [tenantA.id],
+        );
+        tumoresFamiliarId = familiar.id;
+        tumoresPersonalId = personal.id;
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      const createCsv = [
+        'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia',
+        'ActualizaDos,Test,UPD-002,1990-01-01,+34600000041,NH-UPD-2',
+      ].join('\n');
+      const created = await runImport(
+        server,
+        tokenA,
+        Buffer.from(createCsv, 'utf-8'),
+        'pacientes.csv',
+      );
+      expect(created.body.created).toBe(1);
+
+      const list = await request(server)
+        .get('/patients?search=ActualizaDos')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const patient = (list.body as PaginatedPatients).data[0];
+
+      // El paciente ya está (mal) marcado como "personal" — el bug
+      // original que esta actualización tiene que corregir.
+      await request(server)
+        .put(`/patients/${patient.id}/antecedentes`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          category: 'personal',
+          items: [{ antecedenteTypeId: tumoresPersonalId }],
+        });
+
+      const updateCsv = ['Nº de historia,Tumores', 'NH-UPD-2,Sí'].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(1);
+
+      const antecedentes = await request(server)
+        .get(`/patients/${patient.id}/antecedentes`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      type Marked = { antecedenteTypeId: string; detalle: string | null }[];
+      const marked = (antecedentes.body as Marked).map(
+        (m) => m.antecedenteTypeId,
+      );
+      expect(marked).toContain(tumoresFamiliarId);
+      expect(marked).not.toContain(tumoresPersonalId);
+    });
   });
 });

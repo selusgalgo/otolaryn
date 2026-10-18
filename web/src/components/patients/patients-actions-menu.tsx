@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownTrayIcon, ArrowUpTrayIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  EllipsisVerticalIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ImportClinicalEntriesDialog } from "@/components/clinical-entries/import-clinical-entries-dialog";
 import { ImportPatientsDialog } from "@/components/patients/import-patients-dialog";
+import { UpdatePatientsDialog } from "@/components/patients/update-patients-dialog";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { AntecedenteType } from "@/lib/types";
 
@@ -37,6 +43,7 @@ export function PatientsActionsMenu({
   search,
 }: PatientsActionsMenuProps) {
   const [importPatientsOpen, setImportPatientsOpen] = useState(false);
+  const [updatePatientsOpen, setUpdatePatientsOpen] = useState(false);
   const [importClinicalOpen, setImportClinicalOpen] = useState(false);
   const suffix = search ? `&search=${encodeURIComponent(search)}` : "";
 
@@ -53,6 +60,10 @@ export function PatientsActionsMenu({
           <DropdownMenuItem onSelect={() => setImportPatientsOpen(true)}>
             <ArrowUpTrayIcon data-icon="inline-start" />
             Importar pacientes
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setUpdatePatientsOpen(true)}>
+            <ArrowPathIcon data-icon="inline-start" />
+            Actualizar pacientes
           </DropdownMenuItem>
           {showImportClinicalEntries && (
             <DropdownMenuItem onSelect={() => setImportClinicalOpen(true)}>
@@ -80,6 +91,12 @@ export function PatientsActionsMenu({
         antecedenteTypes={antecedenteTypes}
         open={importPatientsOpen}
         onOpenChange={setImportPatientsOpen}
+        hideTrigger
+      />
+      <UpdatePatientsDialog
+        antecedenteTypes={antecedenteTypes}
+        open={updatePatientsOpen}
+        onOpenChange={setUpdatePatientsOpen}
         hideTrigger
       />
       {showImportClinicalEntries && (

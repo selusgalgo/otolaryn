@@ -39,6 +39,7 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'notes', label: 'Notas' },
   { field: 'profession', label: 'Profesión' },
   { field: 'legacyId', label: 'Nº de historia' },
+  { field: 'firstConsultationOverride', label: 'Primera consulta' },
 ];
 
 // The mapping target for the aseguradora column — resolved to
@@ -118,11 +119,15 @@ export function buildPatientsExport(
   };
 }
 
-// Antecedente catalog entry, as returned by GET /antecedente-types — only
-// id/name matter for mapping purposes.
+// Antecedente catalog entry, as returned by GET /antecedente-types.
+// category is only used to break a name collision (see suggestMapping) —
+// a clinic can have both a "Tumores" (personal) and a "Tumores" (familiar)
+// type, same name on purpose (they're the same topic, asked twice: "have
+// you had it" vs "has anyone in your family had it").
 export interface AntecedenteTypeOption {
   id: string;
   name: string;
+  category?: 'personal' | 'familiar';
 }
 
 export type FieldMapping = Partial<Record<keyof CreatePatientDto, string>> & {
@@ -176,12 +181,18 @@ export function suggestMapping(
   );
   if (insuranceHeader) mapping.insuranceEntityName = insuranceHeader;
 
-  const antecedentes: Record<string, string> = {};
-  for (const type of antecedenteTypes) {
-    const actual = byNormalized.get(normalizeHeader(type.name));
-    if (actual) antecedentes[type.id] = actual;
-  }
-  if (Object.keys(antecedentes).length > 0) mapping.antecedentes = antecedentes;
+  // A column name can match more than one antecedente_type — a clinic that
+  // asks the same topic twice ("Tumores" personal and "Tumores" familiar)
+  // has two rows with the identical normalized name. Mapping the file's
+  // one "TUMORES" column to *both* used to mark the patient under both
+  // categories for a single legacy value — picking one winner per name
+  // (see suggestAntecedenteMapping below) is what fixes that duplicate
+  // instead of just moving which pair collides.
+  const antecedentes = suggestAntecedenteMapping(
+    byNormalized,
+    antecedenteTypes,
+  );
+  if (antecedentes) mapping.antecedentes = antecedentes;
 
   return mapping;
 }
@@ -421,7 +432,9 @@ export function parsePatientsFile(
       if (!actualHeader) continue;
       const rawValue = sourceRow[actualHeader];
       const text =
-        field === 'dateOfBirth' ? cellToDate(rawValue) : cellToText(rawValue);
+        field === 'dateOfBirth' || field === 'firstConsultationOverride'
+          ? cellToDate(rawValue)
+          : cellToText(rawValue);
       if (!text) continue;
       if (field === 'phone') {
         // An explicit Teléfono 2 column (processed later in this same
@@ -488,6 +501,177 @@ export function parsePatientsFile(
       if (marked.length > 0) row.antecedentes = marked;
     }
 
+    return row;
+  });
+
+  return { rows: mappedRows, missingColumns: [] };
+}
+
+// ---------------------------------------------------------------------
+// Update mode: deliberately a separate, much narrower wizard from the one
+// above — this one only ever matches an *existing* patient by Nº de
+// historia and touches exactly the fields it has columns for
+// (firstConsultationOverride, notes/Historia clínica, antecedentes), never
+// the rest of the patient record. It exists for re-importing a corrected
+// legacy export (Primera consulta dates fixed, antecedentes familiares
+// added, historias clínicas de texto corregidas) onto patients already
+// created by the regular importer above, without risking clobbering
+// anything else that's been edited by hand since.
+// ---------------------------------------------------------------------
+
+const UPDATE_LEGACY_ID_LABEL = 'Nº de historia';
+const UPDATE_FIRST_CONSULTATION_LABEL = 'Primera consulta';
+const UPDATE_NOTES_LABEL = 'Historia clínica';
+
+export interface UpdateFieldMapping {
+  legacyId?: string;
+  firstConsultationOverride?: string;
+  notes?: string;
+  antecedentes?: Record<string, string>;
+}
+
+export interface UpdateRow {
+  legacyId: string;
+  firstConsultationOverride?: string;
+  notes?: string;
+  antecedentes?: { antecedenteTypeId: string; detalle: string | null }[];
+}
+
+export interface ParsePatientsUpdateFileResult {
+  rows: UpdateRow[];
+  missingColumns: string[];
+}
+
+export interface UpdateImportPreview {
+  headers: string[];
+  sampleRows: Record<string, string>[];
+  suggestedMapping: UpdateFieldMapping;
+}
+
+// Shared by suggestMapping and suggestUpdateMapping — a column name can
+// match more than one antecedente_type (a clinic that asks the same topic
+// twice, "Tumores" personal and "Tumores" familiar, has two rows with the
+// identical normalized name). Mapping the file's one "TUMORES" column to
+// *both* used to mark the patient under both categories for a single
+// legacy value; picking one winner per name is what fixes that duplicate
+// instead of just moving which pair collides. familiar wins the tie: the
+// legacy columns this matters for (TUMORES/SORDERA/OTRAS) are the
+// clinic's own family-history questions, not personal history that
+// happens to share a name.
+function suggestAntecedenteMapping(
+  byNormalized: Map<string, string>,
+  antecedenteTypes: AntecedenteTypeOption[],
+): Record<string, string> | undefined {
+  const byNormalizedName = new Map<string, AntecedenteTypeOption[]>();
+  for (const type of antecedenteTypes) {
+    const key = normalizeHeader(type.name);
+    const group = byNormalizedName.get(key);
+    if (group) group.push(type);
+    else byNormalizedName.set(key, [type]);
+  }
+  const antecedentes: Record<string, string> = {};
+  for (const group of byNormalizedName.values()) {
+    const actual = byNormalized.get(normalizeHeader(group[0].name));
+    if (!actual) continue;
+    const winner = group.find((t) => t.category === 'familiar') ?? group[0];
+    antecedentes[winner.id] = actual;
+  }
+  return Object.keys(antecedentes).length > 0 ? antecedentes : undefined;
+}
+
+export function suggestUpdateMapping(
+  headers: string[],
+  antecedenteTypes: AntecedenteTypeOption[] = [],
+): UpdateFieldMapping {
+  const byNormalized = new Map(headers.map((h) => [normalizeHeader(h), h]));
+  const mapping: UpdateFieldMapping = {};
+  const legacyHeader = byNormalized.get(
+    normalizeHeader(UPDATE_LEGACY_ID_LABEL),
+  );
+  if (legacyHeader) mapping.legacyId = legacyHeader;
+  const firstConsultationHeader = byNormalized.get(
+    normalizeHeader(UPDATE_FIRST_CONSULTATION_LABEL),
+  );
+  if (firstConsultationHeader) {
+    mapping.firstConsultationOverride = firstConsultationHeader;
+  }
+  const notesHeader = byNormalized.get(normalizeHeader(UPDATE_NOTES_LABEL));
+  if (notesHeader) mapping.notes = notesHeader;
+  const antecedentes = suggestAntecedenteMapping(
+    byNormalized,
+    antecedenteTypes,
+  );
+  if (antecedentes) mapping.antecedentes = antecedentes;
+  return mapping;
+}
+
+export function previewPatientsUpdateFile(
+  buffer: Buffer,
+  filename: string,
+  antecedenteTypes: AntecedenteTypeOption[] = [],
+): UpdateImportPreview {
+  const { headers, rows } = readSheet(buffer, filename);
+  const sampleRows = rows.slice(0, PREVIEW_ROW_COUNT).map((row) => {
+    const display: Record<string, string> = {};
+    for (const header of headers) display[header] = cellToText(row[header]);
+    return display;
+  });
+  return {
+    headers,
+    sampleRows,
+    suggestedMapping: suggestUpdateMapping(headers, antecedenteTypes),
+  };
+}
+
+// legacyId is required at the mapping level (no column chosen at all ->
+// the whole file is rejected upfront, same as the regular importer's
+// required fields) — but an individual row with an *empty* legacyId cell
+// isn't rejected here; it's reported per-row by the caller (nothing to
+// match it to), same spirit as every other per-row skip reason.
+export function parsePatientsUpdateFile(
+  buffer: Buffer,
+  filename: string,
+  mapping?: UpdateFieldMapping,
+  antecedenteTypes: AntecedenteTypeOption[] = [],
+): ParsePatientsUpdateFileResult {
+  const { headers, rows } = readSheet(buffer, filename);
+  const effectiveMapping =
+    mapping ?? suggestUpdateMapping(headers, antecedenteTypes);
+
+  if (!effectiveMapping.legacyId) {
+    return { rows: [], missingColumns: [UPDATE_LEGACY_ID_LABEL] };
+  }
+
+  const mappedRows = rows.map((sourceRow) => {
+    const row: UpdateRow = {
+      legacyId: cellToText(sourceRow[effectiveMapping.legacyId!]).trim(),
+    };
+    if (effectiveMapping.firstConsultationOverride) {
+      const text = cellToDate(
+        sourceRow[effectiveMapping.firstConsultationOverride],
+      );
+      if (text) row.firstConsultationOverride = text;
+    }
+    if (effectiveMapping.notes) {
+      // Celda vacía = no tocar lo que ya haya guardado el paciente, igual
+      // que Primera consulta arriba — un hueco en el fichero no debe
+      // borrar una historia clínica ya escrita a mano en la aplicación.
+      const text = cellToText(sourceRow[effectiveMapping.notes]).trim();
+      if (text) row.notes = text;
+    }
+    if (effectiveMapping.antecedentes) {
+      const marked: { antecedenteTypeId: string; detalle: string | null }[] =
+        [];
+      for (const [antecedenteTypeId, header] of Object.entries(
+        effectiveMapping.antecedentes,
+      )) {
+        const { marked: isMarked, detalle } = cellToAntecedenteMark(
+          sourceRow[header],
+        );
+        if (isMarked) marked.push({ antecedenteTypeId, detalle });
+      }
+      if (marked.length > 0) row.antecedentes = marked;
+    }
     return row;
   });
 

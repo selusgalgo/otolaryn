@@ -33,12 +33,18 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { ExportPatientsQueryDto } from './dto/export-patients-query.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
-import type { AntecedenteTypeOption, FieldMapping } from './patients-csv.util';
+import type {
+  AntecedenteTypeOption,
+  FieldMapping,
+  UpdateFieldMapping,
+} from './patients-csv.util';
 import {
   buildPatientsExport,
   isSupportedImportFile,
   parsePatientsFile,
+  parsePatientsUpdateFile,
   previewPatientsFile,
+  previewPatientsUpdateFile,
 } from './patients-csv.util';
 import { PatientsService } from './patients.service';
 
@@ -69,7 +75,7 @@ export class PatientsController {
     const types = await this.tenancyContext.manager
       .getRepository(AntecedenteType)
       .find({ where: { active: true } });
-    return types.map((t) => ({ id: t.id, name: t.name }));
+    return types.map((t) => ({ id: t.id, name: t.name, category: t.category }));
   }
 
   @Get()
@@ -202,6 +208,73 @@ export class PatientsController {
   @Post('import/:jobId/continue')
   continueImport(@Param('jobId', ParseUUIDPipe) jobId: string) {
     return this.patients.continueBulkImportJob(jobId, IMPORT_BATCH_SIZE);
+  }
+
+  // Misma mecánica que la importación de pacientes nuevos (preview ->
+  // job -> continue en bucle), pero para actualizar pacientes ya
+  // existentes: solo toca Primera consulta y antecedentes, localizando al
+  // paciente por su Nº de historia — ver PatientsService.updateRow.
+  @Post('import-update/preview')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async previewUpdate(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No se ha recibido ningún fichero');
+    }
+    if (!isSupportedImportFile(file.originalname)) {
+      throw new BadRequestException(
+        'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
+      );
+    }
+    return previewPatientsUpdateFile(
+      file.buffer,
+      file.originalname,
+      await this.activeAntecedenteTypes(),
+    );
+  }
+
+  @Post('import-update')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async importUpdate(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('mapping') mappingJson?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No se ha recibido ningún fichero');
+    }
+    if (!isSupportedImportFile(file.originalname)) {
+      throw new BadRequestException(
+        'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
+      );
+    }
+
+    let mapping: UpdateFieldMapping | undefined;
+    if (mappingJson) {
+      try {
+        mapping = JSON.parse(mappingJson) as UpdateFieldMapping;
+      } catch {
+        throw new BadRequestException(
+          'El mapeo de columnas no es un JSON válido',
+        );
+      }
+    }
+
+    const { rows, missingColumns } = parsePatientsUpdateFile(
+      file.buffer,
+      file.originalname,
+      mapping,
+      await this.activeAntecedenteTypes(),
+    );
+    if (missingColumns.length > 0) {
+      throw new BadRequestException(
+        `Faltan columnas obligatorias en el fichero: ${missingColumns.join(', ')}`,
+      );
+    }
+    return this.patients.startBulkUpdateJob(rows);
+  }
+
+  @Post('import-update/:jobId/continue')
+  continueImportUpdate(@Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.patients.continueBulkUpdateJob(jobId, IMPORT_BATCH_SIZE);
   }
 
   @Patch(':id')
