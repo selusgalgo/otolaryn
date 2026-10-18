@@ -53,15 +53,6 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
 
   const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
 
-  // practitioners is null for a profesional (getPractitionerOptions 403s
-  // /users?role=profesional for that role) — the only name worth assuming
-  // in that case is their own, same fallback appointments/page.tsx uses.
-  const practitionerNameById = new Map(practitioners?.map((p) => [p.id, p.label]));
-  function authorNameFor(entry: ClinicalEntry): string | null {
-    const name = practitionerNameById.get(entry.authorUserId);
-    if (name) return name;
-    return me.role === "profesional" ? `${me.firstName} ${me.lastName}` : null;
-  }
 
   return (
     <div className="space-y-4">
@@ -106,7 +97,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                   </TableHeader>
                   <TableBody>
                     {entries.data.map((entry) => {
-                      const authorName = authorNameFor(entry);
+                      const authorName = entry.authorName;
                       return (
                         <TableRow key={entry.id}>
                           <TableCell className="whitespace-nowrap">

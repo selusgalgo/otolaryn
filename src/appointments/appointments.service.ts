@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
+import { User } from '../iam/entities/user.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { groupByWeekday } from '../settings/schedule.util';
@@ -177,12 +178,25 @@ export class AppointmentsService {
     }
   }
 
+  // practitionerName is joined in here (not resolved client-side from the
+  // "bookable" practitioner picker list) specifically so a deactivated
+  // profesional's name still shows up correctly on their past citas — GET
+  // /users?bookable=true deliberately excludes deactivated users (see
+  // UsersService.findAll), which is right for "who can I book a new
+  // appointment with" but wrong for "who actually saw this patient before".
   async findAll(
     query: ListAppointmentsQueryDto,
     user: CurrentUserPayload,
-  ): Promise<PaginatedResult<Appointment>> {
+  ): Promise<
+    PaginatedResult<Appointment & { practitionerName: string | null }>
+  > {
     const qb = this.repo
       .createQueryBuilder('a')
+      .leftJoin(User, 'practitioner', 'practitioner.id = a.practitionerId')
+      .addSelect(
+        "NULLIF(TRIM(CONCAT(practitioner.firstName, ' ', practitioner.lastName)), '')",
+        'practitionerName',
+      )
       .orderBy('a.scheduledAt', 'ASC');
 
     if (query.from) {
@@ -208,7 +222,13 @@ export class AppointmentsService {
 
     qb.skip((query.page - 1) * query.pageSize).take(query.pageSize);
 
-    const [data, total] = await qb.getManyAndCount();
+    const { entities, raw } = await qb.getRawAndEntities();
+    const data = entities.map((entry, i) => ({
+      ...entry,
+      practitionerName: (raw[i] as { practitionerName: string | null })
+        .practitionerName,
+    }));
+    const total = await qb.getCount();
     return { data, total, page: query.page, pageSize: query.pageSize };
   }
 

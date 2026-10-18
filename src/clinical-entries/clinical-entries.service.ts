@@ -5,6 +5,7 @@ import type {
   RowOutcome,
 } from '../import-jobs/import-jobs.service';
 import { ImportJobsService } from '../import-jobs/import-jobs.service';
+import { User } from '../iam/entities/user.entity';
 import { InsuranceService } from '../insurance/insurance.service';
 import { Patient } from '../patients/entities/patient.entity';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
@@ -255,19 +256,38 @@ export class ClinicalEntriesService {
     }
   }
 
+  // authorName is joined in here (not resolved client-side from the
+  // "bookable" practitioner picker list) specifically so a deactivated
+  // profesional's name still shows up correctly on their past consultas —
+  // GET /users?bookable=true deliberately excludes deactivated users (see
+  // UsersService.findAll), which is right for "who can I book a new
+  // appointment with" but wrong for "who actually saw this patient before".
   async findAllForPatient(
     patientId: string,
     page: number,
     pageSize: number,
-  ): Promise<PaginatedResult<ClinicalEntry>> {
+  ): Promise<PaginatedResult<ClinicalEntry & { authorName: string | null }>> {
     await this.patients.findOne(patientId);
 
-    const [data, total] = await this.repo.findAndCount({
-      where: { patientId },
-      order: { visitDate: 'DESC', createdAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+    const qb = this.repo
+      .createQueryBuilder('ce')
+      .leftJoin(User, 'author', 'author.id = ce.authorUserId')
+      .addSelect(
+        "NULLIF(TRIM(CONCAT(author.firstName, ' ', author.lastName)), '')",
+        'authorName',
+      )
+      .where('ce.patientId = :patientId', { patientId })
+      .orderBy('ce.visitDate', 'DESC')
+      .addOrderBy('ce.createdAt', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    const { entities, raw } = await qb.getRawAndEntities();
+    const data = entities.map((entry, i) => ({
+      ...entry,
+      authorName: (raw[i] as { authorName: string | null }).authorName,
+    }));
+    const total = await qb.getCount();
     return { data, total, page, pageSize };
   }
 

@@ -38,6 +38,13 @@ export interface ClinicalEntry {
   diagnosis: string | null;
   treatment: string | null;
   followUpNotes: string | null;
+  // Resolved by the backend from authorUserId regardless of that user's
+  // current active status — unlike the "bookable" practitioner list used
+  // for picking who to book a new appointment with, a past consulta's
+  // author should keep showing correctly even once they're deactivated.
+  // Only present on GET /patients/:patientId/clinical-entries (list);
+  // null if the author's own row is somehow gone.
+  authorName: string | null;
   createdAt: string;
 }
 
@@ -48,6 +55,10 @@ export interface Appointment {
   tenantId: string;
   patientId: string;
   practitionerId: string | null;
+  // Resolved by the backend from practitionerId regardless of that user's
+  // current active status — see ClinicalEntry.authorName for the same
+  // reasoning. Only present on GET /appointments (list).
+  practitionerName: string | null;
   scheduledAt: string;
   durationMinutes: number;
   status: AppointmentStatus;

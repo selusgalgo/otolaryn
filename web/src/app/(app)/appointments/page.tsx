@@ -8,7 +8,6 @@ import { NewAppointmentDialog } from "@/components/appointments/new-appointment-
 import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
 import { apiFetch } from "@/lib/api";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
-import { getCurrentUser } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar-grid";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
@@ -74,7 +73,7 @@ export default async function AppointmentsPage({
 
   // The calendar's own grid always shows whatever month "from" falls in.
   const fromDate = new Date(`${from}T00:00:00`);
-  const [schedule, appointmentDefaults, appointments, allAppointments, practitioners, me] =
+  const [schedule, appointmentDefaults, appointments, allAppointments, practitioners] =
     await Promise.all([
       apiFetch<Schedule>("/settings/schedule"),
       apiFetch<AppointmentDefaults>("/settings/appointment-defaults"),
@@ -88,7 +87,6 @@ export default async function AppointmentsPage({
       // appointments would never have been fetched at all.
       getMonthAppointmentsAction(fromDate.getFullYear(), fromDate.getMonth()),
       getPractitionerOptions(),
-      getCurrentUser(),
     ]);
   // A day is "selected" on the calendar only when the filter is pinned to
   // exactly one day (from === to) — the same state a day click produces,
@@ -102,19 +100,6 @@ export default async function AppointmentsPage({
     qs.set("page", String(p));
     return `/appointments?${qs.toString()}`;
   };
-
-  // practitioners is null for a profesional (see getPractitionerOptions) —
-  // every row they see is already scoped to themselves server-side, so
-  // that's the only name worth resolving in that case. For admin/recepcion,
-  // look the id up in the real list instead of assuming anything.
-  const practitionerNameById = new Map(practitioners?.map((p) => [p.id, p.label]));
-  function practitionerNameFor(appointment: Appointment): string | null {
-    if (appointment.practitionerId) {
-      const name = practitionerNameById.get(appointment.practitionerId);
-      if (name) return name;
-    }
-    return me.role === "profesional" ? `${me.firstName} ${me.lastName}` : null;
-  }
 
   return (
     <div className="space-y-4">
@@ -159,7 +144,7 @@ export default async function AppointmentsPage({
             )}
             {result.data.map((appointment, i) => {
               const patient = patients[i];
-              const practitionerName = practitionerNameFor(appointment);
+              const practitionerName = appointment.practitionerName;
               return (
                 <TableRow key={appointment.id}>
                   <TableCell>

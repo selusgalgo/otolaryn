@@ -30,6 +30,7 @@ interface TenantResponse {
 interface AppointmentResponse {
   id: string;
   practitionerId: string | null;
+  practitionerName?: string | null;
 }
 
 interface PatientResponse {
@@ -517,6 +518,15 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     const tokenIssuedBeforeDeactivation = (loginBefore.body as LoginResponse)
       .accessToken;
 
+    // Same reasoning as the appointment above, for Historia clínica: a
+    // consulta this profesional actually wrote, created while they're
+    // still active so authorUserId is genuinely theirs.
+    const clinicalEntry = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenIssuedBeforeDeactivation}`)
+      .send({ chiefComplaint: 'Revisión antes de desactivar' });
+    expect(clinicalEntry.status).toBe(201);
+
     const deactivated = await request(server)
       .patch(`/users/${userId}/active`)
       .set('Authorization', `Bearer ${tokenAdmin}`)
@@ -554,6 +564,36 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(
       (stillOnAppointment.body as AppointmentResponse).practitionerId,
     ).toBe(userId);
+
+    // ...and the agenda list (where the name actually gets shown, unlike
+    // the single-appointment fetch above) still shows their real name —
+    // not blank, and not whichever other profesional happens to be
+    // looking, which is what resolving it from the bookable-only picker
+    // list used to produce once someone was deactivated.
+    const agendaListing = await request(server)
+      .get('/appointments?from=2027-08-21&to=2027-08-22')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    const listedAppointment = (
+      agendaListing.body as { data: AppointmentResponse[] }
+    ).data.find(
+      (a) => a.id === (appointment.body as AppointmentResponse).id,
+    );
+    expect(listedAppointment?.practitionerName).toBe('Se Desactiva');
+
+    // Same for Historia clínica: the consulta they wrote still shows their
+    // real name in the list, not blank and not whichever other
+    // admin/profesional happens to be looking at the ficha.
+    const clinicalEntriesListing = await request(server)
+      .get(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    const listedEntry = (
+      clinicalEntriesListing.body as {
+        data: { id: string; authorName?: string | null }[];
+      }
+    ).data.find(
+      (e) => e.id === (clinicalEntry.body as { id: string }).id,
+    );
+    expect(listedEntry?.authorName).toBe('Se Desactiva');
     const plainListing = await request(server)
       .get('/users')
       .set('Authorization', `Bearer ${tokenAdmin}`);
