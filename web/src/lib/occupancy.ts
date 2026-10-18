@@ -162,14 +162,17 @@ export function computeDayOccupancy(
 // scan can only ever land on multiples of that step from the tramo's own
 // start, so a 10-minute cita at 09:00 made 09:10 invisible to a 30-minute
 // stepper — it would skip straight to 09:30 even though 09:10 was free the
-// whole time. Returns null if nothing fits before tramoEnd.
+// whole time. Returns null if nothing starts at or before tramoEnd — a
+// cita may start exactly at closing time and run past it (same rule as
+// AppointmentsService.assertWithinClinicHours on the backend), it just
+// can't start any later.
 function nextFreeStart(
   cursor: number,
   duration: number,
   tramoEnd: number,
   busyRangesByPractitioner: MinuteRange[][],
 ): number | null {
-  while (cursor + duration <= tramoEnd) {
+  while (cursor <= tramoEnd) {
     const candidate = { start: cursor, end: cursor + duration };
     let earliestConflictEnd: number | null = null;
     let anyoneFree = false;

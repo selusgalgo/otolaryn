@@ -405,6 +405,23 @@ describe('Agenda (appointments)', () => {
         .set('Authorization', `Bearer ${tokenA}`)
         .send(slot('2027-09-01T08:00:00.000Z', 30, practitionerA));
       expect(inside.status).toBe(201);
+
+      // 11:00 UTC is 13:00 in Madrid — exactly the tramo's closing time.
+      // Only the *start* has to fall within the tramo, so a cita starting
+      // right at closing (and running past it) is allowed.
+      const atClosing = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-01T11:00:00.000Z', 30, practitionerA));
+      expect(atClosing.status).toBe(201);
+
+      // 11:10 UTC is 13:10 in Madrid — starting after closing is still
+      // rejected even though it's only 10 minutes past.
+      const pastClosing = await request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send(slot('2027-09-01T11:10:00.000Z', 30, practitionerA));
+      expect(pastClosing.status).toBe(400);
     });
 
     it('rejects creating an appointment on a day the clinic has no configured hours at all', async () => {

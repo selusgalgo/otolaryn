@@ -90,23 +90,23 @@ export class AppointmentsService {
   // the calendar's colors/free-slot popover already steer people away from
   // these times, but nothing stopped a manually typed date/time from
   // landing outside them until now.
-  private async assertWithinClinicHours(
-    scheduledAt: Date,
-    durationMinutes: number,
-  ): Promise<void> {
+  private async assertWithinClinicHours(scheduledAt: Date): Promise<void> {
     const rows = await this.clinicHours.find({
       where: { tenantId: this.tenancyContext.tenantId },
     });
     const days = groupByWeekday(rows);
     const { weekday, minutes: startMinutes } =
       weekdayAndMinutesInClinicTimeZone(scheduledAt);
-    const endMinutes = startMinutes + durationMinutes;
 
+    // Solo la hora de inicio tiene que caer dentro del tramo — una cita
+    // que empieza justo al cierre (p. ej. las 13:00 si la clínica cierra a
+    // las 13:00) es válida aunque termine después, a petición de la
+    // clínica.
     const day = days.find((d) => d.weekday === weekday);
     const fits = (day?.slots ?? []).some(
       (slot) =>
         startMinutes >= timeToMinutes(slot.startTime) &&
-        endMinutes <= timeToMinutes(slot.endTime),
+        startMinutes <= timeToMinutes(slot.endTime),
     );
     if (!fits) {
       throw new BadRequestException(
@@ -159,7 +159,7 @@ export class AppointmentsService {
     const scheduledAt = new Date(dto.scheduledAt);
     const durationMinutes =
       dto.durationMinutes ?? (await this.defaultDurationMinutes());
-    await this.assertWithinClinicHours(scheduledAt, durationMinutes);
+    await this.assertWithinClinicHours(scheduledAt);
 
     const appointment = this.repo.create({
       tenantId: this.tenancyContext.tenantId,
@@ -263,7 +263,7 @@ export class AppointmentsService {
         dto.durationMinutes !== undefined
           ? dto.durationMinutes
           : appointment.durationMinutes;
-      await this.assertWithinClinicHours(scheduledAt, durationMinutes);
+      await this.assertWithinClinicHours(scheduledAt);
       appointment.scheduledAt = scheduledAt;
       appointment.durationMinutes = durationMinutes;
     }
