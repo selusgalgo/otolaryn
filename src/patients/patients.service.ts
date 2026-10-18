@@ -453,16 +453,26 @@ export class PatientsService {
         // through.
         if (!type) continue;
 
-        await antecedenteRepo.upsert(
-          {
-            tenantId: this.tenancyContext.tenantId,
-            patientId: patient.id,
-            antecedenteTypeId,
-            detalle,
-          },
-          ['patientId', 'antecedenteTypeId'],
-        );
-        touched = true;
+        // upsert() is idempotent by design (re-importing the same file
+        // twice must be safe), but that means it alone can't tell us
+        // whether this row actually changed anything — checking the
+        // existing mark first is what keeps `touched`, and therefore the
+        // reported "created" count, honest on a re-run.
+        const existing = await antecedenteRepo.findOne({
+          where: { patientId: patient.id, antecedenteTypeId },
+        });
+        if (!existing || existing.detalle !== detalle) {
+          await antecedenteRepo.upsert(
+            {
+              tenantId: this.tenancyContext.tenantId,
+              patientId: patient.id,
+              antecedenteTypeId,
+              detalle,
+            },
+            ['patientId', 'antecedenteTypeId'],
+          );
+          touched = true;
+        }
 
         // The duplicate this whole update exists to fix: the original
         // import mapped the same legacy column to both the personal and
@@ -474,10 +484,11 @@ export class PatientsService {
             type.name.trim().toLowerCase(),
           );
           if (siblingPersonalId) {
-            await antecedenteRepo.delete({
+            const { affected } = await antecedenteRepo.delete({
               patientId: patient.id,
               antecedenteTypeId: siblingPersonalId,
             });
+            if (affected) touched = true;
           }
         }
       }

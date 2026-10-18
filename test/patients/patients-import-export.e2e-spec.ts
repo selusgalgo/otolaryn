@@ -981,6 +981,29 @@ describe('Patients — export/import CSV/XLSX', () => {
       ).toContain(tabacoTypeId);
     });
 
+    it('re-importing the exact same file reports nothing created the second time, even with antecedentes marked', async () => {
+      // NH-UPD-1 ya quedó con Tabaco marcado por el test anterior — subir
+      // el mismo fichero otra vez no debe volver a contarlo como
+      // "actualizado": antecedenteRepo.upsert() es idempotente de por sí,
+      // pero el contador `touched` tenía un bug que lo marcaba como
+      // tocado en cada fila con algún antecedente, diera igual si el
+      // upsert cambiaba algo o no.
+      const updateCsv = [
+        'Nº de historia,Primera consulta,Historia clínica,Tabaco',
+        'NH-UPD-1,15/03/2010,Historia clínica actualizada,Sí',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(0);
+      expect(res.body.skipped).toHaveLength(1);
+      expect(res.body.skipped[0].reason).toContain('Nada que actualizar');
+    });
+
     it('skips a row whose Nº de historia matches no existing patient', async () => {
       const updateCsv = [
         'Nº de historia,Primera consulta',
