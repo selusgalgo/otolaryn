@@ -34,6 +34,15 @@ interface ImportResult {
   skipped: { row: number; reason: string }[];
 }
 
+interface ImportJobProgress {
+  jobId: string;
+  status: 'running' | 'completed';
+  totalRows: number;
+  processedRows: number;
+  created: number;
+  skipped: { row: number; reason: string }[];
+}
+
 interface PaginatedEntries {
   data: {
     id: string;
@@ -46,6 +55,44 @@ interface PaginatedEntries {
 }
 
 const DOCTOR_PASSWORD = 'ConsultasImport-Doctor1!';
+
+// POST /clinical-entries/import only kicks off a job now (see
+// ImportJobsService) — this drives it to completion the way the real
+// import dialog's polling loop does, and hands back a shape that reads
+// like the old synchronous response so the rest of this file's
+// assertions don't need to change.
+async function runImport(
+  server: Server,
+  token: string,
+  buffer: Buffer,
+  filename: string,
+  doctorMapping: Record<string, string>,
+): Promise<{ status: number; body: ImportResult }> {
+  const start = await request(server)
+    .post('/clinical-entries/import')
+    .set('Authorization', `Bearer ${token}`)
+    .field('doctorMapping', JSON.stringify(doctorMapping))
+    .attach('file', buffer, filename);
+  if (start.status !== 201) {
+    return { status: start.status, body: start.body as ImportResult };
+  }
+
+  let progress = start.body as ImportJobProgress;
+  while (progress.status !== 'completed') {
+    const res = await request(server)
+      .post(`/clinical-entries/import/${progress.jobId}/continue`)
+      .set('Authorization', `Bearer ${token}`);
+    progress = res.body as ImportJobProgress;
+  }
+  return {
+    status: 201,
+    body: {
+      totalRows: progress.totalRows,
+      created: progress.created,
+      skipped: progress.skipped,
+    },
+  };
+}
 
 describe('Consultas — import', () => {
   let app: INestApplication;
@@ -155,18 +202,16 @@ describe('Consultas — import', () => {
   });
 
   it('imports a consulta relating it to the patient by Nº de historia and resolving doctor + aseguradora', async () => {
-    const res = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
-      .attach(
-        'file',
-        Buffer.from(csvFor('NH-500', 'Dr. Federico'), 'utf-8'),
-        'consultas.csv',
-      );
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csvFor('NH-500', 'Dr. Federico'), 'utf-8'),
+      'consultas.csv',
+      { 'Dr. Federico': doctorUserId },
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
 
@@ -185,36 +230,32 @@ describe('Consultas — import', () => {
   });
 
   it('skips a row whose Nº de historia has no matching patient', async () => {
-    const res = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
-      .attach(
-        'file',
-        Buffer.from(csvFor('NH-DOES-NOT-EXIST', 'Dr. Federico'), 'utf-8'),
-        'consultas.csv',
-      );
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csvFor('NH-DOES-NOT-EXIST', 'Dr. Federico'), 'utf-8'),
+      'consultas.csv',
+      { 'Dr. Federico': doctorUserId },
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(0);
     expect(body.skipped).toHaveLength(1);
     expect(body.skipped[0].reason).toContain('NH-DOES-NOT-EXIST');
   });
 
   it('skips a row whose doctor was not mapped to a profesional', async () => {
-    const res = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', JSON.stringify({}))
-      .attach(
-        'file',
-        Buffer.from(csvFor('NH-500', 'Dr. Sin Mapear'), 'utf-8'),
-        'consultas.csv',
-      );
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csvFor('NH-500', 'Dr. Sin Mapear'), 'utf-8'),
+      'consultas.csv',
+      {},
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(0);
     expect(body.skipped).toHaveLength(1);
     expect(body.skipped[0].reason).toContain('Dr. Sin Mapear');
@@ -231,27 +272,30 @@ describe('Consultas — import', () => {
       ',NH-500,Dr. Federico,MAPFRE',
       'Revision,NH-500,Dr. Federico,MAPFRE',
     ].join('\n');
-    const doctorMapping = JSON.stringify({ 'Dr. Federico': doctorUserId });
+    const doctorMapping = { 'Dr. Federico': doctorUserId };
 
-    const first = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', doctorMapping)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
-    expect((first.body as ImportResult).created).toBe(1);
+    const first = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'consultas.csv',
+      doctorMapping,
+    );
+    expect(first.body.created).toBe(1);
 
-    const second = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', doctorMapping)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
+    const second = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'consultas.csv',
+      doctorMapping,
+    );
     // Row 1 is skipped both times for lacking a motivo (that's constant
     // between the two runs); row 2 is the one that flips from created to
     // skipped-as-already-imported the second time around.
-    const secondBody = second.body as ImportResult;
-    expect(secondBody.created).toBe(0);
-    expect(secondBody.skipped).toHaveLength(2);
-    expect(secondBody.skipped.find((s) => s.row === 2)?.reason).toBe(
+    expect(second.body.created).toBe(0);
+    expect(second.body.skipped).toHaveLength(2);
+    expect(second.body.skipped.find((s) => s.row === 2)?.reason).toBe(
       'Esta fila ya se había importado antes',
     );
   });
@@ -269,14 +313,16 @@ describe('Consultas — import', () => {
       'Isabel,Domínguez Gutiérrez,Revision,NH-500,Dr. Federico',
     ].join('\n');
 
-    const res = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
-      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'consultas.csv',
+      { 'Dr. Federico': doctorUserId },
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(0);
     expect(body.skipped).toHaveLength(1);
     expect(body.skipped[0].reason).toContain('no coincide con el paciente');
@@ -300,14 +346,16 @@ describe('Consultas — import', () => {
       'Pcaiente,Legaod,Revision,NH-500,Dr. Federico',
     ].join('\n');
 
-    const res = await request(server)
-      .post('/clinical-entries/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('doctorMapping', JSON.stringify({ 'Dr. Federico': doctorUserId }))
-      .attach('file', Buffer.from(csv, 'utf-8'), 'consultas.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'consultas.csv',
+      { 'Dr. Federico': doctorUserId },
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(2);
     expect(

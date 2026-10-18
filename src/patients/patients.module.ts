@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ImportJobsModule } from '../import-jobs/import-jobs.module';
 import { InsuranceModule } from '../insurance/insurance.module';
 import { TenancyModule } from '../tenancy/tenancy.module';
 import { PatientsController } from './patients.controller';
@@ -11,7 +12,7 @@ import { PatientsService } from './patients.service';
   // get-or-create needs InsuranceService; the antecedente_types it needs
   // for mapping are fetched directly via TenancyContext in the
   // controller instead, see PatientsController.
-  imports: [TenancyModule, InsuranceModule],
+  imports: [TenancyModule, InsuranceModule, ImportJobsModule],
   controllers: [PatientsController],
   providers: [PatientsService],
   exports: [PatientsService],

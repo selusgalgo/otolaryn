@@ -9,6 +9,11 @@ import { QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
+import type {
+  ImportJobProgress,
+  RowOutcome,
+} from '../import-jobs/import-jobs.service';
+import { ImportJobsService } from '../import-jobs/import-jobs.service';
 import { InsuranceService } from '../insurance/insurance.service';
 import {
   plainTextToRichText,
@@ -25,12 +30,6 @@ import type {
 } from './dto/list-patients-query.dto';
 
 const UNIQUE_VIOLATION = '23505';
-
-export interface ImportPatientsResult {
-  totalRows: number;
-  created: number;
-  skipped: { row: number; reason: string }[];
-}
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -49,6 +48,7 @@ export class PatientsService {
   constructor(
     private readonly tenancyContext: TenancyContext,
     private readonly insurance: InsuranceService,
+    private readonly importJobs: ImportJobsService,
   ) {}
 
   private get repo() {
@@ -238,93 +238,107 @@ export class PatientsService {
   // the complexity of a bulk insert, and sequential inserts are what let a
   // duplicate documentId within the same file surface as a normal
   // "already exists" skip on the second occurrence instead of a DB error.
-  async bulkImport(rows: ImportRow[]): Promise<ImportPatientsResult> {
-    const skipped: { row: number; reason: string }[] = [];
-    let created = 0;
-    // A real legacy file repeats the same handful of aseguradora names
-    // across thousands of rows — resolving each occurrence with its own
-    // DB round trip is most of a large import's total time for no reason,
-    // since the answer for a given name can't change mid-request. Keyed
-    // lower-cased, matching findOrCreateByName's own case-insensitive
-    // lookup, so "ASISA" and "Asisa" share one cache entry.
+  // Kicks off a batched import job instead of importing synchronously —
+  // see ImportJobsService for why. The caller (PatientsController) polls
+  // continueBulkImportJob repeatedly until the job reports 'completed'.
+  async startBulkImportJob(rows: ImportRow[]): Promise<ImportJobProgress> {
+    return this.importJobs.create('patients', rows);
+  }
+
+  async continueBulkImportJob(
+    jobId: string,
+    batchSize: number,
+  ): Promise<ImportJobProgress> {
+    // Scoped to this one batch/request, not the whole job - a repeated
+    // aseguradora name across batches costs one extra lookup per batch
+    // instead of per file, a fine trade for not needing cross-request
+    // state.
     const insuranceCache = new Map<string, string>();
+    return this.importJobs.advance<ImportRow>(
+      jobId,
+      'patients',
+      batchSize,
+      (row, rowNumber) => this.importRow(row, rowNumber, insuranceCache),
+    );
+  }
 
-    for (let i = 0; i < rows.length; i++) {
-      const rowNumber = i + 1;
-      const { insuranceEntityName, antecedentes, ...fields } = rows[i];
+  // Same per-row logic the old synchronous bulkImport ran inline, now
+  // just one row at a time on behalf of ImportJobsService.advance().
+  private async importRow(
+    row: ImportRow,
+    rowNumber: number,
+    insuranceCache: Map<string, string>,
+  ): Promise<RowOutcome> {
+    const { insuranceEntityName, antecedentes, ...fields } = row;
 
-      // Resolved (and created if new) before validation, outside any
-      // SAVEPOINT — an aseguradora added to the catalog this way is real
-      // catalog data, not tied to whether this particular row ends up
-      // skipped for an unrelated reason.
-      let insuranceEntityId: string | undefined;
-      if (insuranceEntityName) {
-        const cacheKey = insuranceEntityName.trim().toLowerCase();
-        insuranceEntityId = insuranceCache.get(cacheKey);
-        if (!insuranceEntityId) {
-          insuranceEntityId =
-            await this.insurance.findOrCreateByName(insuranceEntityName);
-          insuranceCache.set(cacheKey, insuranceEntityId);
-        }
-      }
-
-      const dto = plainToInstance(CreatePatientDto, {
-        ...fields,
-        // A legacy file's Notas cell is plain text, not the HTML the
-        // Notas editor produces — converted here (newlines -> <br>) so
-        // create()'s own sanitizeRichText treats it as already-rich-text
-        // instead of escaping the whole thing as literal characters.
-        ...(fields.notes ? { notes: plainTextToRichText(fields.notes) } : {}),
-        ...(insuranceEntityId ? { insuranceEntityId } : {}),
-      });
-      const errors = await validate(dto);
-      if (errors.length > 0) {
-        const reason = errors
-          .flatMap((e) => Object.values(e.constraints ?? {}))
-          .join('; ');
-        skipped.push({ row: rowNumber, reason });
-        continue;
-      }
-
-      // The whole request already runs inside one transaction
-      // (TenantContextInterceptor) — without a SAVEPOINT per row, one
-      // row's unique-constraint violation aborts that shared transaction
-      // at the Postgres level, and every row after it fails with
-      // "current transaction is aborted" (25P02) even though nothing is
-      // wrong with them. Rolling back to the savepoint instead of the
-      // whole transaction is what lets the loop keep going.
-      await this.repo.query('SAVEPOINT row_import');
-      try {
-        const patient = await this.create(dto);
-        if (antecedentes && antecedentes.length > 0) {
-          await this.repo.manager.insert(
-            PatientAntecedente,
-            antecedentes.map((a) => ({
-              tenantId: this.tenancyContext.tenantId,
-              patientId: patient.id,
-              antecedenteTypeId: a.antecedenteTypeId,
-              detalle: a.detalle,
-            })),
-          );
-        }
-        await this.repo.query('RELEASE SAVEPOINT row_import');
-        created++;
-      } catch (err) {
-        await this.repo.query('ROLLBACK TO SAVEPOINT row_import');
-        if (err instanceof ConflictException) {
-          skipped.push({
-            row: rowNumber,
-            reason: dto.legacyId
-              ? `Ya existe un paciente con el nº de historia "${dto.legacyId}"`
-              : `Ya existe un paciente con el documento "${dto.documentId}"`,
-          });
-        } else {
-          throw err;
-        }
+    // Resolved (and created if new) before validation, outside any
+    // SAVEPOINT — an aseguradora added to the catalog this way is real
+    // catalog data, not tied to whether this particular row ends up
+    // skipped for an unrelated reason.
+    let insuranceEntityId: string | undefined;
+    if (insuranceEntityName) {
+      const cacheKey = insuranceEntityName.trim().toLowerCase();
+      insuranceEntityId = insuranceCache.get(cacheKey);
+      if (!insuranceEntityId) {
+        insuranceEntityId =
+          await this.insurance.findOrCreateByName(insuranceEntityName);
+        insuranceCache.set(cacheKey, insuranceEntityId);
       }
     }
 
-    return { totalRows: rows.length, created, skipped };
+    const dto = plainToInstance(CreatePatientDto, {
+      ...fields,
+      // A legacy file's Notas cell is plain text, not the HTML the Notas
+      // editor produces — converted here (newlines -> <br>) so create()'s
+      // own sanitizeRichText treats it as already-rich-text instead of
+      // escaping the whole thing as literal characters.
+      ...(fields.notes ? { notes: plainTextToRichText(fields.notes) } : {}),
+      ...(insuranceEntityId ? { insuranceEntityId } : {}),
+    });
+    const errors = await validate(dto);
+    if (errors.length > 0) {
+      const reason = errors
+        .flatMap((e) => Object.values(e.constraints ?? {}))
+        .join('; ');
+      return { created: false, reason };
+    }
+
+    // Each batch already runs inside its own transaction
+    // (TenantContextInterceptor, one per HTTP request) — without a
+    // SAVEPOINT per row, one row's unique-constraint violation aborts
+    // that transaction at the Postgres level, and every row after it in
+    // the same batch fails with "current transaction is aborted" (25P02)
+    // even though nothing is wrong with them. Rolling back to the
+    // savepoint instead of the whole transaction is what lets the loop
+    // keep going.
+    await this.repo.query('SAVEPOINT row_import');
+    try {
+      const patient = await this.create(dto);
+      if (antecedentes && antecedentes.length > 0) {
+        await this.repo.manager.insert(
+          PatientAntecedente,
+          antecedentes.map((a) => ({
+            tenantId: this.tenancyContext.tenantId,
+            patientId: patient.id,
+            antecedenteTypeId: a.antecedenteTypeId,
+            detalle: a.detalle,
+          })),
+        );
+      }
+      await this.repo.query('RELEASE SAVEPOINT row_import');
+      return { created: true };
+    } catch (err) {
+      await this.repo.query('ROLLBACK TO SAVEPOINT row_import');
+      if (err instanceof ConflictException) {
+        return {
+          created: false,
+          reason: dto.legacyId
+            ? `Ya existe un paciente con el nº de historia "${dto.legacyId}"`
+            : `Ya existe un paciente con el documento "${dto.documentId}"`,
+        };
+      }
+      throw err;
+    }
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {

@@ -39,6 +39,53 @@ interface ImportResult {
   skipped: { row: number; reason: string }[];
 }
 
+interface ImportJobProgress {
+  jobId: string;
+  status: 'running' | 'completed';
+  totalRows: number;
+  processedRows: number;
+  created: number;
+  skipped: { row: number; reason: string }[];
+}
+
+// POST /patients/import only kicks off a job now (see
+// ImportJobsService) — this drives it to completion the way the real
+// import dialog's polling loop does, and hands back a shape that reads
+// like the old synchronous response so the rest of this file's
+// assertions don't need to change.
+async function runImport(
+  server: Server,
+  token: string,
+  buffer: Buffer,
+  filename: string,
+  mapping?: Record<string, unknown>,
+): Promise<{ status: number; body: ImportResult }> {
+  let req = request(server)
+    .post('/patients/import')
+    .set('Authorization', `Bearer ${token}`);
+  if (mapping) req = req.field('mapping', JSON.stringify(mapping));
+  const start = await req.attach('file', buffer, filename);
+  if (start.status !== 201) {
+    return { status: start.status, body: start.body as ImportResult };
+  }
+
+  let progress = start.body as ImportJobProgress;
+  while (progress.status !== 'completed') {
+    const res = await request(server)
+      .post(`/patients/import/${progress.jobId}/continue`)
+      .set('Authorization', `Bearer ${token}`);
+    progress = res.body as ImportJobProgress;
+  }
+  return {
+    status: 201,
+    body: {
+      totalRows: progress.totalRows,
+      created: progress.created,
+      skipped: progress.skipped,
+    },
+  };
+}
+
 // Used to build *upload* fixtures paired with csvRow() below — deliberately
 // stops short of "Nº de historia"; a file simply not having that at all is
 // a normal, valid case (that target just goes unmapped), unrelated to
@@ -233,13 +280,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.totalRows).toBe(2);
     expect(body.created).toBe(2);
     expect(body.skipped).toHaveLength(0);
@@ -264,11 +313,13 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    expect((res.body as ImportResult).created).toBe(1);
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(res.body.created).toBe(1);
 
     const list = await request(server)
       .get('/patients?search=DosTelefonos')
@@ -292,11 +343,13 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    expect((res.body as ImportResult).created).toBe(1);
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(res.body.created).toBe(1);
 
     const list = await request(server)
       .get('/patients?search=ConProvincia')
@@ -318,11 +371,13 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    expect((res.body as ImportResult).created).toBe(1);
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(res.body.created).toBe(1);
 
     const list = await request(server)
       .get('/patients?search=SoloCiudad')
@@ -347,11 +402,13 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    expect((res.body as ImportResult).created).toBe(1);
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(res.body.created).toBe(1);
 
     const list = await request(server)
       .get('/patients?search=Ambiguo')
@@ -370,13 +427,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       csvRow({ firstName: '', lastName: 'SinNombre', documentId: 'IMP-011' }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(1);
     expect(body.skipped[0].row).toBe(2);
@@ -404,13 +463,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(1);
     expect(body.skipped[0].reason).toContain('IMP-020');
@@ -422,13 +483,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       'SinDoc,Uno,1990-06-15,+34600222333',
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
 
@@ -449,13 +512,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       'SinNif,Normal,1992-08-17,+34600222555,POLICIA LOCAL',
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(3);
 
     const list = await request(server)
@@ -494,13 +559,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
   });
@@ -550,13 +617,10 @@ describe('Patients — export/import CSV/XLSX', () => {
       bookType: 'xlsx',
     }) as Buffer;
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', buffer, 'pacientes.xlsx');
+    const res = await runImport(server, tokenA, buffer, 'pacientes.xlsx');
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
 
@@ -585,13 +649,10 @@ describe('Patients — export/import CSV/XLSX', () => {
       bookType: 'biff8',
     }) as Buffer;
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', buffer, 'pacientes.xls');
+    const res = await runImport(server, tokenA, buffer, 'pacientes.xls');
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
   });
@@ -643,14 +704,16 @@ describe('Patients — export/import CSV/XLSX', () => {
       phone: 'TEL',
     };
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .field('mapping', JSON.stringify(mapping))
-      .attach('file', Buffer.from(csv, 'utf-8'), 'legacy-export.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'legacy-export.csv',
+      mapping,
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(1);
     expect(body.skipped).toHaveLength(0);
 
@@ -700,10 +763,7 @@ describe('Patients — export/import CSV/XLSX', () => {
       }),
     ].join('\n');
 
-    await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenB}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    await runImport(server, tokenB, Buffer.from(csv, 'utf-8'), 'pacientes.csv');
 
     const listA = await request(server)
       .get('/patients?search=TenantB')
@@ -723,13 +783,15 @@ describe('Patients — export/import CSV/XLSX', () => {
       'Legado,Dos,LEG-002,1990-01-01,+34600000031,NH-101,ASISA,4-5,',
     ].join('\n');
 
-    const res = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
 
     expect(res.status).toBe(201);
-    const body = res.body as ImportResult;
+    const body = res.body;
     expect(body.created).toBe(2);
     expect(body.skipped).toHaveLength(0);
 
@@ -802,19 +864,22 @@ describe('Patients — export/import CSV/XLSX', () => {
       'Repetido,Import,LEG-REPEAT,1990-01-01,+34600000032,NH-200',
     ].join('\n');
 
-    const first = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    expect((first.body as ImportResult).created).toBe(1);
+    const first = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(first.body.created).toBe(1);
 
-    const second = await request(server)
-      .post('/patients/import')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .attach('file', Buffer.from(csv, 'utf-8'), 'pacientes.csv');
-    const secondBody = second.body as ImportResult;
-    expect(secondBody.created).toBe(0);
-    expect(secondBody.skipped).toHaveLength(1);
-    expect(secondBody.skipped[0].reason).toContain('NH-200');
+    const second = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(second.body.created).toBe(0);
+    expect(second.body.skipped).toHaveLength(1);
+    expect(second.body.skipped[0].reason).toContain('NH-200');
   });
 });

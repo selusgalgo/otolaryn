@@ -176,15 +176,22 @@ export async function bulkDeletePatientsAction(ids: string[]): Promise<BulkDelet
   }
 }
 
-export interface ImportPatientsResult {
+// Mirrors ImportJobProgress on the backend (see ImportJobsService) — a
+// bulk import runs as a job processed in bounded batches, not inside one
+// request, so a large legacy file doesn't blow through Vercel's 300s
+// function timeout. `status: "completed"` is the signal to stop polling.
+export interface ImportJobProgress {
+  jobId: string;
+  status: "running" | "completed";
   totalRows: number;
+  processedRows: number;
   created: number;
   skipped: { row: number; reason: string }[];
 }
 
-export interface ImportPatientsState {
+export interface StartImportPatientsState {
   error?: string;
-  result?: ImportPatientsResult;
+  progress?: ImportJobProgress;
 }
 
 // field -> the file's own header text, e.g. { legacyId: "NUMHISTORIA" }.
@@ -256,38 +263,51 @@ export async function previewPatientsImportAction(formData: FormData): Promise<P
   }
 }
 
-// Step 2: the actual import, using the column mapping the user confirmed
-// in the wizard (a "mapping" field carrying the ColumnMapping as JSON —
-// see ImportPatientsDialog). Unlike the create/update actions above, a
-// successful call still reports through `result` (not just
-// `success: true`): a partial import (some rows skipped) is the expected
-// common case, not an error, and the user needs to see which rows and why
-// before the dialog closes.
-export async function importPatientsAction(
-  _prevState: ImportPatientsState,
-  formData: FormData,
-): Promise<ImportPatientsState> {
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Selecciona un fichero." };
-  }
-
+// Step 2a: kicks off the import job and returns right away with its
+// jobId/totalRows — it does not wait for any row to actually be created.
+// Called imperatively (like previewPatientsImportAction above), not tied
+// to useActionState: the dialog needs to start polling continueImportJobAction
+// the moment this resolves, which a form-submission-shaped action isn't a
+// good fit for.
+export async function startImportPatientsAction(
+  file: File,
+  mapping: ColumnMapping,
+): Promise<StartImportPatientsState> {
   const upstream = new FormData();
   upstream.set("file", file, file.name);
-  const mapping = formData.get("mapping");
-  if (typeof mapping === "string" && mapping) {
-    upstream.set("mapping", mapping);
-  }
+  upstream.set("mapping", JSON.stringify(mapping));
 
   try {
-    const result = await apiFetchMultipart<ImportPatientsResult>("/patients/import", upstream);
-    revalidatePath("/patients");
-    return { result };
+    const progress = await apiFetchMultipart<ImportJobProgress>("/patients/import", upstream);
+    return { progress };
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };
     }
     return { error: "No se pudo importar el fichero." };
+  }
+}
+
+// Step 2b: advances the job by one batch — the dialog calls this in a
+// loop until `progress.status === "completed"`, updating its progress bar
+// after each call. revalidatePath only fires once the job is actually
+// done, not on every intermediate batch.
+export async function continueImportJobAction(
+  jobId: string,
+): Promise<StartImportPatientsState> {
+  try {
+    const progress = await apiFetch<ImportJobProgress>(`/patients/import/${jobId}/continue`, {
+      method: "POST",
+    });
+    if (progress.status === "completed") {
+      revalidatePath("/patients");
+    }
+    return { progress };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo continuar la importación." };
   }
 }
 

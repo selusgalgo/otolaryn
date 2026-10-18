@@ -30,6 +30,10 @@ import { ClinicalEntriesService } from './clinical-entries.service';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { ListClinicalEntriesQueryDto } from './dto/list-clinical-entries-query.dto';
 
+// See PatientsController's own IMPORT_BATCH_SIZE — same reasoning,
+// same value.
+const IMPORT_BATCH_SIZE = 100;
+
 function parseJsonBody<T>(
   json: string | undefined,
   label: string,
@@ -160,7 +164,15 @@ export class ClinicalEntriesController {
         `Faltan columnas obligatorias en el fichero: ${missingColumns.join(', ')}`,
       );
     }
-    return this.clinicalEntries.bulkImport(rows, doctorMapping);
+    // Returns immediately with a jobId — see
+    // PatientsController.import/PatientsController.continueImport for why
+    // (same 300s-timeout problem, same fix).
+    return this.clinicalEntries.startBulkImportJob(rows, doctorMapping);
+  }
+
+  @Post('clinical-entries/import/:jobId/continue')
+  continueImport(@Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.clinicalEntries.continueBulkImportJob(jobId, IMPORT_BATCH_SIZE);
   }
 
   @Get('clinical-entries/:id')

@@ -42,6 +42,12 @@ import {
 } from './patients-csv.util';
 import { PatientsService } from './patients.service';
 
+// Conservative on purpose: a real legacy row needs several sequential DB
+// round trips (aseguradora lookup, patient insert, antecedentes insert),
+// and this batch still has to finish comfortably inside Vercel's 300s
+// function timeout even on a slow connection to the database.
+const IMPORT_BATCH_SIZE = 100;
+
 @Controller('patients')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantContextInterceptor)
@@ -181,7 +187,21 @@ export class PatientsController {
         `Faltan columnas obligatorias en el fichero: ${missingColumns.join(', ')}`,
       );
     }
-    return this.patients.bulkImport(rows);
+    // Returns immediately with a jobId — the rows themselves don't get
+    // created until the frontend drives .../import/:jobId/continue in a
+    // loop (see ImportJobsService). A single request importing thousands
+    // of legacy rows one by one is exactly what used to blow through
+    // Vercel's 300s function timeout.
+    return this.patients.startBulkImportJob(rows);
+  }
+
+  // Processes up to IMPORT_BATCH_SIZE not-yet-seen rows of this job and
+  // reports progress — called repeatedly by the import dialog (roughly
+  // once per animation frame of the progress bar) until status is
+  // 'completed'.
+  @Post('import/:jobId/continue')
+  continueImport(@Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.patients.continueBulkImportJob(jobId, IMPORT_BATCH_SIZE);
   }
 
   @Patch(':id')

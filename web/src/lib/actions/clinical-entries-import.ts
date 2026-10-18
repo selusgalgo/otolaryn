@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiFetchMultipart, ApiError } from "@/lib/api";
+import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
 
 // field -> the file's own header text, e.g. { patientLegacyId: "NUMHISTORIA" }.
 // insuranceEntityName/doctorName aren't plain fields either — same
@@ -80,40 +80,66 @@ export async function getDistinctDoctorsAction(
   }
 }
 
-export interface ImportClinicalEntriesResult {
+// Mirrors ImportJobProgress on the backend (see ImportJobsService) — same
+// batched-job reasoning as the Pacientes importer: a legacy consultas.xls
+// has thousands of rows, each needing its own sequential DB round trips,
+// which blows through Vercel's 300s function timeout if run as one
+// request. `status: "completed"` is the signal to stop polling.
+export interface ImportJobProgress {
+  jobId: string;
+  status: "running" | "completed";
   totalRows: number;
+  processedRows: number;
   created: number;
   skipped: { row: number; reason: string }[];
 }
 
-export interface ImportClinicalEntriesState {
+export interface StartImportClinicalEntriesState {
   error?: string;
-  result?: ImportClinicalEntriesResult;
+  progress?: ImportJobProgress;
 }
 
-// Step 3: the actual import — mapping (column->field) and doctorMapping
-// (file's own doctor name -> chosen user id) both confirmed in the
-// wizard. Reports through `result` even on success, same as
-// importPatientsAction: a partial import (rows skipped for a missing
-// paciente/médico) is the expected common case here, not an error.
-export async function importClinicalEntriesAction(
+// Step 3a: kicks off the import job (mapping + doctorMapping both
+// confirmed in the wizard) and returns immediately with its
+// jobId/totalRows — no row is actually created yet.
+export async function startImportClinicalEntriesAction(
   file: File,
   mapping: ClinicalEntryColumnMapping,
   doctorMapping: Record<string, string>,
-): Promise<ImportClinicalEntriesState> {
+): Promise<StartImportClinicalEntriesState> {
   const upstream = new FormData();
   upstream.set("file", file, file.name);
   upstream.set("mapping", JSON.stringify(mapping));
   upstream.set("doctorMapping", JSON.stringify(doctorMapping));
   try {
-    const result = await apiFetchMultipart<ImportClinicalEntriesResult>(
+    const progress = await apiFetchMultipart<ImportJobProgress>(
       "/clinical-entries/import",
       upstream,
     );
-    revalidatePath("/patients");
-    return { result };
+    return { progress };
   } catch (err) {
     if (err instanceof ApiError) return { error: err.message };
     return { error: "No se pudo importar el fichero." };
+  }
+}
+
+// Step 3b: advances the job by one batch — the dialog calls this in a
+// loop until `progress.status === "completed"`, updating its progress bar
+// after each call.
+export async function continueClinicalEntriesImportJobAction(
+  jobId: string,
+): Promise<StartImportClinicalEntriesState> {
+  try {
+    const progress = await apiFetch<ImportJobProgress>(
+      `/clinical-entries/import/${jobId}/continue`,
+      { method: "POST" },
+    );
+    if (progress.status === "completed") {
+      revalidatePath("/patients");
+    }
+    return { progress };
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.message };
+    return { error: "No se pudo continuar la importación." };
   }
 }

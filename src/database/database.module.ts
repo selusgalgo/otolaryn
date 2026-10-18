@@ -10,6 +10,7 @@ import { InsuranceEntity } from '../insurance/entities/insurance-entity.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
+import { ImportJob } from '../import-jobs/entities/import-job.entity';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entit
           InsuranceEntity,
           AntecedenteType,
           PatientAntecedente,
+          ImportJob,
         ],
         synchronize: false,
         migrationsRun: false,

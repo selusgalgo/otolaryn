@@ -1,17 +1,20 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { FileDropzone } from "@/components/patients/file-dropzone";
 import { ImportColumnMapping } from "@/components/patients/import-column-mapping";
-import { importPatientsAction, previewPatientsImportAction } from "@/lib/actions/patients";
-import type { ColumnMapping, ImportPatientsState, ImportPreview } from "@/lib/actions/patients";
+import {
+  continueImportJobAction,
+  previewPatientsImportAction,
+  startImportPatientsAction,
+} from "@/lib/actions/patients";
+import type { ColumnMapping, ImportJobProgress, ImportPreview } from "@/lib/actions/patients";
 import type { AntecedenteType } from "@/lib/types";
-
-const initialState: ImportPatientsState = {};
 
 const ACCEPT =
   ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -32,10 +35,18 @@ function isMappingComplete(mapping: ColumnMapping): boolean {
 
 // Two steps: 1) pick a file, read its real columns (previewPatientsImportAction,
 // no patient created yet); 2) confirm/fix which column feeds which field,
-// then actually import (importPatientsAction). A file from another system
-// — the legacy OTOLARYN desktop app's own NUMHISTORIA as this app's
-// Documento, say — won't match the suggested mapping at all, which is
-// exactly why this step exists instead of importing on a silent guess.
+// then actually import. A file from another system — the legacy OTOLARYN
+// desktop app's own NUMHISTORIA as this app's Documento, say — won't match
+// the suggested mapping at all, which is exactly why this step exists
+// instead of importing on a silent guess.
+//
+// The import itself runs as a job processed in small batches (see
+// ImportJobsService on the backend) rather than one request that waits for
+// every row — a legacy file has thousands of rows, each needing its own
+// sequential DB round trips, which blows straight through Vercel's 300s
+// function timeout if done in one call. startImportPatientsAction kicks the
+// job off; this component then polls continueImportJobAction in a loop,
+// advancing the progress bar with each batch, until the job reports done.
 //
 // Doesn't auto-close on a successful import like the other dialogs
 // (CreatePatientDialog etc.) — a partial import (some rows skipped) is the
@@ -61,7 +72,6 @@ export function ImportPatientsDialog({
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const setOpen = onOpenChangeProp ?? setOpenState;
-  const [state, formAction, pending] = useActionState(importPatientsAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   // Bumped on close to remount FileDropzone fresh — form.reset() clears the
   // underlying <input>, but not the dropzone's own "selected file" label.
@@ -71,20 +81,34 @@ export function ImportPatientsDialog({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [mapping, setMapping] = useState<ColumnMapping>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ImportJobProgress | null>(null);
+  // A batch can finish a job in one call (a small file) — guards the loop
+  // against ever polling an already-completed job.
+  const cancelledRef = useRef(false);
 
   function reset() {
+    cancelledRef.current = true;
     formRef.current?.reset();
     setDropzoneKey((k) => k + 1);
     setPreview(null);
     setPreviewError(null);
     setPreviewLoading(false);
     setMapping({});
+    setSelectedFile(null);
+    setImporting(false);
+    setImportError(null);
+    setProgress(null);
   }
 
   async function handleFileSelected(file: File) {
     setPreview(null);
     setPreviewError(null);
     setMapping({});
+    setSelectedFile(file);
     setPreviewLoading(true);
     try {
       const fd = new FormData();
@@ -99,6 +123,34 @@ export function ImportPatientsDialog({
     } finally {
       setPreviewLoading(false);
     }
+  }
+
+  async function handleImport() {
+    if (!selectedFile) return;
+    cancelledRef.current = false;
+    setImportError(null);
+    setImporting(true);
+    setProgress(null);
+
+    const start = await startImportPatientsAction(selectedFile, mapping);
+    if (start.error || !start.progress) {
+      setImportError(start.error ?? "No se pudo importar el fichero.");
+      setImporting(false);
+      return;
+    }
+
+    let current = start.progress;
+    setProgress(current);
+    while (current.status !== "completed" && !cancelledRef.current) {
+      const next = await continueImportJobAction(current.jobId);
+      if (next.error || !next.progress) {
+        setImportError(next.error ?? "No se pudo continuar la importación.");
+        break;
+      }
+      current = next.progress;
+      setProgress(current);
+    }
+    setImporting(false);
   }
 
   return (
@@ -121,14 +173,14 @@ export function ImportPatientsDialog({
         <DialogHeader>
           <DialogTitle>Importar pacientes</DialogTitle>
         </DialogHeader>
-        <form ref={formRef} action={formAction} className="grid gap-4">
+        <form ref={formRef} className="grid gap-4" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-2">
             <Label>Fichero</Label>
             <FileDropzone
               key={dropzoneKey}
               name="file"
               accept={ACCEPT}
-              disabled={pending || previewLoading}
+              disabled={importing || previewLoading}
               hint="CSV, XLS o XLSX"
               onFileSelected={(file) => void handleFileSelected(file)}
             />
@@ -144,52 +196,65 @@ export function ImportPatientsDialog({
           {previewError && <p className="text-sm text-destructive">{previewError}</p>}
 
           {preview && (
-            <>
-              <ImportColumnMapping
-                preview={preview}
-                mapping={mapping}
-                onChange={setMapping}
-                disabled={pending}
-                antecedenteTypes={antecedenteTypes}
-              />
-              {/* The form action reads this, not React state — see importPatientsAction. */}
-              <input type="hidden" name="mapping" value={JSON.stringify(mapping)} />
-            </>
+            <ImportColumnMapping
+              preview={preview}
+              mapping={mapping}
+              onChange={setMapping}
+              disabled={importing}
+              antecedenteTypes={antecedenteTypes}
+            />
           )}
 
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-
-          {state.result && (
+          {progress && (
             <div className="space-y-2 rounded-lg border p-3 text-sm">
-              <p>
-                <span className="font-medium">{state.result.created}</span> de{" "}
-                {state.result.totalRows} pacientes importados.
-              </p>
-              {state.result.skipped.length > 0 && (
-                <div className="space-y-1">
-                  <p className="font-medium text-destructive">
-                    {state.result.skipped.length} fila{state.result.skipped.length === 1 ? "" : "s"}{" "}
-                    omitida{state.result.skipped.length === 1 ? "" : "s"}:
+              <div className="flex items-center justify-between">
+                <span>
+                  {progress.processedRows} de {progress.totalRows} filas procesadas
+                </span>
+                <span className="text-muted-foreground">
+                  {progress.totalRows > 0
+                    ? Math.round((progress.processedRows / progress.totalRows) * 100)
+                    : 0}
+                  %
+                </span>
+              </div>
+              <Progress value={progress.processedRows} max={progress.totalRows} />
+              {progress.status === "completed" && (
+                <>
+                  <p>
+                    <span className="font-medium">{progress.created}</span> de{" "}
+                    {progress.totalRows} pacientes importados.
                   </p>
-                  <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
-                    {state.result.skipped.map((s) => (
-                      <li key={s.row}>
-                        Fila {s.row}: {s.reason}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  {progress.skipped.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="font-medium text-destructive">
+                        {progress.skipped.length} fila{progress.skipped.length === 1 ? "" : "s"}{" "}
+                        omitida{progress.skipped.length === 1 ? "" : "s"}:
+                      </p>
+                      <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                        {progress.skipped.map((s) => (
+                          <li key={s.row}>
+                            Fila {s.row}: {s.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
 
+          {importError && <p className="text-sm text-destructive">{importError}</p>}
+
           {preview && (
             <Button
-              type="submit"
-              disabled={pending || !isMappingComplete(mapping)}
+              type="button"
+              onClick={() => void handleImport()}
+              disabled={importing || !isMappingComplete(mapping)}
               className="w-fit"
             >
-              {pending ? (
+              {importing ? (
                 "Importando..."
               ) : (
                 <>
