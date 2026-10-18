@@ -67,6 +67,12 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   profession: string | null;
 
+  // Manual override for "fecha de primera consulta" — see
+  // PatientsService.findOneWithFirstConsultationDate for why this exists
+  // alongside the computed value instead of replacing it.
+  @Column({ name: 'first_consultation_override', type: 'date', nullable: true })
+  firstConsultationOverride: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

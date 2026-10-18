@@ -20,6 +20,7 @@ function patientPayloadFromFormData(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
   const profession = String(formData.get("profession") ?? "").trim();
   const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
+  const firstConsultationOverride = String(formData.get("firstConsultationOverride") ?? "").trim();
 
   return {
     // Trimmed here too so the UI doesn't round-trip to the API just to
@@ -47,6 +48,7 @@ function patientPayloadFromFormData(formData: FormData) {
     notes: notes || null,
     profession: profession || null,
     insuranceEntityId: insuranceEntityId || null,
+    firstConsultationOverride: firstConsultationOverride || null,
   };
 }
 

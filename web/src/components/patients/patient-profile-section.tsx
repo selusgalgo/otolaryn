@@ -245,12 +245,23 @@ export function PatientProfileSection({
                   <Input id="province" name="province" defaultValue={patient.province ?? ""} disabled={pending} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Primera consulta</Label>
-                  {/* Ya no es un campo editable — se calcula solo a partir
-                      de la consulta más antigua de Historia clínica, así
-                      que no puede desincronizarse de lo que esta diga. */}
-                  <p className="flex h-9 items-center text-sm">
-                    {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : ""}
+                  <Label htmlFor="firstConsultationOverride" className="text-xs text-muted-foreground">
+                    Primera consulta
+                  </Label>
+                  {/* Sigue calculándose sola desde Historia clínica cuando
+                      hay una consulta registrada — este campo es solo para
+                      cubrir el caso contrario (una primera visita real que
+                      nunca se registró como consulta). Vacío aquí no borra
+                      una fecha calculada, solo dice "no hay nada que anular". */}
+                  <Input
+                    id="firstConsultationOverride"
+                    name="firstConsultationOverride"
+                    type="date"
+                    defaultValue={patient.firstConsultationOverride ?? ""}
+                    disabled={pending}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Solo si la primera consulta no se registró en Historia clínica.
                   </p>
                 </div>
               </CardContent>

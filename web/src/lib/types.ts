@@ -16,6 +16,12 @@ export interface Patient {
   profession: string | null;
   legacyId: string | null;
   insuranceEntityId: string | null;
+  // Manually editable — see the backend DTO comment for why this exists
+  // alongside the computed value below instead of replacing it.
+  firstConsultationOverride: string | null;
+  // Computed (MIN of clinical_entries.visit_date) unless firstConsultationOverride
+  // is set and earlier — see PatientsService.findOneWithFirstConsultationDate.
+  // Only present on GET /patients/:id, not on list/search results.
   firstConsultationDate: string | null;
   createdAt: string;
   deletedAt: string | null;

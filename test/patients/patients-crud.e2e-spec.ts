@@ -26,6 +26,7 @@ interface PatientResponse {
   address: string | null;
   notes: string | null;
   firstConsultationDate: string | null;
+  firstConsultationOverride: string | null;
   legacyId: string | null;
 }
 
@@ -242,6 +243,87 @@ describe('Patients CRUD', () => {
     expect((after.body as PatientResponse).firstConsultationDate).toBe(
       '2018-02-01',
     );
+  });
+
+  // Covers the real gap firstConsultationOverride exists for: a patient
+  // whose true first visit was never recorded as a clinical entry at all
+  // (common for ones brought in by the legacy import).
+  it('uses firstConsultationOverride when there are no clinical entries to derive a date from', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('override-no-entries'));
+    const id = (created.body as PatientResponse).id;
+
+    await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ firstConsultationOverride: '2005-03-10' });
+
+    const res = await request(server)
+      .get(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((res.body as PatientResponse).firstConsultationOverride).toBe(
+      '2005-03-10',
+    );
+    expect((res.body as PatientResponse).firstConsultationDate).toBe(
+      '2005-03-10',
+    );
+  });
+
+  // The override is a floor for missing history, not a value that shadows
+  // a real, earlier consulta once one gets recorded — otherwise someone
+  // would have to remember to go clear it by hand.
+  it('prefers an earlier real clinical entry over a later firstConsultationOverride', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('override-superseded'));
+    const id = (created.body as PatientResponse).id;
+
+    await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ firstConsultationOverride: '2010-01-01' });
+
+    await request(server)
+      .post(`/patients/${id}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        visitDate: '2003-09-20T10:00:00.000Z',
+        chiefComplaint: 'Primera visita real, registrada después',
+      });
+
+    const res = await request(server)
+      .get(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((res.body as PatientResponse).firstConsultationDate).toBe(
+      '2003-09-20',
+    );
+  });
+
+  it('clears firstConsultationOverride when explicitly set to null', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('override-clear'));
+    const id = (created.body as PatientResponse).id;
+
+    await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ firstConsultationOverride: '2012-07-04' });
+
+    await request(server)
+      .patch(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ firstConsultationOverride: null });
+
+    const res = await request(server)
+      .get(`/patients/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((res.body as PatientResponse).firstConsultationOverride).toBeNull();
+    expect((res.body as PatientResponse).firstConsultationDate).toBeNull();
   });
 
   it('returns 404 for a nonexistent patient id', async () => {

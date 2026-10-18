@@ -170,6 +170,13 @@ export class PatientsService {
   // (create/update/archive/the Consultas and Antecedentes importers) only
   // needs the real Patient entity to merge/save or check existence, not
   // this derived value tacked onto it.
+  //
+  // firstConsultationOverride (see entity/migration comment) covers the
+  // gap that derivation alone can't: a patient whose real first visit has
+  // no clinical_entries row at all. The earlier of the two wins rather
+  // than the override unconditionally winning — once a real consulta is
+  // recorded with an even earlier date, that becomes the answer again on
+  // its own, no one has to remember to clear the override.
   async findOneWithFirstConsultationDate(
     id: string,
     user?: CurrentUserPayload,
@@ -181,12 +188,15 @@ export class PatientsService {
       .select('MIN(ce.visit_date)', 'min')
       .where('ce.patient_id = :id', { id })
       .getRawOne<{ min: Date | null }>();
-    return {
-      ...patient,
-      firstConsultationDate: row?.min
-        ? row.min.toISOString().slice(0, 10)
-        : null,
-    };
+    const computed = row?.min ? row.min.toISOString().slice(0, 10) : null;
+    const override = patient.firstConsultationOverride;
+    const firstConsultationDate =
+      computed && override
+        ? computed < override
+          ? computed
+          : override
+        : (computed ?? override);
+    return { ...patient, firstConsultationDate };
   }
 
   // Used by the Consultas importer to resolve NUMHISTORIA -> patient,

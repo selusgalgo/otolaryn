@@ -121,4 +121,16 @@ export class CreatePatientDto {
   @IsString()
   @MaxLength(50)
   legacyId?: string;
+
+  // Manual override for "fecha de primera consulta" — the field is
+  // normally computed from the patient's earliest clinical entry (see
+  // PatientsService.findOneWithFirstConsultationDate), which can't be set
+  // directly; this exists for the patients that visit predates any
+  // recorded consulta (common for ones brought in by the legacy import).
+  // null explicitly clears a previously-set override, reverting to the
+  // computed value — IsOptional lets that null through untouched instead
+  // of failing IsDateString.
+  @IsOptional()
+  @IsDateString()
+  firstConsultationOverride?: string | null;
 }
