@@ -695,11 +695,19 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(res.status).toBe(400);
   });
 
-  it('hides a patient from profesional until they have an appointment or entry with them, then shows it', async () => {
-    const notYetLinked = await request(server)
+  it('lets a profesional see any patient in the tenant, not only patients they already have an appointment or entry with', async () => {
+    // tenantA.patientId has no appointment/clinical entry with
+    // tokenProfesional at this point — used to 404 here (see git history)
+    // until the clinic asked for every doctor to be able to look up any
+    // patient, e.g. to cover a colleague or check a chart before a first
+    // visit. GET /appointments staying scoped to "mine" is the
+    // complementary behaviour that's explicitly unchanged — see
+    // AppointmentsService.findAll's forced practitionerId filter.
+    const res = await request(server)
       .get(`/patients/${tenantA.patientId}`)
       .set('Authorization', `Bearer ${tokenProfesional}`);
-    expect(notYetLinked.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect((res.body as PatientResponse).id).toBe(tenantA.patientId);
 
     const appointment = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
@@ -711,12 +719,6 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(
       (appointment.body as AppointmentResponse).practitionerId,
     ).toBeTruthy();
-
-    const nowLinked = await request(server)
-      .get(`/patients/${tenantA.patientId}`)
-      .set('Authorization', `Bearer ${tokenProfesional}`);
-    expect(nowLinked.status).toBe(200);
-    expect((nowLinked.body as PatientResponse).id).toBe(tenantA.patientId);
   });
 
   it("blocks profesional from modifying a colleague's appointment", async () => {

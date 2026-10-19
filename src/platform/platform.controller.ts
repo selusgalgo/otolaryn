@@ -14,8 +14,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { CurrentUser } from '../iam/current-user.decorator';
-import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
@@ -136,21 +134,11 @@ export class PlatformController {
   // completely unmodified. RouteTenantContextInterceptor opens the same
   // RLS-scoped transaction TenantContextInterceptor would, just pointed at
   // :id (the clinic superadmin is browsing) instead of the caller's own
-  // tenant. Passing the superadmin's own CurrentUserPayload through is
-  // harmless: findAll() only special-cases role === 'profesional', which
-  // superadmin never is.
+  // tenant.
   @Get(':id/patients')
   @UseInterceptors(RouteTenantContextInterceptor)
-  findPatients(
-    @CurrentUser() user: CurrentUserPayload,
-    @Query() query: ListPatientsQueryDto,
-  ) {
-    return this.patients.findAll(
-      user,
-      query.page,
-      query.pageSize,
-      query.search,
-    );
+  findPatients(@Query() query: ListPatientsQueryDto) {
+    return this.patients.findAll(query.page, query.pageSize, query.search);
   }
 
   @Get(':id/users')

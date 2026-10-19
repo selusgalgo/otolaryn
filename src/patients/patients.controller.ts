@@ -21,8 +21,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
-import { CurrentUser } from '../iam/current-user.decorator';
-import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
@@ -79,12 +77,8 @@ export class PatientsController {
   }
 
   @Get()
-  findAll(
-    @CurrentUser() user: CurrentUserPayload,
-    @Query() query: ListPatientsQueryDto,
-  ) {
+  findAll(@Query() query: ListPatientsQueryDto) {
     return this.patients.findAll(
-      user,
       query.page,
       query.pageSize,
       query.search,
@@ -98,11 +92,10 @@ export class PatientsController {
   // ParseUUIDPipe) instead of ever reaching this handler.
   @Get('export')
   async export(
-    @CurrentUser() user: CurrentUserPayload,
     @Query() query: ExportPatientsQueryDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const patients = await this.patients.findAllForExport(user, query.search);
+    const patients = await this.patients.findAllForExport(query.search);
     const { buffer, contentType, filename } = buildPatientsExport(
       patients,
       query.format,
@@ -115,11 +108,8 @@ export class PatientsController {
   }
 
   @Get(':id')
-  findOne(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.patients.findOneWithFirstConsultationDate(id, user);
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.patients.findOneWithFirstConsultationDate(id);
   }
 
   @Post()
@@ -288,16 +278,12 @@ export class PatientsController {
   // Bulk version of the same "dar de baja" below (a POST, not DELETE — a
   // DELETE carrying a body is poorly supported by proxies/clients, and
   // this is a list-selection action, not addressing one resource by URL).
-  // Same role restriction, same per-id visibility check, reused as-is —
-  // see PatientsService.bulkSoftDelete.
+  // Same role restriction, reused as-is — see PatientsService.bulkSoftDelete.
   @Post('bulk-delete')
   @Roles('admin', 'profesional')
   @HttpCode(HttpStatus.OK)
-  bulkRemove(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: BulkDeletePatientsDto,
-  ) {
-    return this.patients.bulkSoftDelete(dto.ids, user);
+  bulkRemove(@Body() dto: BulkDeletePatientsDto) {
+    return this.patients.bulkSoftDelete(dto.ids);
   }
 
   // recepcion excluded on purpose — it can create/edit patients to book
@@ -305,10 +291,7 @@ export class PatientsController {
   @Delete(':id')
   @Roles('admin', 'profesional')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
-    await this.patients.softDelete(id, user);
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.patients.softDelete(id);
   }
 }

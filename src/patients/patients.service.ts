@@ -9,7 +9,6 @@ import { Brackets, QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
 import { PatientAntecedente } from '../antecedentes/entities/patient-antecedente.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
-import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import type {
   ImportJobProgress,
   RowOutcome,
@@ -58,30 +57,6 @@ export class PatientsService {
     return this.tenancyContext.manager.getRepository(Patient);
   }
 
-  // "Their" patients aren't a stored relation — a profesional's visibility
-  // is derived from having at least one appointment or clinical entry with
-  // that patient. The subqueries run on the same RLS-scoped connection as
-  // everything else here, so tenant isolation still comes from RLS, not
-  // from this filter (this is an additional narrowing on top of it).
-  private restrictToOwnPatients(
-    qb: SelectQueryBuilder<Patient>,
-    user: CurrentUserPayload,
-  ): void {
-    if (user.role !== 'profesional') {
-      return;
-    }
-    qb.andWhere(
-      `(EXISTS (
-         SELECT 1 FROM appointments ap
-         WHERE ap.patient_id = p.id AND ap.practitioner_id = :ownerId
-       ) OR EXISTS (
-         SELECT 1 FROM clinical_entries ce
-         WHERE ce.patient_id = p.id AND ce.author_user_id = :ownerId
-       ))`,
-      { ownerId: user.userId },
-    );
-  }
-
   // Splits the query into words and requires each one to match *somewhere*
   // (name, documento, or Nº de historia) rather than treating the whole
   // string as one substring against a single field — "Hector Sanchez"
@@ -106,8 +81,14 @@ export class PatientsService {
     });
   }
 
+  // Every role sees every patient in the tenant — a profesional isn't
+  // limited to patients they already have an appointment or clinical
+  // entry with (that restriction existed here before and was removed: a
+  // doctor covering for a colleague, or just checking a chart ahead of a
+  // first visit, needs to find anyone in the clinic). Appointment
+  // visibility is the separate thing that stays scoped to "their own" —
+  // see AppointmentsService.findAll.
   async findAll(
-    user: CurrentUserPayload,
     page: number,
     pageSize: number,
     search?: string,
@@ -123,7 +104,6 @@ export class PatientsService {
     } else {
       qb.orderBy('p.createdAt', 'DESC');
     }
-    this.restrictToOwnPatients(qb, user);
 
     if (search) {
       this.applySearch(qb, search);
@@ -137,12 +117,8 @@ export class PatientsService {
 
   // Same visibility rule as findAll, unpaginated — exporting is "give me
   // everything I can already see", not a separate permission.
-  async findAllForExport(
-    user: CurrentUserPayload,
-    search?: string,
-  ): Promise<Patient[]> {
+  async findAllForExport(search?: string): Promise<Patient[]> {
     const qb = this.repo.createQueryBuilder('p').orderBy('p.createdAt', 'DESC');
-    this.restrictToOwnPatients(qb, user);
 
     if (search) {
       this.applySearch(qb, search);
@@ -151,12 +127,8 @@ export class PatientsService {
     return qb.getMany();
   }
 
-  async findOne(id: string, user?: CurrentUserPayload): Promise<Patient> {
-    const qb = this.repo.createQueryBuilder('p').where('p.id = :id', { id });
-    if (user) {
-      this.restrictToOwnPatients(qb, user);
-    }
-    const patient = await qb.getOne();
+  async findOne(id: string): Promise<Patient> {
+    const patient = await this.repo.findOne({ where: { id } });
     if (!patient) {
       throw new NotFoundException('Paciente no encontrado');
     }
@@ -180,9 +152,8 @@ export class PatientsService {
   // its own, no one has to remember to clear the override.
   async findOneWithFirstConsultationDate(
     id: string,
-    user?: CurrentUserPayload,
   ): Promise<Patient & { firstConsultationDate: string | null }> {
-    const patient = await this.findOne(id, user);
+    const patient = await this.findOne(id);
     const row = await this.tenancyContext.manager
       .getRepository(ClinicalEntry)
       .createQueryBuilder('ce')
@@ -517,27 +488,23 @@ export class PatientsService {
     }
   }
 
-  async softDelete(id: string, user: CurrentUserPayload): Promise<void> {
-    await this.findOne(id, user);
+  async softDelete(id: string): Promise<void> {
+    await this.findOne(id);
     await this.repo.softDelete(id);
   }
 
   // Backs the patients list's bulk "Dar de baja" — reuses softDelete's own
-  // visibility check (findOne, RLS + restrictToOwnPatients) per id instead
-  // of a single multi-row UPDATE, so an id a profesional can't see (or
-  // that's already gone) is reported back as skipped rather than the
-  // whole selection failing or silently affecting fewer rows than
-  // expected.
-  async bulkSoftDelete(
-    ids: string[],
-    user: CurrentUserPayload,
-  ): Promise<BulkDeleteResult> {
+  // existence check (findOne, RLS) per id instead of a single multi-row
+  // UPDATE, so an id that's already gone is reported back as skipped
+  // rather than the whole selection failing or silently affecting fewer
+  // rows than expected.
+  async bulkSoftDelete(ids: string[]): Promise<BulkDeleteResult> {
     const skipped: { id: string; reason: string }[] = [];
     let deleted = 0;
 
     for (const id of ids) {
       try {
-        await this.softDelete(id, user);
+        await this.softDelete(id);
         deleted++;
       } catch (err) {
         if (err instanceof NotFoundException) {
