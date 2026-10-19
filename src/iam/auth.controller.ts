@@ -23,8 +23,9 @@ export class AuthController {
     return this.auth.login(dto.identifier, dto.password);
   }
 
-  // Just echoes fields already carried by the validated JWT — no DB lookup,
-  // so no TenancyContext/TenantContextInterceptor needed here.
+  // Just echoes fields already attached to the request by JwtStrategy —
+  // no extra DB lookup here, agendaAccess included since that strategy
+  // already re-fetches the user row on every request anyway.
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: CurrentUserPayload) {
@@ -32,6 +33,7 @@ export class AuthController {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      agendaAccess: user.agendaAccess,
     };
   }
 }

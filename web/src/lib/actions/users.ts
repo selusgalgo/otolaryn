@@ -53,6 +53,12 @@ export async function updateUserAction(
         username: String(formData.get("username") ?? "").trim(),
         role: String(formData.get("role") ?? ""),
         staffFunction: String(formData.get("staffFunction") ?? ""),
+        // Absent from the FormData entirely when unchecked (standard
+        // checkbox semantics) or when the field isn't rendered at all for
+        // a non-profesional role — either way that's "false", which the
+        // API ignores anyway outside role profesional (see
+        // UsersService.update).
+        agendaAccess: formData.get("agendaAccess") === "on",
       },
     });
   } catch (err) {

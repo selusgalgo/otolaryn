@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CancelAppointmentButton } from "@/components/appointments/cancel-appointment-button";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
 import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
 import { ApiError, apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import { formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, Patient } from "@/lib/types";
@@ -15,6 +16,11 @@ function formatDateTime(iso: string): string {
 
 export default async function AppointmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  const me = await getCurrentUser();
+  if (me.role === "profesional" && !me.agendaAccess) {
+    redirect("/dashboard");
+  }
 
   let appointment: Appointment;
   try {

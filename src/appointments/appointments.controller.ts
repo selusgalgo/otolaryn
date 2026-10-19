@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { AgendaAccessGuard } from '../iam/agenda-access.guard';
 import { CurrentUser } from '../iam/current-user.decorator';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
@@ -23,8 +24,10 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
 // No DELETE here on purpose — cancelling is PATCH { status: 'cancelled' },
 // not removing the row. The appointment stays in the agenda's history.
+// AgendaAccessGuard after RolesGuard — a profesional an admin has turned
+// Agenda access off for loses this whole module, see that guard's comment.
 @Controller()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, AgendaAccessGuard)
 @UseInterceptors(TenantContextInterceptor)
 @Roles('admin', 'profesional', 'recepcion')
 export class AppointmentsController {

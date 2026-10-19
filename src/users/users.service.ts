@@ -108,10 +108,15 @@ export class UsersService {
     if (dto.role !== undefined) user.role = dto.role;
     if (dto.staffFunction !== undefined)
       user.staffFunction = dto.staffFunction || null;
+    if (dto.agendaAccess !== undefined) user.agendaAccess = dto.agendaAccess;
     // Whatever staffFunction ends up as above, it only survives if the
     // user is (still, or now) an admin — same invariant as create(), and
     // what stops a role change away from admin leaving a stale value.
     if (user.role !== 'admin') user.staffFunction = null;
+    // Same spirit for agendaAccess: meaningless outside role 'profesional'
+    // — forced back to true the moment a user stops being one, so the
+    // flag never lingers stale/false on an admin or recepcion account.
+    if (user.role !== 'profesional') user.agendaAccess = true;
 
     try {
       const saved = await this.repo.save(user);
@@ -238,6 +243,7 @@ function stripPasswordHash(user: User): SafeUser {
     role: user.role,
     staffFunction: user.staffFunction,
     active: user.active,
+    agendaAccess: user.agendaAccess,
     createdAt: user.createdAt,
   };
 }

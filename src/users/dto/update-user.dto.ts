@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsOptional,
@@ -40,4 +41,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn([...STAFF_FUNCTIONS, ''])
   staffFunction?: StaffFunction | '';
+
+  // Only meaningful when role is (already, or about to become) profesional
+  // — UsersService.update() forces it back to true otherwise, same
+  // "doesn't apply, don't let it linger stale" spirit as staffFunction
+  // above.
+  @IsOptional()
+  @IsBoolean()
+  agendaAccess?: boolean;
 }

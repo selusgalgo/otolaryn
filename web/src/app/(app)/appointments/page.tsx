@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +9,7 @@ import { NewAppointmentDialog } from "@/components/appointments/new-appointment-
 import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
 import { apiFetch } from "@/lib/api";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
+import { getCurrentUser } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar-grid";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
@@ -31,6 +33,14 @@ export default async function AppointmentsPage({
     openDay?: string;
   }>;
 }) {
+  const me = await getCurrentUser();
+  // Not in the sidebar for a profesional an admin has turned Agenda access
+  // off for, but guard the route itself too — the backend 403s anyway
+  // (AgendaAccessGuard), this just avoids landing on a broken page first.
+  if (me.role === "profesional" && !me.agendaAccess) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
   const practitionerId = params.practitionerId;

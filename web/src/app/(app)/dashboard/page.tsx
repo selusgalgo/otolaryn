@@ -24,12 +24,17 @@ function formatDateTime(iso: string): string {
 export default async function DashboardPage() {
   const date = todayIso();
   const [todayYear, todayMonth] = date.split("-").map(Number); // todayMonth is 1-12
-  const [me, dashboard, monthAppointments, practitioners, schedule] = await Promise.all([
-    getCurrentUser(),
+  const me = await getCurrentUser();
+  // A profesional an admin has turned Agenda access off for loses the
+  // whole module — GET /appointments 403s for them now (AgendaAccessGuard),
+  // so this skips ever calling it instead of letting Promise.all below
+  // reject and take the whole page down with it.
+  const canSeeAgenda = me.role !== "profesional" || me.agendaAccess;
+  const [dashboard, monthAppointments, practitioners, schedule] = await Promise.all([
     apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
     // Feeds the calendar's initial month — see AgendaCalendar, which takes
     // over with its own fetches (getMonthAppointmentsAction) on navigation.
-    getMonthAppointmentsAction(todayYear, todayMonth - 1),
+    canSeeAgenda ? getMonthAppointmentsAction(todayYear, todayMonth - 1) : Promise.resolve([]),
     getPractitionerOptions(),
     // Read-only for every tenant role here too (see SettingsController) —
     // needed to color each day by occupancy, same as Agenda's calendar.
@@ -56,13 +61,15 @@ export default async function DashboardPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Hola, {me.firstName}</h1>
 
-      <AgendaCalendar
-        initialYear={todayYear}
-        initialMonth={todayMonth - 1}
-        initialAppointments={monthAppointments}
-        practitioners={practitioners}
-        schedule={schedule}
-      />
+      {canSeeAgenda && (
+        <AgendaCalendar
+          initialYear={todayYear}
+          initialMonth={todayMonth - 1}
+          initialAppointments={monthAppointments}
+          practitioners={practitioners}
+          schedule={schedule}
+        />
+      )}
 
       {dashboard.clinicalEntries !== null && (
         <Card>

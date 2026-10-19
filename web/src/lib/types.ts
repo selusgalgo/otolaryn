@@ -83,10 +83,15 @@ export interface Me {
   firstName: string;
   lastName: string;
   role: Role;
+  // Only meaningful for role "profesional" — always true for every other
+  // role. An admin-controlled toggle, not tied to `active`.
+  agendaAccess: boolean;
 }
 
 export interface TodayDashboard {
-  appointments: Appointment[];
+  // Omitted (null), not just empty, for a profesional an admin has turned
+  // Agenda access off for — see AgendaAccessGuard on the backend.
+  appointments: Appointment[] | null;
   // Omitted (null), not just empty, for recepcion — that role has no
   // access to clinical content at all.
   clinicalEntries: ClinicalEntry[] | null;
@@ -102,6 +107,7 @@ export interface AppUser {
   role: Role;
   staffFunction: StaffFunction | null;
   active: boolean;
+  agendaAccess: boolean;
   createdAt: string;
 }
 

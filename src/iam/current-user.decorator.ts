@@ -7,6 +7,11 @@ export interface CurrentUserPayload {
   role: string;
   firstName: string;
   lastName: string;
+  // Re-fetched from the DB on every request by JwtStrategy.validate (same
+  // query as the `active` check) — never trust a stale copy of this from
+  // anywhere else, an admin flipping it needs to take effect immediately,
+  // not at the profesional's next login.
+  agendaAccess: boolean;
 }
 
 // Pulls the object JwtStrategy.validate() attached as request.user, so

@@ -788,6 +788,104 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(bulkDelete.status).toBe(403);
   });
 
+  // agendaAccess: an admin-controlled, per-profesional toggle — see
+  // AgendaAccessGuard. A dedicated secondary user here, never the shared
+  // tokenProfesional, so toggling it off doesn't disturb every other test
+  // in this file that relies on that one always being able to see the
+  // Agenda.
+  it('lets admin take Agenda access away from one profesional, enforced immediately on their already-issued token, and restore it', async () => {
+    const email = `roles-agenda-toggle-${Date.now()}@rls-test.local`;
+    const password = 'RolesTest-AgendaToggle1!';
+    const created = await request(server)
+      .post('/users')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        email,
+        firstName: 'Con',
+        lastName: 'Agenda',
+        password,
+        role: 'profesional',
+      });
+    expect(created.status).toBe(201);
+    // True by default — nobody loses access until an admin deliberately
+    // flips it.
+    expect((created.body as UserResponse).agendaAccess).toBe(true);
+    const userId = (created.body as UserResponse).id;
+
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ identifier: email, password });
+    const token = (login.body as LoginResponse).accessToken;
+
+    const before = await request(server)
+      .get('/appointments')
+      .set('Authorization', `Bearer ${token}`);
+    expect(before.status).toBe(200);
+
+    const toggledOff = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ agendaAccess: false });
+    expect(toggledOff.status).toBe(200);
+    expect((toggledOff.body as UserResponse).agendaAccess).toBe(false);
+
+    // Same token as `before`, no new login — the block has to be live
+    // against the DB (JwtStrategy.validate), not baked into the JWT.
+    const listBlocked = await request(server)
+      .get('/appointments')
+      .set('Authorization', `Bearer ${token}`);
+    expect(listBlocked.status).toBe(403);
+
+    const createBlocked = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ scheduledAt: '2027-09-10T09:00:00.000Z', durationMinutes: 30 });
+    expect(createBlocked.status).toBe(403);
+
+    // Dashboard's "Hoy" view embeds a full appointments calendar too —
+    // losing the Agenda module has to mean losing this as well, not just
+    // the /appointments route itself.
+    const today = await request(server)
+      .get('/dashboard/today?date=2027-09-10')
+      .set('Authorization', `Bearer ${token}`);
+    expect(today.status).toBe(200);
+    expect((today.body as { appointments: unknown }).appointments).toBeNull();
+
+    const toggledOn = await request(server)
+      .patch(`/users/${userId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ agendaAccess: true });
+    expect(toggledOn.status).toBe(200);
+    expect((toggledOn.body as UserResponse).agendaAccess).toBe(true);
+
+    const listRestored = await request(server)
+      .get('/appointments')
+      .set('Authorization', `Bearer ${token}`);
+    expect(listRestored.status).toBe(200);
+  });
+
+  it('never applies agendaAccess=false to admin or recepcion — always forced back to true', async () => {
+    for (const token of [tokenAdmin, tokenRecepcion]) {
+      const ownId = decodeSub(token);
+
+      // No `role` in the body — UsersService.update() forces agendaAccess
+      // back to true for whatever the user's role already is (not just
+      // one it's being changed to), so this alone is enough to prove the
+      // flag never sticks outside role 'profesional'.
+      const res = await request(server)
+        .patch(`/users/${ownId}`)
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ agendaAccess: false });
+      expect(res.status).toBe(200);
+      expect((res.body as UserResponse).agendaAccess).toBe(true);
+
+      const stillWorks = await request(server)
+        .get('/appointments')
+        .set('Authorization', `Bearer ${token}`);
+      expect(stillWorks.status).toBe(200);
+    }
+  });
+
   it("only lists a profesional's own appointments, never a colleague's", async () => {
     const own = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)

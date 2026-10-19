@@ -36,6 +36,10 @@ const NAV_ITEMS: {
   // repeated in the sidebar list too. Mobile's bottom nav has no ⋮ menu
   // though, so it still needs its own entry here to stay reachable there.
   hideFromDesktopNav?: boolean;
+  // Narrower than `roles` — a profesional an admin has turned Agenda
+  // access off for still has role "profesional", so the roles list alone
+  // can't hide this one for them; see AgendaAccessGuard on the backend.
+  hidden?: (me: Me) => boolean;
 }[] = [
   {
     href: "/dashboard",
@@ -54,6 +58,7 @@ const NAV_ITEMS: {
     label: "Agenda",
     icon: CalendarDaysIcon,
     roles: ["admin", "profesional", "recepcion"],
+    hidden: (me) => me.role === "profesional" && !me.agendaAccess,
   },
   {
     href: "/users",
@@ -70,9 +75,11 @@ const NAV_ITEMS: {
   },
 ];
 
-function NavLinks({ role }: { role: Role }) {
+function NavLinks({ me }: { me: Me }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role) && !item.hideFromDesktopNav);
+  const items = NAV_ITEMS.filter(
+    (item) => item.roles.includes(me.role) && !item.hideFromDesktopNav && !item.hidden?.(me),
+  );
 
   return (
     <nav className="flex-1 space-y-1 p-3">
@@ -99,9 +106,9 @@ function NavLinks({ role }: { role: Role }) {
 }
 
 // Bottom tab bar, mobile only — icon-over-label, native-app style.
-function MobileBottomNav({ role }: { role: Role }) {
+function MobileBottomNav({ me }: { me: Me }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(me.role) && !item.hidden?.(me));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-primary-foreground/10 bg-primary pb-[env(safe-area-inset-bottom)] md:hidden">
@@ -191,7 +198,7 @@ export function Sidebar({ me }: { me: Me }) {
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
           <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
         </Link>
-        <NavLinks role={me.role} />
+        <NavLinks me={me} />
         <UserMenu me={me} />
       </aside>
 
@@ -222,7 +229,7 @@ export function Sidebar({ me }: { me: Me }) {
         </div>
       </header>
 
-      <MobileBottomNav role={me.role} />
+      <MobileBottomNav me={me} />
     </>
   );
 }

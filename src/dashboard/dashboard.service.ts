@@ -5,7 +5,11 @@ import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { TenancyContext } from '../tenancy/tenancy-context';
 
 export interface TodayDashboard {
-  appointments: Appointment[];
+  // Omitted entirely (not just empty) for a profesional whose Agenda
+  // access an admin has turned off — see AgendaAccessGuard. Losing the
+  // Agenda module has to mean losing this too, or Inicio would just
+  // quietly show the same citas the module itself now refuses.
+  appointments: Appointment[] | null;
   // Omitted entirely (not just empty) for recepcion — that role has no
   // access to clinical content at all.
   clinicalEntries: ClinicalEntry[] | null;
@@ -26,27 +30,32 @@ export class DashboardService {
     const dayStart = new Date(`${date}T00:00:00.000Z`);
     const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
-    const appointmentsQb = this.tenancyContext.manager
-      .getRepository(Appointment)
-      .createQueryBuilder('a')
-      .where('a.scheduledAt >= :dayStart AND a.scheduledAt <= :dayEnd', {
-        dayStart,
-        dayEnd,
-      })
-      .orderBy('a.scheduledAt', 'ASC');
+    const hasAgendaAccess = user.role !== 'profesional' || user.agendaAccess;
+    let appointments: Appointment[] | null = null;
 
-    // profesional: only their own agenda (plus unassigned slots, which
-    // shouldn't exist going forward now that practitionerId is required on
-    // create, but old data may still have some). admin/recepcion: the
-    // whole clinic's agenda for the day.
-    if (user.role === 'profesional') {
-      appointmentsQb.andWhere(
-        '(a.practitionerId IS NULL OR a.practitionerId = :userId)',
-        { userId: user.userId },
-      );
+    if (hasAgendaAccess) {
+      const appointmentsQb = this.tenancyContext.manager
+        .getRepository(Appointment)
+        .createQueryBuilder('a')
+        .where('a.scheduledAt >= :dayStart AND a.scheduledAt <= :dayEnd', {
+          dayStart,
+          dayEnd,
+        })
+        .orderBy('a.scheduledAt', 'ASC');
+
+      // profesional: only their own agenda (plus unassigned slots, which
+      // shouldn't exist going forward now that practitionerId is required
+      // on create, but old data may still have some). admin/recepcion:
+      // the whole clinic's agenda for the day.
+      if (user.role === 'profesional') {
+        appointmentsQb.andWhere(
+          '(a.practitionerId IS NULL OR a.practitionerId = :userId)',
+          { userId: user.userId },
+        );
+      }
+
+      appointments = await appointmentsQb.getMany();
     }
-
-    const appointments = await appointmentsQb.getMany();
 
     if (user.role === 'recepcion') {
       return { appointments, clinicalEntries: null };

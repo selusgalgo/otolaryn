@@ -1,7 +1,9 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { redirect } from "next/navigation";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { PatientPicker } from "@/components/appointments/patient-picker";
 import { createAppointmentForPatientAction } from "@/lib/actions/appointments";
+import { getCurrentUser } from "@/lib/auth";
 import { getPractitionerOptions } from "@/lib/practitioners";
 
 export default async function NewAppointmentPage({
@@ -9,6 +11,11 @@ export default async function NewAppointmentPage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  const me = await getCurrentUser();
+  if (me.role === "profesional" && !me.agendaAccess) {
+    redirect("/dashboard");
+  }
+
   const [practitioners, { date }] = await Promise.all([getPractitionerOptions(), searchParams]);
 
   return (

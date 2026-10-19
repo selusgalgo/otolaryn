@@ -136,6 +136,21 @@ export function EditUserDialog({
               ))}
             </select>
           </div>
+          {role === "profesional" && (
+            <div className="flex items-center gap-2">
+              <input
+                id="editAgendaAccess"
+                name="agendaAccess"
+                type="checkbox"
+                defaultChecked={user.agendaAccess}
+                disabled={dataPending}
+                className="size-4 rounded border-input"
+              />
+              <Label htmlFor="editAgendaAccess" className="font-normal">
+                Acceso a la Agenda
+              </Label>
+            </div>
+          )}
           {role === "admin" && (
             <div className="space-y-2">
               <Label htmlFor="editStaffFunction">Función adicional</Label>

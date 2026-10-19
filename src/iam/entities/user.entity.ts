@@ -60,6 +60,16 @@ export class User {
   @Column({ default: true })
   active: boolean;
 
+  // Only meaningful for role = 'profesional' — admin/recepcion are never
+  // checked against this (see AgendaAccessGuard) and UsersService.update()
+  // forces it back to true the moment a user stops being 'profesional',
+  // so it never lingers stale. Lets an admin take the Agenda module away
+  // from a specific doctor (can't see it, can't book/edit a cita) without
+  // touching their role. True by default — nobody loses access until an
+  // admin deliberately flips this.
+  @Column({ name: 'agenda_access', default: true })
+  agendaAccess: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
