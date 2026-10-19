@@ -75,6 +75,15 @@ export function formatDocumentId(documentId: string | null): string {
   return documentId && !documentId.startsWith("SIN-DOC-") ? documentId : "-";
 }
 
+// "Nº de historia" below 100 pads to 3 digits (001, 010, 025...) so it
+// doesn't read as a stray single/double digit next to the patient's name
+// — 100 and above are already 3+ digits, so padStart is a no-op for them.
+// Only numeric legacyId values get padded; a non-numeric one (free text
+// some clinics use instead) is shown exactly as stored.
+export function formatLegacyId(legacyId: string): string {
+  return /^\d+$/.test(legacyId) ? legacyId.padStart(3, "0") : legacyId;
+}
+
 // A compact one-line preview of rich-text HTML (Motivo, in the Historia
 // clínica table) — a table row has no room for real headings/lists, so
 // this collapses block boundaries to spaces and drops every tag rather

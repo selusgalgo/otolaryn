@@ -13,7 +13,7 @@ import { updatePatientAction, type PatientFormState } from "@/lib/actions/patien
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
-import { calculateAge, formatDateOnly, formatDocumentId } from "@/lib/utils";
+import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
 
 interface PatientProfileSectionProps {
   patient: Patient;
@@ -295,8 +295,15 @@ export function PatientProfileSection({
                   <CameraIcon className="size-3.5" />
                 </button>
               </div>
-              <div className="text-lg font-bold">
-                {patient.firstName} {patient.lastName}
+              <div>
+                <div className="text-lg font-bold">
+                  {patient.firstName} {patient.lastName}
+                </div>
+                {patient.legacyId && (
+                  <div className="text-xs text-muted-foreground">
+                    Nº de historia: {formatLegacyId(patient.legacyId)}
+                  </div>
+                )}
               </div>
               <div className="space-y-2 text-sm">
                 <div>{documentDisplay === "-" ? "" : documentDisplay}</div>
