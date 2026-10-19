@@ -81,7 +81,8 @@ export default async function PatientsPage({
         <div className="flex items-center gap-2">
           <PatientsActionsMenu
             antecedenteTypes={antecedenteTypes ?? undefined}
-            showImportClinicalEntries={me.role !== "recepcion"}
+            canManagePatientData={me.role !== "profesional"}
+            showImportClinicalEntries={me.role === "admin"}
             practitioners={practitionerOptions}
             search={search}
           />
@@ -120,11 +121,12 @@ export default async function PatientsPage({
         key={`${page}-${search}-${sortBy ?? ""}-${sortDir}`}
         patients={result.data}
         emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
-        // recepcion puede crear/editar pacientes para dar citas, pero
-        // archivar (dar de baja) es una decisión clínica/administrativa —
-        // el backend ya devuelve 403 para ese rol en ambas rutas de baja,
-        // esto solo evita ofrecer un botón que siempre fallaría.
-        canArchive={me.role !== "recepcion"}
+        // profesional/recepcion pueden crear/editar pacientes para dar
+        // citas, pero archivar (dar de baja) es una decisión solo de
+        // admin — el backend ya devuelve 403 para esos roles en ambas
+        // rutas de baja, esto solo evita ofrecer un botón que siempre
+        // fallaría.
+        canArchive={me.role === "admin"}
         insuranceOptions={insuranceOptions}
         search={search}
         sortBy={sortBy}

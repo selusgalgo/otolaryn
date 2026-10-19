@@ -89,8 +89,12 @@ export class PatientsController {
 
   // Must come before @Get(':id') — Express matches routes in registration
   // order, so "export" would otherwise be captured as :id (and rejected by
-  // ParseUUIDPipe) instead of ever reaching this handler.
+  // ParseUUIDPipe) instead of ever reaching this handler. profesional
+  // excluded from here down (export/import/import-update) — bulk data
+  // operations on the whole patient list are an admin/recepcion thing,
+  // not a clinical one.
   @Get('export')
+  @Roles('admin', 'recepcion')
   async export(
     @Query() query: ExportPatientsQueryDto,
     @Res({ passthrough: true }) res: Response,
@@ -125,6 +129,7 @@ export class PatientsController {
   // encaja con ninguna sugerencia, que es justo el caso que este paso
   // existe para cubrir.
   @Post('import/preview')
+  @Roles('admin', 'recepcion')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
@@ -143,6 +148,7 @@ export class PatientsController {
   }
 
   @Post('import')
+  @Roles('admin', 'recepcion')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async import(
     @UploadedFile() file?: Express.Multer.File,
@@ -196,6 +202,7 @@ export class PatientsController {
   // once per animation frame of the progress bar) until status is
   // 'completed'.
   @Post('import/:jobId/continue')
+  @Roles('admin', 'recepcion')
   continueImport(@Param('jobId', ParseUUIDPipe) jobId: string) {
     return this.patients.continueBulkImportJob(jobId, IMPORT_BATCH_SIZE);
   }
@@ -205,6 +212,7 @@ export class PatientsController {
   // existentes: solo toca Primera consulta y antecedentes, localizando al
   // paciente por su Nº de historia — ver PatientsService.updateRow.
   @Post('import-update/preview')
+  @Roles('admin', 'recepcion')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async previewUpdate(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
@@ -223,6 +231,7 @@ export class PatientsController {
   }
 
   @Post('import-update')
+  @Roles('admin', 'recepcion')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async importUpdate(
     @UploadedFile() file?: Express.Multer.File,
@@ -263,6 +272,7 @@ export class PatientsController {
   }
 
   @Post('import-update/:jobId/continue')
+  @Roles('admin', 'recepcion')
   continueImportUpdate(@Param('jobId', ParseUUIDPipe) jobId: string) {
     return this.patients.continueBulkUpdateJob(jobId, IMPORT_BATCH_SIZE);
   }
@@ -280,16 +290,16 @@ export class PatientsController {
   // this is a list-selection action, not addressing one resource by URL).
   // Same role restriction, reused as-is — see PatientsService.bulkSoftDelete.
   @Post('bulk-delete')
-  @Roles('admin', 'profesional')
+  @Roles('admin')
   @HttpCode(HttpStatus.OK)
   bulkRemove(@Body() dto: BulkDeletePatientsDto) {
     return this.patients.bulkSoftDelete(dto.ids);
   }
 
-  // recepcion excluded on purpose — it can create/edit patients to book
-  // appointments, but discharging one is a clinical/admin decision.
+  // profesional/recepcion excluded on purpose — discharging a patient is
+  // an admin-only decision, not a clinical or front-desk one.
   @Delete(':id')
-  @Roles('admin', 'profesional')
+  @Roles('admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.patients.softDelete(id);

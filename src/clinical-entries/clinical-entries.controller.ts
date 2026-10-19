@@ -83,8 +83,11 @@ export class ClinicalEntriesController {
   // /patients/import/preview — lee columnas y unas filas de muestra sin
   // crear nada, para que la persona confirme el mapeo (incluida qué
   // columna es NUMHISTORIA/Aseguradora/Doctor) antes de importar de
-  // verdad.
+  // verdad. profesional excluido de aquí en adelante (import/doctors/
+  // import/import/continue) — importar en bloque es cosa de admin, no una
+  // acción clínica del día a día.
   @Post('clinical-entries/import/preview')
+  @Roles('admin')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
@@ -104,6 +107,7 @@ export class ClinicalEntriesController {
   // persona elija a qué profesional corresponde cada uno antes de
   // importar. Vacío si no se mapeó ninguna columna de doctor.
   @Post('clinical-entries/import/doctors')
+  @Roles('admin')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   importDoctors(
     @UploadedFile() file?: Express.Multer.File,
@@ -130,6 +134,7 @@ export class ClinicalEntriesController {
   // doctorMapping (nombre del fichero -> id de usuario, confirmado en el
   // paso anterior) resuelve el autor de cada consulta.
   @Post('clinical-entries/import')
+  @Roles('admin')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   import(
     @UploadedFile() file?: Express.Multer.File,
@@ -171,6 +176,7 @@ export class ClinicalEntriesController {
   }
 
   @Post('clinical-entries/import/:jobId/continue')
+  @Roles('admin')
   continueImport(@Param('jobId', ParseUUIDPipe) jobId: string) {
     return this.clinicalEntries.continueBulkImportJob(jobId, IMPORT_BATCH_SIZE);
   }

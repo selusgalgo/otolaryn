@@ -37,6 +37,10 @@ interface PatientResponse {
   id: string;
 }
 
+interface PaginatedAppointments {
+  data: AppointmentResponse[];
+}
+
 const PROFESIONAL_PASSWORD = 'RolesTest-Profesional1!';
 const RECEPCION_PASSWORD = 'RolesTest-Recepcion1!';
 const SUPERADMIN_PASSWORD = 'RolesTest-Superadmin1!';
@@ -719,6 +723,112 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(
       (appointment.body as AppointmentResponse).practitionerId,
     ).toBeTruthy();
+  });
+
+  // Bulk data operations on the whole patient list (import/export/dar de
+  // baja) stay admin-only (export/import also open to recepcion) — being
+  // able to see every patient doesn't mean a profesional can mass-edit or
+  // discharge them. Guards run before multer's FileInterceptor, so these
+  // import routes 403 before ever looking at the (missing) request body.
+  it('blocks profesional from every patients bulk-data route (import/export/dar de baja)', async () => {
+    const exportRes = await request(server)
+      .get('/patients/export?format=csv')
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(exportRes.status).toBe(403);
+
+    const importPreview = await request(server)
+      .post('/patients/import/preview')
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(importPreview.status).toBe(403);
+
+    const updatePreview = await request(server)
+      .post('/patients/import-update/preview')
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(updatePreview.status).toBe(403);
+
+    const clinicalImportPreview = await request(server)
+      .post('/clinical-entries/import/preview')
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(clinicalImportPreview.status).toBe(403);
+
+    const bulkDelete = await request(server)
+      .post('/patients/bulk-delete')
+      .set('Authorization', `Bearer ${tokenProfesional}`)
+      .send({ ids: [tenantA.patientId] });
+    expect(bulkDelete.status).toBe(403);
+
+    const singleDelete = await request(server)
+      .delete(`/patients/${tenantA.patientId}`)
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(singleDelete.status).toBe(403);
+  });
+
+  it('lets recepcion export/import patients but not dar de baja or import consultas', async () => {
+    const exportRes = await request(server)
+      .get('/patients/export?format=csv')
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(exportRes.status).toBe(200);
+
+    const importPreview = await request(server)
+      .post('/patients/import/preview')
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    // 400 (no file attached), not 403 — confirms the role check let it
+    // through to the handler.
+    expect(importPreview.status).toBe(400);
+
+    const clinicalImportPreview = await request(server)
+      .post('/clinical-entries/import/preview')
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(clinicalImportPreview.status).toBe(403);
+
+    const bulkDelete = await request(server)
+      .post('/patients/bulk-delete')
+      .set('Authorization', `Bearer ${tokenRecepcion}`)
+      .send({ ids: [tenantA.patientId] });
+    expect(bulkDelete.status).toBe(403);
+  });
+
+  it("only lists a profesional's own appointments, never a colleague's", async () => {
+    const own = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenProfesional}`)
+      .send({ scheduledAt: '2027-08-20T09:00:00.000Z', durationMinutes: 30 });
+    expect(own.status).toBe(201);
+    const ownId = (own.body as AppointmentResponse).id;
+
+    // Assigned to the admin's own user id — any iam.users id works as a
+    // practitioner FK-wise, and the point here is just that it's *not*
+    // tokenProfesional's own id.
+    const colleague = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        scheduledAt: '2027-08-20T10:00:00.000Z',
+        durationMinutes: 30,
+        practitionerId: decodeSub(tokenAdmin),
+      });
+    expect(colleague.status).toBe(201);
+    const colleagueId = (colleague.body as AppointmentResponse).id;
+
+    const list = await request(server)
+      .get('/appointments?pageSize=100')
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(list.status).toBe(200);
+    const ids = (list.body as PaginatedAppointments).data.map((a) => a.id);
+    expect(ids).toContain(ownId);
+    expect(ids).not.toContain(colleagueId);
+
+    // A profesional can't widen the list by asking for someone else's
+    // practitionerId either — see AppointmentsService.findAll, the filter
+    // is forced, not just defaulted.
+    const triedToWiden = await request(server)
+      .get(`/appointments?practitionerId=${decodeSub(tokenAdmin)}&pageSize=100`)
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(triedToWiden.status).toBe(200);
+    const widenedIds = (triedToWiden.body as PaginatedAppointments).data.map(
+      (a) => a.id,
+    );
+    expect(widenedIds).not.toContain(colleagueId);
   });
 
   it("blocks profesional from modifying a colleague's appointment", async () => {
