@@ -20,11 +20,6 @@ interface PatientProfileSectionProps {
   insuranceOptions?: InsuranceOption[];
   insuranceName?: string;
   practitionerOptions?: PractitionerOption[] | null;
-  // Only admin/profesional — same clinical-data boundary as Historia
-  // clínica/Antecedentes/Consultas on this same page (the ficha PDF embeds
-  // all three), so this is omitted entirely for recepcion rather than
-  // shown disabled.
-  showPdfExport?: boolean;
 }
 
 const initialState: PatientFormState = {};
@@ -39,7 +34,6 @@ export function PatientProfileSection({
   insuranceOptions,
   insuranceName,
   practitionerOptions,
-  showPdfExport,
 }: PatientProfileSectionProps) {
   const [editing, setEditing] = useState(false);
   // formatDocumentId returns "-" for a missing/placeholder document — blank
@@ -66,14 +60,12 @@ export function PatientProfileSection({
         </div>
         {!editing && (
           <div className="flex gap-2">
-            {showPdfExport && (
-              <Button variant="outline" asChild>
-                <a href={`/patients/${patient.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                  <ArrowDownTrayIcon data-icon="inline-start" />
-                  Imprimir
-                </a>
-              </Button>
-            )}
+            <Button variant="outline" asChild>
+              <a href={`/patients/${patient.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                <ArrowDownTrayIcon data-icon="inline-start" />
+                Imprimir
+              </a>
+            </Button>
             <Button variant="outline" onClick={() => setEditing(true)}>
               <PencilIcon data-icon="inline-start" />
               Editar

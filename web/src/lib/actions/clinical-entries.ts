@@ -45,3 +45,15 @@ export async function createClinicalEntryAction(
   revalidatePath(`/patients/${patientId}`);
   redirect(`/patients/${patientId}/clinical-entries/${entry.id}`);
 }
+
+// Admin only — el backend ya devuelve 403 para cualquier otro rol (ver
+// ClinicalEntriesController). Soft delete: la consulta desaparece de la
+// ficha del paciente, pero el registro no se borra de verdad.
+export async function deleteClinicalEntryAction(
+  patientId: string,
+  entryId: string,
+): Promise<void> {
+  await apiFetch(`/clinical-entries/${entryId}`, { method: "DELETE" });
+  revalidatePath(`/patients/${patientId}`);
+  redirect(`/patients/${patientId}`);
+}

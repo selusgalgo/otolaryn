@@ -2,7 +2,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -46,11 +49,15 @@ function parseJsonBody<T>(
   }
 }
 
-// No PATCH, no DELETE anywhere here on purpose — clinical_entries is
-// append-only. A correction is a new entry, not an edit to history.
+// No PATCH anywhere here on purpose — clinical_entries stays append-only
+// for corrections: a mistake is fixed with a new entry, not an edit to
+// history. DELETE is the one, narrow, admin-only exception — see
+// ClinicalEntriesService.softDelete.
 //
-// recepcion is deliberately excluded from @Roles here — clinical history is
-// off-limits to that role entirely, unlike patients/appointments.
+// recepcion can read (list/view a patient's consultas, print their PDFs)
+// but never create, import or delete — those three stay admin/profesional
+// only, same clinical-authorship boundary as before, just no longer a
+// blanket "no access at all" for this role.
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantContextInterceptor)
@@ -68,6 +75,7 @@ export class ClinicalEntriesController {
   }
 
   @Get('patients/:patientId/clinical-entries')
+  @Roles('admin', 'profesional', 'recepcion')
   findAllForPatient(
     @Param('patientId', ParseUUIDPipe) patientId: string,
     @Query() query: ListClinicalEntriesQueryDto,
@@ -182,7 +190,19 @@ export class ClinicalEntriesController {
   }
 
   @Get('clinical-entries/:id')
+  @Roles('admin', 'profesional', 'recepcion')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.clinicalEntries.findOne(id);
+  }
+
+  // Admin only — ver ClinicalEntriesService.softDelete. No está pensado
+  // para que un profesional "borre" una consulta propia; una corrección
+  // sigue siendo una entrada nueva, esto es solo para quitar un error
+  // real (paciente equivocado, duplicado de importación).
+  @Delete('clinical-entries/:id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.clinicalEntries.softDelete(id);
   }
 }

@@ -310,4 +310,14 @@ export class ClinicalEntriesService {
     }
     return entry;
   }
+
+  // Admin-only override of the append-only rule (see entity comment) — a
+  // mistaken entry (paciente equivocado, dato de prueba, duplicado de una
+  // importación) needs a way out. Soft delete: the row stays, so a PDF or
+  // an old link to it never 500s, it just stops showing up anywhere
+  // findOne()/findAllForPatient() etc. are used.
+  async softDelete(id: string): Promise<void> {
+    await this.findOne(id);
+    await this.repo.softDelete(id);
+  }
 }

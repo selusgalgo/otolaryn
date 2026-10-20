@@ -192,7 +192,7 @@ describe('Historia clinica (clinical entries)', () => {
     expect(asOther.status).toBe(404);
   });
 
-  it('exposes no PATCH or DELETE for a clinical entry — history is append-only', async () => {
+  it('exposes no PATCH for a clinical entry — a correction is a new entry, not an edit to history', async () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/clinical-entries`)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -205,17 +205,41 @@ describe('Historia clinica (clinical entries)', () => {
       .send({ diagnosis: 'attempted edit' });
     expect(patchRes.status).toBe(404);
 
-    const deleteRes = await request(server)
-      .delete(`/clinical-entries/${id}`)
-      .set('Authorization', `Bearer ${tokenA}`);
-    expect(deleteRes.status).toBe(404);
-
     const stillThere = await request(server)
       .get(`/clinical-entries/${id}`)
       .set('Authorization', `Bearer ${tokenA}`);
     expect(stillThere.status).toBe(200);
     expect((stillThere.body as ClinicalEntryResponse).diagnosis).not.toBe(
       'attempted edit',
+    );
+  });
+
+  // DELETE itself is admin-only (role boundary covered in
+  // roles.e2e-spec.ts) — tokenA here is tenantA's own admin, so this just
+  // confirms the soft delete's actual effect: the entry disappears from
+  // every normal read, same as a patient's own soft delete.
+  it('soft-deletes a clinical entry: it disappears from GET by id and from the list', async () => {
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(sampleEntry('Se elimina'));
+    const id = (created.body as ClinicalEntryResponse).id;
+
+    const deleteRes = await request(server)
+      .delete(`/clinical-entries/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(deleteRes.status).toBe(204);
+
+    const getAfterDelete = await request(server)
+      .get(`/clinical-entries/${id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(getAfterDelete.status).toBe(404);
+
+    const list = await request(server)
+      .get(`/patients/${tenantA.patientId}/clinical-entries?pageSize=100`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((list.body as PaginatedEntries).data.map((e) => e.id)).not.toContain(
+      id,
     );
   });
 });

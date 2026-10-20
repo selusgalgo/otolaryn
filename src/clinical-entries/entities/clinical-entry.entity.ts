@@ -1,12 +1,15 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-// Append-only by design: no @DeleteDateColumn, no update path in the
-// service/controller. Corrections are new entries, not edits.
+// Append-only by design: no update path in the service/controller —
+// corrections are new entries, not edits. The one exception is deletion:
+// admin can remove a mistaken entry (ClinicalEntriesService.softDelete),
+// same soft-delete pattern as Patient.deletedAt.
 @Entity({ name: 'clinical_entries' })
 export class ClinicalEntry {
   @PrimaryGeneratedColumn('uuid')
@@ -53,4 +56,7 @@ export class ClinicalEntry {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt: Date | null;
 }

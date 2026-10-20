@@ -32,15 +32,12 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   }
 
   const me = await getCurrentUser();
-  // recepcion has no access to clinical history at all — the backend 403s
-  // this endpoint for that role, so it's skipped entirely rather than
-  // fetched and hidden. Antecedentes are clinical data too, same
-  // exclusion.
+  // recepcion can now read Consultas (list + print the ficha/tratamiento
+  // PDFs) but never create one — see ClinicalEntriesController. Antecedentes
+  // stays clinical-only, excluded for that role same as before.
   const [entries, practitioners, insuranceOptions, antecedentes] =
     await Promise.all([
-      me.role === "recepcion"
-        ? null
-        : apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
+      apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
       getPractitionerOptions(),
       getInsuranceOptions(),
       me.role === "recepcion"
@@ -50,6 +47,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
             apiFetch<PatientAntecedente[]>(`/patients/${id}/antecedentes`),
           ]),
     ]);
+  const canCreateClinicalEntries = me.role !== "recepcion";
 
   const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
 
@@ -61,102 +59,103 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         insuranceOptions={insuranceOptions}
         insuranceName={insuranceName}
         practitionerOptions={practitioners}
-        showPdfExport={entries !== null}
       />
 
-      {/* Debajo, a ancho completo: Consultas y Antecedentes (solo
-          admin/profesional, que tienen acceso clínico) y, cerrando la
-          página, la tarjeta de Historia clínica (texto libre) — visible
-          para todos los roles, a diferencia del resto de este bloque.
-          Below md todo se apila en una columna en este mismo orden de
-          arriba a abajo. */}
-      {entries !== null && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Consultas</CardTitle>
+      {/* Debajo, a ancho completo: Consultas (visible para los tres roles
+          desde que recepción puede leerlas, aunque no crearlas) y
+          Antecedentes (solo admin/profesional, que tienen acceso
+          clínico), y, cerrando la página, la tarjeta de Historia clínica
+          (texto libre) — visible para todos los roles. Sin Antecedentes
+          que mostrar al lado, Consultas ocupa el ancho completo. Below md
+          todo se apila en una columna en este mismo orden de arriba a
+          abajo. */}
+      <div className={`grid grid-cols-1 gap-4 ${antecedentes !== null ? "md:grid-cols-[2fr_1fr]" : ""}`}>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Consultas</CardTitle>
+            {canCreateClinicalEntries && (
               <Button asChild size="sm">
                 <Link href={`/patients/${id}/clinical-entries/new`}>
                   <PlusIcon data-icon="inline-start" />
                   Nueva consulta
                 </Link>
               </Button>
-            </CardHeader>
-            <CardContent>
-              {entries.data.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead className="hidden md:table-cell">Doctor</TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.data.map((entry) => {
-                      const authorName = entry.authorName;
-                      return (
-                        <TableRow key={entry.id}>
-                          <TableCell className="whitespace-nowrap">
-                            <Link
-                              href={`/patients/${id}/clinical-entries/${entry.id}`}
-                              className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase hover:bg-slate-200"
-                            >
-                              {formatDate(entry.visitDate)}
+            )}
+          </CardHeader>
+          <CardContent>
+            {entries.data.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead className="hidden md:table-cell">Doctor</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entries.data.map((entry) => {
+                    const authorName = entry.authorName;
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="whitespace-nowrap">
+                          <Link
+                            href={`/patients/${id}/clinical-entries/${entry.id}`}
+                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase hover:bg-slate-200"
+                          >
+                            {formatDate(entry.visitDate)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          {stripHtml(entry.chiefComplaint)}
+                          {/* En escritorio el doctor vive en su propia
+                              columna — en móvil, donde esa columna se
+                              oculta, se muestra aquí debajo para no
+                              perder el dato. */}
+                          {authorName && (
+                            <div className="text-left text-xs text-muted-foreground md:hidden">
+                              {authorName}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">{authorName ?? "—"}</TableCell>
+                        <TableCell>
+                          <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
+                            <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
+                              <EyeIcon />
                             </Link>
-                          </TableCell>
-                          <TableCell>
-                            {stripHtml(entry.chiefComplaint)}
-                            {/* En escritorio el doctor vive en su propia
-                                columna — en móvil, donde esa columna se
-                                oculta, se muestra aquí debajo para no
-                                perder el dato. */}
-                            {authorName && (
-                              <div className="text-left text-xs text-muted-foreground md:hidden">
-                                {authorName}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{authorName ?? "—"}</TableCell>
-                          <TableCell>
-                            <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
-                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
-                                <EyeIcon />
-                              </Link>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-          {antecedentes !== null && (
-            <div className="space-y-4">
-              <PatientAntecedentesCard
-                patientId={id}
-                category="personal"
-                title="Antecedentes personales"
-                types={antecedentes[0].filter((t) => t.category === "personal")}
-                initialMarked={antecedentes[1]}
-              />
-              <PatientAntecedentesCard
-                patientId={id}
-                category="familiar"
-                title="Antecedentes familiares"
-                types={antecedentes[0].filter((t) => t.category === "familiar")}
-                initialMarked={antecedentes[1]}
-              />
-            </div>
-          )}
-        </div>
-      )}
+        {antecedentes !== null && (
+          <div className="space-y-4">
+            <PatientAntecedentesCard
+              patientId={id}
+              category="personal"
+              title="Antecedentes personales"
+              types={antecedentes[0].filter((t) => t.category === "personal")}
+              initialMarked={antecedentes[1]}
+            />
+            <PatientAntecedentesCard
+              patientId={id}
+              category="familiar"
+              title="Antecedentes familiares"
+              types={antecedentes[0].filter((t) => t.category === "familiar")}
+              initialMarked={antecedentes[1]}
+            />
+          </div>
+        )}
+    </div>
 
       <PatientNotesCard patientId={id} notes={patient.notes} />
     </div>

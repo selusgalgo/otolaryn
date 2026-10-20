@@ -4,7 +4,9 @@ import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
+import { DeleteClinicalEntryButton } from "@/components/clinical-entries/delete-clinical-entry-button";
 import { ApiError, apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import type { ClinicalEntry } from "@/lib/types";
 
 function formatDateTime(iso: string): string {
@@ -35,13 +37,18 @@ export default async function ClinicalEntryDetailPage({
     notFound();
   }
 
+  const me = await getCurrentUser();
+
   return (
     <div className="space-y-4">
-      <div>
-        <Link href={`/patients/${id}`} className="text-sm text-muted-foreground hover:underline">
-          ← Volver a la ficha del paciente
-        </Link>
-        <h1 className="text-2xl font-bold">{formatDateTime(entry.visitDate)}</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link href={`/patients/${id}`} className="text-sm text-muted-foreground hover:underline">
+            ← Volver a la ficha del paciente
+          </Link>
+          <h1 className="text-2xl font-bold">{formatDateTime(entry.visitDate)}</h1>
+        </div>
+        {me.role === "admin" && <DeleteClinicalEntryButton patientId={id} entryId={entryId} />}
       </div>
 
       <Card>

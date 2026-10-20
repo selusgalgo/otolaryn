@@ -27,15 +27,17 @@ import { buildPatientRecordPdf } from './patient-record-pdf.util';
 import { PdfService } from './pdf.service';
 import { buildTreatmentPdf } from './treatment-pdf.util';
 
-// Same clinical-data boundary as ClinicalEntriesController/
-// AntecedentesController: recepcion gets neither export — a PDF of the
-// ficha completa embeds Historia clínica and Consultas, and the treatment
-// PDF is a single consulta's own content, both of which that role has no
-// access to anywhere else in the app either.
+// recepcion included — it can now read Consultas too (see
+// ClinicalEntriesController), and printing the ficha completa or a
+// tratamiento for someone at the front desk is a normal ask (e.g. a
+// patient who lost their receta). antecedentes stays out of its reach
+// everywhere else, but it's embedded read-only in this same PDF — no
+// separate antecedentes endpoint is exposed to this role, so that
+// boundary doesn't move.
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantContextInterceptor)
-@Roles('admin', 'profesional')
+@Roles('admin', 'profesional', 'recepcion')
 export class PdfController {
   constructor(
     private readonly pdf: PdfService,

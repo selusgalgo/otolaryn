@@ -197,17 +197,83 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect((loginNewAdmin.body as LoginResponse).accessToken).toBeDefined();
   });
 
-  it('excludes recepcion from clinical entries entirely', async () => {
-    const create = await request(server)
+  it('lets recepcion read clinical entries and print their PDFs, but never create or import them', async () => {
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        chiefComplaint: 'Dolor de garganta',
+        treatment: 'Ibuprofeno 400mg/8h',
+      });
+    expect(created.status).toBe(201);
+    const entryId = (created.body as UserResponse).id;
+
+    const createBlocked = await request(server)
       .post(`/patients/${tenantA.patientId}/clinical-entries`)
       .set('Authorization', `Bearer ${tokenRecepcion}`)
       .send({ chiefComplaint: 'No deberia poder crear esto' });
-    expect(create.status).toBe(403);
+    expect(createBlocked.status).toBe(403);
+
+    const importBlocked = await request(server)
+      .post('/clinical-entries/import/preview')
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(importBlocked.status).toBe(403);
 
     const list = await request(server)
       .get(`/patients/${tenantA.patientId}/clinical-entries`)
       .set('Authorization', `Bearer ${tokenRecepcion}`);
-    expect(list.status).toBe(403);
+    expect(list.status).toBe(200);
+
+    const one = await request(server)
+      .get(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(one.status).toBe(200);
+
+    const fichaPdf = await request(server)
+      .get(`/patients/${tenantA.patientId}/pdf`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(fichaPdf.status).toBe(200);
+
+    const treatmentPdf = await request(server)
+      .get(`/clinical-entries/${entryId}/treatment-pdf`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(treatmentPdf.status).toBe(200);
+
+    const deleteBlocked = await request(server)
+      .delete(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(deleteBlocked.status).toBe(403);
+  });
+
+  it('lets admin delete a clinical entry (soft delete), but not profesional', async () => {
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ chiefComplaint: 'Entrada a eliminar' });
+    expect(created.status).toBe(201);
+    const entryId = (created.body as UserResponse).id;
+
+    const blockedForProfesional = await request(server)
+      .delete(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(blockedForProfesional.status).toBe(403);
+
+    const removed = await request(server)
+      .delete(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(removed.status).toBe(204);
+
+    const stillThere = await request(server)
+      .get(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(stillThere.status).toBe(404);
+
+    const list = await request(server)
+      .get(`/patients/${tenantA.patientId}/clinical-entries?pageSize=100`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(
+      (list.body as { data: { id: string }[] }).data.map((e) => e.id),
+    ).not.toContain(entryId);
   });
 
   it('lets recepcion look up profesionales but not create/manage users', async () => {
