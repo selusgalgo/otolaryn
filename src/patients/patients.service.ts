@@ -207,22 +207,25 @@ export class PatientsService {
     }
   }
 
-  // Atómico en una sola sentencia (INSERT ... ON CONFLICT DO UPDATE ...
-  // RETURNING) — dos altas simultáneas del mismo tenant nunca pueden
-  // recibir el mismo número, a diferencia de leer MAX(legacy_id)+1 y
-  // guardarlo aparte. Si el tenant aún no tiene fila en
-  // patient_number_counters (uno dado de alta después de la migración que
-  // crea la tabla) esta misma sentencia la crea empezando en 1 — no hace
-  // falta sembrarla en ningún otro sitio.
+  // Reconcile with existing histories on every allocation: imports with an
+  // explicit legacyId do not advance the counter. Include archived patients
+  // so their histories are not reused, and ignore nonnumeric legacy IDs.
+  // The atomic upsert also preserves a counter already ahead of MAX and
+  // serializes simultaneous automatic allocations for the same tenant.
   private async assignNextPatientNumber(): Promise<string> {
     const rows = await this.tenancyContext.manager.query<
       { assigned: number }[]
     >(
       `
         INSERT INTO patient_number_counters (tenant_id, next_number)
-        VALUES ($1, 2)
+        SELECT $1, COALESCE(MAX(legacy_id::numeric), 0) + 2
+        FROM public.patients
+        WHERE tenant_id = $1 AND legacy_id ~ '^[0-9]+$'
         ON CONFLICT (tenant_id)
-          DO UPDATE SET next_number = patient_number_counters.next_number + 1
+          DO UPDATE SET next_number = GREATEST(
+            patient_number_counters.next_number + 1,
+            EXCLUDED.next_number
+          )
         RETURNING next_number - 1 AS assigned
       `,
       [this.tenancyContext.tenantId],

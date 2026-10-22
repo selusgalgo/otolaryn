@@ -140,6 +140,78 @@ describe('Patients CRUD', () => {
     expect((res.body as PatientResponse).legacyId).toBe('NH-EXPLICIT-1');
   });
 
+  it('continues above the highest imported history even when the counter already exists', async () => {
+    // The lower value is deliberately inserted last: use numeric MAX,
+    // not text ordering, insertion order, or the first occupied number.
+    for (const legacyId of ['18', '1000', '99', 'NH-9999']) {
+      await request(server)
+        .post('/patients')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ ...samplePatient(`import-number-${legacyId}`), legacyId })
+        .expect(201);
+    }
+
+    const next = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(samplePatient('after-numeric-import'))
+      .expect(201);
+    expect((next.body as PatientResponse).legacyId).toBe('1001');
+  });
+
+  it('allocates different consecutive histories for simultaneous manual creates', async () => {
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, (_, i) =>
+        request(server)
+          .post('/patients')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .send(samplePatient(`concurrent-number-${i}`))
+          .expect(201),
+      ),
+    );
+    const numbers = responses
+      .map((res) => Number((res.body as PatientResponse).legacyId))
+      .sort((a, b) => a - b);
+    expect(numbers).toEqual([1002, 1003, 1004, 1005, 1006]);
+  });
+
+  it('initializes a missing counter above archived histories without using another tenant’s maximum', async () => {
+    const imported = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ ...samplePatient('archived-number'), legacyId: '18' })
+      .expect(201);
+    await request(server)
+      .delete(`/patients/${(imported.body as PatientResponse).id}`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(204);
+
+    const client = await owner.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [
+        tenantB.id,
+      ]);
+      await client.query(
+        'DELETE FROM public.patient_number_counters WHERE tenant_id = $1',
+        [tenantB.id],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const next = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send(samplePatient('after-archived-number'))
+      .expect(201);
+    expect((next.body as PatientResponse).legacyId).toBe('19');
+  });
+
   it("keeps each tenant's auto-assigned Número de historia sequence independent", async () => {
     // Two patients in tenant A first, so its counter is well ahead of
     // wherever tenant B's own sequence happens to be — if the two shared
@@ -587,7 +659,11 @@ describe('Patients CRUD', () => {
       });
     const id = (created.body as PatientResponse).id;
 
-    for (const search of ['Hector Sanchez', 'hector sanchez cardona', 'Sanchez Hector']) {
+    for (const search of [
+      'Hector Sanchez',
+      'hector sanchez cardona',
+      'Sanchez Hector',
+    ]) {
       const res = await request(server)
         .get(`/patients?search=${encodeURIComponent(search)}`)
         .set('Authorization', `Bearer ${tokenA}`);
