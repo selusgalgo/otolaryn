@@ -15,10 +15,10 @@ import {
 import { deleteClinicalEntryAction } from "@/lib/actions/clinical-entries";
 
 // Admin only (el backend ya devuelve 403 a cualquier otro rol) — ver
-// ClinicalEntriesController.remove. Historia clínica es append-only para
-// todo lo demás: esto es la única excepción, pensada para corregir un
-// error real (paciente equivocado, duplicado de una importación), no para
-// "editar" una consulta ya registrada.
+// ClinicalEntriesController.remove. Para "editar" una consulta ya
+// registrada está EditClinicalEntryDialog (admin y profesional); esto es
+// solo para quitar un error real (paciente equivocado, duplicado de una
+// importación).
 export function DeleteClinicalEntryButton({
   patientId,
   entryId,
@@ -34,7 +34,7 @@ export function DeleteClinicalEntryButton({
       <DialogTrigger asChild>
         <Button variant="destructive" size="sm">
           <TrashIcon data-icon="inline-start" />
-          Eliminar consulta
+          Eliminar
         </Button>
       </DialogTrigger>
       <DialogContent>

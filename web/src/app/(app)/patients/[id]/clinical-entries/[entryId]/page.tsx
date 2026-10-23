@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { DeleteClinicalEntryButton } from "@/components/clinical-entries/delete-clinical-entry-button";
+import { EditClinicalEntryDialog } from "@/components/clinical-entries/edit-clinical-entry-dialog";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import type { ClinicalEntry } from "@/lib/types";
@@ -48,7 +49,10 @@ export default async function ClinicalEntryDetailPage({
           </Link>
           <h1 className="text-2xl font-bold">{formatDateTime(entry.visitDate)}</h1>
         </div>
-        {me.role === "admin" && <DeleteClinicalEntryButton patientId={id} entryId={entryId} />}
+        <div className="flex shrink-0 gap-2">
+          {(me.role === "admin" || me.role === "profesional") && <EditClinicalEntryDialog entry={entry} />}
+          {me.role === "admin" && <DeleteClinicalEntryButton patientId={id} entryId={entryId} />}
+        </div>
       </div>
 
       <Card>

@@ -365,3 +365,13 @@ export async function cancelAppointmentAction(id: string): Promise<void> {
   revalidatePath(`/appointments/${id}`);
   redirect(`/appointments/${id}`);
 }
+
+// admin/recepcion only (el backend ya devuelve 403 a cualquier otro rol —
+// ver AppointmentsController.remove). Distinto de cancelar: esto quita la
+// cita de la agenda de verdad (duplicada, hueco de prueba), no la deja
+// visible como "Cancelada" en el histórico.
+export async function deleteAppointmentAction(id: string): Promise<void> {
+  await apiFetch(`/appointments/${id}`, { method: "DELETE" });
+  revalidatePath("/appointments");
+  redirect("/appointments");
+}

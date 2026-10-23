@@ -97,6 +97,14 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+// Cuts plain text (ya pasado por stripHtml, o un nombre) a maxChars y
+// añade "…" — para columnas/listas estrechas (Motivo, Doctor) donde el
+// texto completo rompería el ancho de la fila. No corta HTML; úsalo
+// siempre después de stripHtml si el origen es texto enriquecido.
+export function truncateText(text: string, maxChars: number): string {
+  return text.length > maxChars ? `${text.slice(0, maxChars).trimEnd()}…` : text;
+}
+
 // A few call sites only carry a combined "Nombre Apellidos" string (e.g.
 // PractitionerOption.label) but need firstName/lastName separately to feed
 // InitialsAvatar — split on the first space to reconstruct that shape.

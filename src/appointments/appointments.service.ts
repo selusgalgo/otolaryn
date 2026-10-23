@@ -240,6 +240,16 @@ export class AppointmentsService {
     return appointment;
   }
 
+  // Admin/recepcion only (see AppointmentsController) — distinct from
+  // "Cancelada": that's the normal way to free a slot while keeping the
+  // cita visible in history, this is for a row that shouldn't have
+  // existed (duplicada, hueco de prueba). Soft delete, same as
+  // Patient/ClinicalEntry: the row survives, it just stops showing up.
+  async softDelete(id: string): Promise<void> {
+    await this.findOne(id);
+    await this.repo.softDelete(id);
+  }
+
   async update(
     id: string,
     dto: UpdateAppointmentDto,

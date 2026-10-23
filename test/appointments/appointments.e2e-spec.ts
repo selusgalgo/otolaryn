@@ -289,7 +289,10 @@ describe('Agenda (appointments)', () => {
     expect((res.body as AppointmentResponse).status).toBe('cancelled');
   });
 
-  it('has no DELETE route — cancelling is a status change, not row removal', async () => {
+  // tokenA es el admin del propio tenantA — el límite de roles (solo
+  // admin/recepcion) se cubre en roles.e2e-spec.ts; esto solo confirma el
+  // efecto real del soft delete, igual que para pacientes/consultas.
+  it('soft-deletes an appointment: it disappears from GET by id and from the list', async () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -299,12 +302,19 @@ describe('Agenda (appointments)', () => {
     const del = await request(server)
       .delete(`/appointments/${id}`)
       .set('Authorization', `Bearer ${tokenA}`);
-    expect(del.status).toBe(404);
+    expect(del.status).toBe(204);
 
-    const stillThere = await request(server)
+    const getAfterDelete = await request(server)
       .get(`/appointments/${id}`)
       .set('Authorization', `Bearer ${tokenA}`);
-    expect(stillThere.status).toBe(200);
+    expect(getAfterDelete.status).toBe(404);
+
+    const list = await request(server)
+      .get('/appointments?pageSize=100')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(
+      (list.body as PaginatedAppointments).data.map((a) => a.id),
+    ).not.toContain(id);
   });
 
   it('hides an appointment from a different tenant on GET by id', async () => {

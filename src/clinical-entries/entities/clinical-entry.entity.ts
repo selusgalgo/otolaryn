@@ -6,10 +6,10 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-// Append-only by design: no update path in the service/controller —
-// corrections are new entries, not edits. The one exception is deletion:
-// admin can remove a mistaken entry (ClinicalEntriesService.softDelete),
-// same soft-delete pattern as Patient.deletedAt.
+// admin/profesional can edit an entry in place (ClinicalEntriesService.
+// update, e.g. to fix a typo) and admin can remove one outright
+// (ClinicalEntriesService.softDelete) — same soft-delete pattern as
+// Patient.deletedAt.
 @Entity({ name: 'clinical_entries' })
 export class ClinicalEntry {
   @PrimaryGeneratedColumn('uuid')

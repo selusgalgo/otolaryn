@@ -192,7 +192,10 @@ describe('Historia clinica (clinical entries)', () => {
     expect(asOther.status).toBe(404);
   });
 
-  it('exposes no PATCH for a clinical entry — a correction is a new entry, not an edit to history', async () => {
+  // tokenA es el admin del propio tenantA — el límite de roles (admin y
+  // profesional, nunca recepcion) se cubre en roles.e2e-spec.ts; esto solo
+  // confirma que PATCH edita de verdad y solo lo que se envía.
+  it('edits a clinical entry in place, leaving fields not sent untouched', async () => {
     const created = await request(server)
       .post(`/patients/${tenantA.patientId}/clinical-entries`)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -202,16 +205,14 @@ describe('Historia clinica (clinical entries)', () => {
     const patchRes = await request(server)
       .patch(`/clinical-entries/${id}`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ diagnosis: 'attempted edit' });
-    expect(patchRes.status).toBe(404);
-
-    const stillThere = await request(server)
-      .get(`/clinical-entries/${id}`)
-      .set('Authorization', `Bearer ${tokenA}`);
-    expect(stillThere.status).toBe(200);
-    expect((stillThere.body as ClinicalEntryResponse).diagnosis).not.toBe(
-      'attempted edit',
-    );
+      .send({ diagnosis: 'Diagnóstico corregido' });
+    expect(patchRes.status).toBe(200);
+    const body = patchRes.body as ClinicalEntryResponse;
+    expect(body.diagnosis).toBe('Diagnóstico corregido');
+    // No se envió chiefComplaint ni treatment — deben seguir como se
+    // crearon, no haberse borrado.
+    expect(body.chiefComplaint).toBe(sampleEntry().chiefComplaint);
+    expect(body.treatment).toBe(sampleEntry().treatment);
   });
 
   // DELETE itself is admin-only (role boundary covered in

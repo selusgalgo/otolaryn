@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { EllipsisVerticalIcon, PencilIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon, PencilIcon, TrashIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,21 +19,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
-import { cancelAppointmentAction, updateAppointmentAction } from "@/lib/actions/appointments";
+import {
+  cancelAppointmentAction,
+  deleteAppointmentAction,
+  updateAppointmentAction,
+} from "@/lib/actions/appointments";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 
 interface AppointmentRowActionsProps {
   appointment: Appointment;
   practitioners?: PractitionerOption[] | null;
+  // admin/recepcion (el backend ya devuelve 403 a cualquier otro rol) —
+  // ver AppointmentsController.remove.
+  canDelete: boolean;
 }
 
 // Same "dialogs live outside DropdownMenuContent, as siblings" pattern as
 // PatientRowActions — each dialog keeps its own open state independent of
 // the menu, so it stays open after the menu itself closes on select.
-export function AppointmentRowActions({ appointment, practitioners }: AppointmentRowActionsProps) {
+export function AppointmentRowActions({ appointment, practitioners, canDelete }: AppointmentRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const boundUpdate = updateAppointmentAction.bind(null, appointment.id);
 
@@ -52,14 +60,23 @@ export function AppointmentRowActions({ appointment, practitioners }: Appointmen
           </DropdownMenuItem>
           {/* A cita ya cancelada no tiene nada más que cancelar. */}
           {appointment.status !== "cancelled" && (
+            <DropdownMenuItem
+              className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
+              onSelect={() => setCancelOpen(true)}
+            >
+              <XCircleIcon data-icon="inline-start" />
+              Cancelar cita
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-                onSelect={() => setCancelOpen(true)}
+                onSelect={() => setDeleteOpen(true)}
               >
-                <XCircleIcon data-icon="inline-start" />
-                Cancelar cita
+                <TrashIcon data-icon="inline-start" />
+                Eliminar cita
               </DropdownMenuItem>
             </>
           )}
@@ -101,6 +118,30 @@ export function AppointmentRowActions({ appointment, practitioners }: Appointmen
               onClick={() => startTransition(() => cancelAppointmentAction(appointment.id))}
             >
               {pending ? "Cancelando..." : "Confirmar cancelación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar esta cita?</DialogTitle>
+            <DialogDescription>
+              Desaparece de la agenda. A diferencia de cancelar, no queda visible en el historial — para
+              una cita que sí llegó a existir mejor cancelarla.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={pending}>
+              Volver
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={() => startTransition(() => deleteAppointmentAction(appointment.id))}
+            >
+              {pending ? "Eliminando..." : "Confirmar eliminación"}
             </Button>
           </DialogFooter>
         </DialogContent>

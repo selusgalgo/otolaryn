@@ -4,6 +4,7 @@ import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ClinicalEntryRowActions } from "@/components/clinical-entries/clinical-entry-row-actions";
 import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
 import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
@@ -12,7 +13,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { AntecedenteType, ClinicalEntry, Paginated, Patient, PatientAntecedente } from "@/lib/types";
-import { stripHtml } from "@/lib/utils";
+import { stripHtml, truncateText } from "@/lib/utils";
+
+// Topes de caracteres para que Fecha | Motivo | Doctor | Acciones quepan
+// las cuatro sin que la fila crezca de alto — Motivo es rich text ya
+// pasado por stripHtml, Doctor es "Dr. " + el nombre completo.
+const MOTIVO_MAX_CHARS = 60;
+const DOCTOR_NAME_MAX_CHARS = 12;
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
@@ -48,6 +55,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           ]),
     ]);
   const canCreateClinicalEntries = me.role !== "recepcion";
+  const canDeleteClinicalEntries = me.role === "admin";
 
   const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
 
@@ -92,7 +100,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                     <TableHead>Fecha</TableHead>
                     <TableHead>Motivo</TableHead>
                     <TableHead className="hidden md:table-cell">Doctor</TableHead>
-                    <TableHead className="w-10" />
+                    <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -109,24 +117,31 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                           </Link>
                         </TableCell>
                         <TableCell>
-                          {stripHtml(entry.chiefComplaint)}
+                          {truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)}
                           {/* En escritorio el doctor vive en su propia
                               columna — en móvil, donde esa columna se
                               oculta, se muestra aquí debajo para no
                               perder el dato. */}
                           {authorName && (
-                            <div className="text-left text-xs text-muted-foreground md:hidden">
-                              {authorName}
+                            <div className="text-left text-xs font-bold text-muted-foreground md:hidden">
+                              Dr. {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{authorName ?? "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="hidden font-bold md:table-cell">
+                          {authorName ? `Dr. ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
                             <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
                               <EyeIcon />
                             </Link>
                           </Button>
+                          <ClinicalEntryRowActions
+                            patientId={id}
+                            entryId={entry.id}
+                            canDelete={canDeleteClinicalEntries}
+                          />
                         </TableCell>
                       </TableRow>
                     );

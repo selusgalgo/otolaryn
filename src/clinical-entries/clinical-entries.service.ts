@@ -17,6 +17,7 @@ import {
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
+import { UpdateClinicalEntryDto } from './dto/update-clinical-entry.dto';
 import { ClinicalEntry } from './entities/clinical-entry.entity';
 
 const UNIQUE_VIOLATION = '23505';
@@ -309,6 +310,30 @@ export class ClinicalEntriesService {
       throw new NotFoundException('Consulta no encontrada');
     }
     return entry;
+  }
+
+  // admin/profesional only (see controller) — lets a typo or a missed
+  // field get fixed in place instead of only ever adding a new entry.
+  // Same sanitization as create() for the rich-text fields.
+  async update(
+    id: string,
+    dto: UpdateClinicalEntryDto,
+  ): Promise<ClinicalEntry> {
+    const entry = await this.findOne(id);
+    if (dto.visitDate !== undefined)
+      entry.visitDate = toVisitDate(dto.visitDate);
+    if (dto.chiefComplaint !== undefined)
+      entry.chiefComplaint = sanitizeRichText(dto.chiefComplaint);
+    if (dto.examinationFindings !== undefined)
+      entry.examinationFindings = dto.examinationFindings
+        ? sanitizeRichText(dto.examinationFindings)
+        : null;
+    if (dto.diagnosis !== undefined) entry.diagnosis = dto.diagnosis || null;
+    if (dto.treatment !== undefined)
+      entry.treatment = dto.treatment ? sanitizeRichText(dto.treatment) : null;
+    if (dto.followUpNotes !== undefined)
+      entry.followUpNotes = dto.followUpNotes || null;
+    return this.repo.save(entry);
   }
 
   // Admin-only override of the append-only rule (see entity comment) — a

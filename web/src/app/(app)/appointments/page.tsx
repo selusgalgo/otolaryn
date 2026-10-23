@@ -193,7 +193,11 @@ export default async function AppointmentsPage({
                     )}
                   </TableCell>
                   <TableCell>
-                    <AppointmentRowActions appointment={appointment} practitioners={practitioners} />
+                    <AppointmentRowActions
+                      appointment={appointment}
+                      practitioners={practitioners}
+                      canDelete={me.role === "admin" || me.role === "recepcion"}
+                    />
                   </TableCell>
                 </TableRow>
               );

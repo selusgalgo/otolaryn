@@ -276,6 +276,65 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     ).not.toContain(entryId);
   });
 
+  it('lets admin and profesional edit a clinical entry, but not recepcion', async () => {
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ chiefComplaint: 'Entrada original' });
+    expect(created.status).toBe(201);
+    const entryId = (created.body as UserResponse).id;
+
+    const blockedForRecepcion = await request(server)
+      .patch(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`)
+      .send({ diagnosis: 'No debería poder editar esto' });
+    expect(blockedForRecepcion.status).toBe(403);
+
+    const editedByProfesional = await request(server)
+      .patch(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenProfesional}`)
+      .send({ diagnosis: 'Editado por profesional' });
+    expect(editedByProfesional.status).toBe(200);
+    expect((editedByProfesional.body as UserResponse).diagnosis).toBe(
+      'Editado por profesional',
+    );
+
+    const editedByAdmin = await request(server)
+      .patch(`/clinical-entries/${entryId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ diagnosis: 'Editado por admin' });
+    expect(editedByAdmin.status).toBe(200);
+    expect((editedByAdmin.body as UserResponse).diagnosis).toBe(
+      'Editado por admin',
+    );
+  });
+
+  it('lets admin and recepcion delete an appointment, but not profesional', async () => {
+    // profesional se auto-asigna al crear — evita tener que elegir
+    // practitionerId, que admin/recepcion sí necesitan pasar.
+    const created = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenProfesional}`)
+      .send({ scheduledAt: '2027-08-25T09:00:00.000Z', durationMinutes: 30 });
+    expect(created.status).toBe(201);
+    const appointmentId = (created.body as UserResponse).id;
+
+    const blockedForProfesional = await request(server)
+      .delete(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${tokenProfesional}`);
+    expect(blockedForProfesional.status).toBe(403);
+
+    const deletedByRecepcion = await request(server)
+      .delete(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${tokenRecepcion}`);
+    expect(deletedByRecepcion.status).toBe(204);
+
+    const gone = await request(server)
+      .get(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(gone.status).toBe(404);
+  });
+
   it('lets recepcion look up profesionales but not create/manage users', async () => {
     const list = await request(server)
       .get('/users?role=profesional')

@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -32,6 +33,7 @@ import type { ClinicalEntryFieldMapping } from './clinical-entries-csv.util';
 import { ClinicalEntriesService } from './clinical-entries.service';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { ListClinicalEntriesQueryDto } from './dto/list-clinical-entries-query.dto';
+import { UpdateClinicalEntryDto } from './dto/update-clinical-entry.dto';
 
 // See PatientsController's own IMPORT_BATCH_SIZE — same reasoning,
 // same value.
@@ -49,15 +51,14 @@ function parseJsonBody<T>(
   }
 }
 
-// No PATCH anywhere here on purpose — clinical_entries stays append-only
-// for corrections: a mistake is fixed with a new entry, not an edit to
-// history. DELETE is the one, narrow, admin-only exception — see
+// PATCH (admin/profesional) lets a mistake get fixed in place — see
+// ClinicalEntriesService.update. DELETE is narrower, admin-only — see
 // ClinicalEntriesService.softDelete.
 //
 // recepcion can read (list/view a patient's consultas, print their PDFs)
-// but never create, import or delete — those three stay admin/profesional
-// only, same clinical-authorship boundary as before, just no longer a
-// blanket "no access at all" for this role.
+// but never create, import, edit or delete — those stay admin/profesional
+// (delete admin-only) — same clinical-authorship boundary as before, just
+// no longer a blanket "no access at all" for this role.
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(TenantContextInterceptor)
@@ -193,6 +194,14 @@ export class ClinicalEntriesController {
   @Roles('admin', 'profesional', 'recepcion')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.clinicalEntries.findOne(id);
+  }
+
+  @Patch('clinical-entries/:id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClinicalEntryDto,
+  ) {
+    return this.clinicalEntries.update(id, dto);
   }
 
   // Admin only — ver ClinicalEntriesService.softDelete. No está pensado

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CancelAppointmentButton } from "@/components/appointments/cancel-appointment-button";
 import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { DeleteAppointmentButton } from "@/components/appointments/delete-appointment-button";
 import { EditAppointmentDialog } from "@/components/appointments/edit-appointment-dialog";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -49,6 +50,9 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
         <div className="flex gap-2">
           <EditAppointmentDialog appointment={appointment} practitioners={practitioners} />
           {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
+          {(me.role === "admin" || me.role === "recepcion") && (
+            <DeleteAppointmentButton id={appointment.id} />
+          )}
         </div>
       </div>
 

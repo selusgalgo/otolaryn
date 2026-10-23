@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -22,10 +25,11 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
-// No DELETE here on purpose — cancelling is PATCH { status: 'cancelled' },
-// not removing the row. The appointment stays in the agenda's history.
-// AgendaAccessGuard after RolesGuard — a profesional an admin has turned
-// Agenda access off for loses this whole module, see that guard's comment.
+// DELETE is a narrow admin/recepcion override (see
+// AppointmentsService.softDelete) — cancelling stays the normal PATCH
+// { status: 'cancelled' } for everyone else. AgendaAccessGuard after
+// RolesGuard — a profesional an admin has turned Agenda access off for
+// loses this whole module, see that guard's comment.
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard, AgendaAccessGuard)
 @UseInterceptors(TenantContextInterceptor)
@@ -62,5 +66,12 @@ export class AppointmentsController {
     @Body() dto: UpdateAppointmentDto,
   ) {
     return this.appointments.update(id, dto, user);
+  }
+
+  @Delete('appointments/:id')
+  @Roles('admin', 'recepcion')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.appointments.softDelete(id);
   }
 }

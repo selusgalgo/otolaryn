@@ -7,7 +7,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
-import { stripHtml } from "@/lib/utils";
+import { stripHtml, truncateText } from "@/lib/utils";
+
+// Mismo tope que la columna Motivo de la tabla de Consultas — esta tarjeta
+// es más estrecha que esa tabla, pero vive al lado del calendario, no sola
+// a ancho completo.
+const MOTIVO_MAX_CHARS = 50;
 
 // The clinic's own calendar day, not the executing process's — this page
 // renders server-side on Vercel (UTC), where reading the date directly off
@@ -88,9 +93,13 @@ export default async function DashboardPage() {
                       className="flex items-center justify-between gap-4 hover:underline"
                     >
                       <span className="text-sm">
-                        {patientName(entry.patientId)} · {stripHtml(entry.chiefComplaint)}
+                        <span className="font-bold">{patientName(entry.patientId)}</span>{" · "}
+                        {truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)}
                       </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      {/* Mismo estilo de "tag" que la fecha en la tabla de
+                          Consultas de la ficha del paciente — consistencia
+                          entre ambos listados. */}
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase">
                         {formatDateTime(entry.visitDate)}
                       </span>
                     </Link>
