@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-sm">
         {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-        <img src="/logo.svg" alt="Mederi" className="mx-auto mb-8 h-28 w-auto" />
+        <img src="/logo.svg" alt="Mederi" className="mx-auto mb-8 h-36 w-auto" />
         <Card>
           <CardContent>
             <h1 className="text-center text-2xl font-bold">Iniciar sesión</h1>

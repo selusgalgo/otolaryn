@@ -19,7 +19,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       <header className="flex items-center justify-between bg-nav px-4 py-3">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
           <span className="text-sm font-medium text-nav-foreground/70">Panel Eiduo</span>
         </div>
         <div className="flex items-center gap-1">

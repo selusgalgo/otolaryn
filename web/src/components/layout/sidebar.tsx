@@ -196,7 +196,7 @@ export function Sidebar({ me }: { me: Me }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-nav md:flex">
         <Link href="/dashboard" className="flex items-center border-b border-nav-foreground/10 px-4 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
         </Link>
         <NavLinks me={me} />
         <UserMenu me={me} />
@@ -207,7 +207,7 @@ export function Sidebar({ me }: { me: Me }) {
       <header className="flex items-center justify-between bg-nav px-4 py-3 md:hidden">
         <Link href="/dashboard" className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
         </Link>
         <div className="flex items-center gap-1">
           <Link
