@@ -46,6 +46,9 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav: var(--nav);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -60,10 +63,13 @@
 }
 
 :root {
-  /* Base palette: Black/White/Body-gray/Stock-gray. Sky-900 is the sole
-     accent color (buttons, links, focus/active states) — everything else
-     in the old blue family (secondary, accent) is replaced by the neutral
-     palette below. */
+  /* Base palette: Black/White/Body-gray/Stock-gray, plus Mederi's brand
+     blues. --primary (#0022B0) drives buttons/links/focus rings;
+     --primary-hover (#3366FF) is its dedicated hover/active shade — not
+     derived via opacity, since the brand spec gives it as its own flat
+     color. --nav (#000066) is deliberately a separate, darker token from
+     --primary: the nav/sidebar chrome and buttons are two different brand
+     colors, not the same one reused. */
   --black: #191919;
   --white: #ffffff;
   --body: #616161;
@@ -73,8 +79,11 @@
   --card-foreground: var(--black);
   --popover: var(--white);
   --popover-foreground: var(--black);
-  --primary: oklch(39.1% 0.09 240.876);
+  --primary: #0022b0;
   --primary-foreground: var(--white);
+  --primary-hover: #3366ff;
+  --nav: #000066;
+  --nav-foreground: var(--white);
   --secondary: var(--stock);
   --secondary-foreground: var(--black);
   --muted: var(--stock);
@@ -85,7 +94,7 @@
   --success: #00e492;
   --border: var(--stock);
   --input: var(--stock);
-  --ring: oklch(39.1% 0.09 240.876);
+  --ring: #0022b0;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -94,12 +103,12 @@
   --radius: 0.625rem;
   --sidebar: var(--white);
   --sidebar-foreground: var(--black);
-  --sidebar-primary: oklch(39.1% 0.09 240.876);
+  --sidebar-primary: var(--nav);
   --sidebar-primary-foreground: var(--white);
   --sidebar-accent: var(--stock);
   --sidebar-accent-foreground: var(--black);
   --sidebar-border: var(--stock);
-  --sidebar-ring: oklch(39.1% 0.09 240.876);
+  --sidebar-ring: #0022b0;
   --background: var(--white);
   --foreground: var(--black);
 }
@@ -111,19 +120,22 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(39.1% 0.09 240.876);
+  --primary: #0022b0;
   --primary-foreground: #ffffff;
+  --primary-hover: #3366ff;
+  --nav: #000066;
+  --nav-foreground: #ffffff;
   --secondary: #2477bf;
   --secondary-foreground: #ffffff;
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: #a7d5f2;
-  --accent-foreground: oklch(39.1% 0.09 240.876);
+  --accent-foreground: #0022b0;
   --destructive: #f23d4c;
   --success: #00e492;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: #2477bf;
+  --ring: #0022b0;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -131,7 +143,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: #000066;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);

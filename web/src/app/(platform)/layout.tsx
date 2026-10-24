@@ -16,17 +16,17 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="flex items-center justify-between bg-primary px-4 py-3">
+      <header className="flex items-center justify-between bg-nav px-4 py-3">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
-          <span className="text-sm font-medium text-primary-foreground/70">Panel Eiduo</span>
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
+          <span className="text-sm font-medium text-nav-foreground/70">Panel Eiduo</span>
         </div>
         <div className="flex items-center gap-1">
           <Link
             href="/account"
             aria-label="Mi cuenta"
-            className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
           >
             <UserIcon className="size-5" />
           </Link>
@@ -34,7 +34,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             <button
               type="submit"
               aria-label="Cerrar sesión"
-              className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
             >
               <ArrowLeftOnRectangleIcon className="size-5" />
             </button>

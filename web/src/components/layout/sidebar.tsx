@@ -92,8 +92,8 @@ function NavLinks({ me }: { me: Me }) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-black/10 text-primary-foreground"
-                : "text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground",
+                ? "bg-black/10 text-nav-foreground"
+                : "text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground",
             )}
           >
             <Icon className="size-4 shrink-0" />
@@ -111,7 +111,7 @@ function MobileBottomNav({ me }: { me: Me }) {
   const items = NAV_ITEMS.filter((item) => item.roles.includes(me.role) && !item.hidden?.(me));
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-primary-foreground/10 bg-primary pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-nav-foreground/10 bg-nav pb-[env(safe-area-inset-bottom)] md:hidden">
       {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -120,7 +120,7 @@ function MobileBottomNav({ me }: { me: Me }) {
             href={href}
             className={cn(
               "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors",
-              active ? "text-primary-foreground" : "text-primary-foreground/70",
+              active ? "text-nav-foreground" : "text-nav-foreground/70",
             )}
           >
             <span className={cn("rounded-full px-3 py-0.5", active && "bg-black/10")}>
@@ -142,7 +142,7 @@ function MobileBottomNav({ me }: { me: Me }) {
 // separating a <form> from its submit button in the DOM.
 function UserMenu({ me }: { me: Me }) {
   return (
-    <div className="border-t border-primary-foreground/10 p-3">
+    <div className="border-t border-nav-foreground/10 p-3">
       <DropdownMenu>
         {/* The whole row is the trigger now, not just the ⋮ — asChild
             hands Radix's trigger behavior to this single <button> instead
@@ -155,12 +155,12 @@ function UserMenu({ me }: { me: Me }) {
           >
             <Avatar firstName={me.firstName} lastName={me.lastName} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-primary-foreground">
+              <p className="truncate text-sm font-medium text-nav-foreground">
                 {me.firstName} {me.lastName}
               </p>
-              <p className="truncate text-xs text-primary-foreground/60">{ROLE_LABELS[me.role]}</p>
+              <p className="truncate text-xs text-nav-foreground/60">{ROLE_LABELS[me.role]}</p>
             </div>
-            <EllipsisVerticalIcon className="size-4 shrink-0 text-primary-foreground/70" />
+            <EllipsisVerticalIcon className="size-4 shrink-0 text-nav-foreground/70" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top">
@@ -193,10 +193,10 @@ export function Sidebar({ me }: { me: Me }) {
   return (
     <>
       {/* Desktop: fixed sidebar, always visible */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-primary md:flex">
-        <Link href="/dashboard" className="flex items-center border-b border-primary-foreground/10 px-4 py-4">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-nav md:flex">
+        <Link href="/dashboard" className="flex items-center border-b border-nav-foreground/10 px-4 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
         </Link>
         <NavLinks me={me} />
         <UserMenu me={me} />
@@ -204,16 +204,16 @@ export function Sidebar({ me }: { me: Me }) {
 
       {/* Mobile: top bar with logo + logout — navigation itself lives in the
           fixed bottom tab bar below, app-style, so there's no hamburger/drawer. */}
-      <header className="flex items-center justify-between bg-primary px-4 py-3 md:hidden">
+      <header className="flex items-center justify-between bg-nav px-4 py-3 md:hidden">
         <Link href="/dashboard" className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Otolaryn" className="h-6 w-auto" />
+          <img src="/logo-on-dark.svg" alt="Mederi" className="h-7 w-auto" />
         </Link>
         <div className="flex items-center gap-1">
           <Link
             href="/account"
             aria-label="Mi cuenta"
-            className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
           >
             <UserIcon className="size-5" />
           </Link>
@@ -221,7 +221,7 @@ export function Sidebar({ me }: { me: Me }) {
             <button
               type="submit"
               aria-label="Cerrar sesión"
-              className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
             >
               <ArrowLeftOnRectangleIcon className="size-5" />
             </button>

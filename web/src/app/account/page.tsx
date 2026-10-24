@@ -19,10 +19,10 @@ export default async function AccountPage() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="flex items-center justify-between bg-primary px-4 py-3">
+      <header className="flex items-center justify-between bg-nav px-4 py-3">
         <Link
           href={homeForRole(me.role)}
-          className="flex items-center gap-2 text-sm font-medium text-primary-foreground/70 hover:text-primary-foreground"
+          className="flex items-center gap-2 text-sm font-medium text-nav-foreground/70 hover:text-nav-foreground"
         >
           <ArrowLeftIcon className="size-4" />
           Volver
@@ -31,7 +31,7 @@ export default async function AccountPage() {
           <button
             type="submit"
             aria-label="Cerrar sesión"
-            className="rounded-lg p-2 text-primary-foreground/70 hover:bg-black/10 hover:text-primary-foreground"
+            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
           >
             <ArrowLeftOnRectangleIcon className="size-5" />
           </button>

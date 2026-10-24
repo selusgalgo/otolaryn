@@ -28,7 +28,7 @@ const departureMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Otolaryn",
+  title: "Mederi",
   description: "Gestión clínica ORL",
 };
 
