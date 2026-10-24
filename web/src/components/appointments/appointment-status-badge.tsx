@@ -15,7 +15,7 @@ export function AppointmentStatusBadge({ status }: { status: AppointmentStatus }
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 font-button text-button uppercase",
+        "inline-flex items-center rounded-full px-3 py-1 font-button text-button font-medium",
         STATUS_STYLES[status],
       )}
     >

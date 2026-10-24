@@ -99,7 +99,7 @@ export default async function DashboardPage() {
                       {/* Mismo estilo de "tag" que la fecha en la tabla de
                           Consultas de la ficha del paciente — consistencia
                           entre ambos listados. */}
-                      <span className="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase">
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-3 py-1 font-button text-button font-medium text-foreground">
                         {formatDateTime(entry.visitDate)}
                       </span>
                     </Link>

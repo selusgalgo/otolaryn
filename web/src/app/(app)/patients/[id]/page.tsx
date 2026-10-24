@@ -111,7 +111,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                         <TableCell className="whitespace-nowrap">
                           <Link
                             href={`/patients/${id}/clinical-entries/${entry.id}`}
-                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-button text-button text-slate-700 uppercase hover:bg-slate-200"
+                            className="inline-flex items-center rounded-full bg-muted px-3 py-1 font-button text-button font-medium text-foreground hover:bg-muted/70"
                           >
                             {formatDate(entry.visitDate)}
                           </Link>

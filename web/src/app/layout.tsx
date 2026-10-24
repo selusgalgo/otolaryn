@@ -15,18 +15,6 @@ const inter = localFont({
   display: "swap",
 });
 
-const departureMono = localFont({
-  src: [
-    {
-      path: "./fonts/DepartureMono-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-  ],
-  variable: "--font-departure-mono",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "Mederi",
   description: "Gestión clínica ORL",
@@ -39,9 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body
-        className={`${inter.variable} ${departureMono.variable} font-sans antialiased`}
-      >
+      <body className={`${inter.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

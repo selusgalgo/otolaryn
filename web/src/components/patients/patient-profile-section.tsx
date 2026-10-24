@@ -48,7 +48,7 @@ export function PatientProfileSection({
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Link href="/patients" className="hover:text-foreground hover:underline">
             Pacientes
@@ -59,7 +59,7 @@ export function PatientProfileSection({
           </span>
         </div>
         {!editing && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
               <a href={`/patients/${patient.id}/pdf`} target="_blank" rel="noopener noreferrer">
                 <ArrowDownTrayIcon data-icon="inline-start" />
@@ -168,7 +168,7 @@ export function PatientProfileSection({
               <CardHeader>
                 <CardTitle className="text-base">Datos del paciente</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-3 gap-4 text-sm">
+              <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1">
                   <Label htmlFor="dateOfBirth" className="text-xs text-muted-foreground">
                     Fecha de nacimiento
@@ -308,11 +308,11 @@ export function PatientProfileSection({
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Profesión</div>
-                  <div>{patient.profession ?? ""}</div>
+                  <div>{patient.profession || "—"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Aseguradora</div>
-                  <div>{insuranceName ?? ""}</div>
+                  <div>{insuranceName || "—"}</div>
                 </div>
               </div>
             </CardContent>
@@ -322,7 +322,7 @@ export function PatientProfileSection({
             <CardHeader>
               <CardTitle className="text-base">Datos del paciente</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-4 text-sm">
+            <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <div className="text-muted-foreground">Fecha de nacimiento</div>
                 <div>{formatDateOnly(patient.dateOfBirth)}</div>
@@ -333,32 +333,32 @@ export function PatientProfileSection({
               </div>
               <div>
                 <div className="text-muted-foreground">Teléfono 2</div>
-                <div>{patient.phone2 ?? ""}</div>
+                <div>{patient.phone2 || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Email</div>
-                <div>{patient.email ?? ""}</div>
+                <div>{patient.email || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Dirección</div>
-                <div>{patient.address ?? ""}</div>
+                <div>{patient.address || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">C.P.</div>
-                <div>{patient.postalCode ?? ""}</div>
+                <div>{patient.postalCode || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Ciudad/Población</div>
-                <div>{patient.city ?? ""}</div>
+                <div>{patient.city || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Provincia</div>
-                <div>{patient.province ?? ""}</div>
+                <div>{patient.province || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Primera consulta</div>
                 <div>
-                  {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : ""}
+                  {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : "—"}
                 </div>
               </div>
             </CardContent>

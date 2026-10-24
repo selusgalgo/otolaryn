@@ -70,7 +70,7 @@ export default async function PatientsPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-baseline gap-2">
           <h1 className="text-2xl font-bold">Pacientes</h1>
           {/* Comprobación temporal de la migración: contraste rápido contra
@@ -78,7 +78,7 @@ export default async function PatientsPage({
               Quitar cuando la migración quede verificada. */}
           <span className="text-sm text-muted-foreground">({result.total} en total)</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PatientsActionsMenu
             antecedenteTypes={antecedenteTypes ?? undefined}
             canManagePatientData={me.role !== "profesional"}
@@ -135,7 +135,7 @@ export default async function PatientsPage({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="font-button text-button text-muted-foreground uppercase">
+          <span className="text-sm text-muted-foreground">
             Mostrando {result.data.length} de {result.total} pacientes
           </span>
           <div className="flex items-center gap-2">

@@ -103,6 +103,13 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
+        {/* No hay flujo de recuperación propio (el reseteo de contraseña lo
+            hace el admin de la clínica, no la persona misma) — sin este
+            aviso, alguien que la olvida no tiene ninguna pista de qué
+            hacer. */}
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          ¿Olvidaste tu contraseña? Contacta con el administrador de tu clínica.
+        </p>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Clínicas</h1>
         <CreateTenantDialog />
       </div>

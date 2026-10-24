@@ -43,7 +43,7 @@ export default async function TenantOverviewPage({
         <ArrowLeftIcon className="size-4" />
         Clínicas
       </Link>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">{tenant.name}</h1>
           <p className="text-sm text-muted-foreground">Creada el {formatDate(tenant.createdAt)}</p>

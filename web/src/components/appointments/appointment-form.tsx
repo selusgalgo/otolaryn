@@ -109,6 +109,13 @@ export function AppointmentForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
+  // The browser's own "completa este campo" bubble (from the fields'
+  // native `required`) is easy to miss — it's silent/invisible unless you
+  // happen to be looking right at that field, doesn't match the app's own
+  // red-text error styling used everywhere else (e.g. login), and behaves
+  // inconsistently across browsers/mobile. `noValidate` on the <form>
+  // below turns that off in favor of this explicit, visible check.
+  const [clientError, setClientError] = useState<string | null>(null);
 
   // Controlled (not defaultValue/ref): the suggestions effect below needs
   // to know the duration someone's actually about to book *right now* to
@@ -129,6 +136,20 @@ export function AppointmentForm({
   // already scoped to themselves server-side, so this gate never applies
   // to them.
   const needsPractitionerFirst = practitioners != null;
+
+  function validateBeforeSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (needsPractitionerFirst && !practitionerId) {
+      e.preventDefault();
+      setClientError("Selecciona un profesional antes de guardar.");
+      return;
+    }
+    if (!dateInputRef.current?.value || !timeInputRef.current?.value) {
+      e.preventDefault();
+      setClientError("Indica la fecha y la hora de la cita.");
+      return;
+    }
+    setClientError(null);
+  }
 
   const showSuggestions = suggestSlots && !initialValues;
   const canFetchSuggestions = showSuggestions && (!needsPractitionerFirst || practitionerId !== "");
@@ -328,7 +349,9 @@ export function AppointmentForm({
 
   const footer = (
     <div className={cn("flex items-center gap-4", columns && "justify-between border-t pt-4")}>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {(clientError ?? state.error) && (
+        <p className="text-sm text-destructive">{clientError ?? state.error}</p>
+      )}
       <Button type="submit" disabled={pending} className={cn("w-fit", columns && "ml-auto")}>
         {pending ? (
           "Guardando..."
@@ -344,7 +367,7 @@ export function AppointmentForm({
 
   if (columns) {
     return (
-      <form action={formAction} className="flex min-h-0 flex-1 flex-col">
+      <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
         <div className="grid flex-1 gap-x-6 gap-y-4 overflow-y-auto px-1 py-1 sm:grid-cols-2">
           <div className="space-y-4">
             {children}
@@ -364,7 +387,7 @@ export function AppointmentForm({
   }
 
   return (
-    <form action={formAction} className="grid max-w-md gap-4">
+    <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="grid max-w-md gap-4">
       {children}
       {practitionerField}
       {suggestionsField}

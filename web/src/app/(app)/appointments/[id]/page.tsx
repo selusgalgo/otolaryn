@@ -40,14 +40,14 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link href={`/patients/${patient.id}`} className="text-sm text-muted-foreground hover:underline">
             {patient.firstName} {patient.lastName}
           </Link>
           <h1 className="text-2xl font-bold">{formatDateTime(appointment.scheduledAt)}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <EditAppointmentDialog appointment={appointment} practitioners={practitioners} />
           {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
           {(me.role === "admin" || me.role === "recepcion") && (
