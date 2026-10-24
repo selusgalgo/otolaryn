@@ -8,6 +8,7 @@ import type {
   AntecedenteType,
   AppointmentDefaults,
   ClinicProfile,
+  DeviceLock,
   InsuranceEntity,
   Schedule,
 } from "@/lib/types";
@@ -90,6 +91,63 @@ export async function updateClinicProfileAction(
 
   revalidatePath("/settings");
   return { success: true };
+}
+
+export interface DeviceLockActionState {
+  error?: string;
+  deviceLock?: DeviceLock;
+}
+
+// admin, own clinic. Imperative (not bound to a <form>) — the toggle is its
+// own small mutation, like AntecedenteTypesForm's checkbox.
+export async function updateDeviceLockAction(enabled: boolean): Promise<DeviceLockActionState> {
+  try {
+    const deviceLock = await apiFetch<DeviceLock>("/settings/device-lock", {
+      method: "PATCH",
+      body: { enabled },
+    });
+    revalidatePath("/settings/security");
+    return { deviceLock };
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.message };
+    return { error: "No se pudo actualizar el bloqueo por dispositivo." };
+  }
+}
+
+export interface GenerateDeviceCredentialState {
+  error?: string;
+  // token is only ever present in the single response right after
+  // generating it — nothing re-reads it later, since only its hash is
+  // stored server-side.
+  token?: string;
+  deviceLock?: DeviceLock;
+}
+
+export async function generateDeviceCredentialAction(): Promise<GenerateDeviceCredentialState> {
+  try {
+    const { token, ...deviceLock } = await apiFetch<DeviceLock & { token: string }>(
+      "/settings/device-lock/credential",
+      { method: "POST" },
+    );
+    revalidatePath("/settings/security");
+    return { token, deviceLock };
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.message };
+    return { error: "No se pudo generar la credencial." };
+  }
+}
+
+export async function revokeDeviceCredentialAction(): Promise<DeviceLockActionState> {
+  try {
+    const deviceLock = await apiFetch<DeviceLock>("/settings/device-lock/credential", {
+      method: "DELETE",
+    });
+    revalidatePath("/settings/security");
+    return { deviceLock };
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.message };
+    return { error: "No se pudo revocar la credencial." };
+  }
 }
 
 export interface CatalogActionState {

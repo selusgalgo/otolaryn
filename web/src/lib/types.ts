@@ -167,6 +167,14 @@ export interface ClinicProfile {
   logo: string | null;
 }
 
+// Configuración → Seguridad — see Tenant.deviceLockEnabled/deviceSecretHash.
+// hasCredential never exposes the secret itself, just whether one exists
+// (the raw token is only ever returned once, by generateDeviceCredential).
+export interface DeviceLock {
+  enabled: boolean;
+  hasCredential: boolean;
+}
+
 export type AntecedenteCategory = "personal" | "familiar";
 
 export interface AntecedenteType {

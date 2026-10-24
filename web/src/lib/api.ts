@@ -1,4 +1,4 @@
-import { getSessionToken } from "./session";
+import { getDeviceToken, getSessionToken } from "./session";
 
 // Exported (not just module-private) so a Route Handler that has to
 // stream a raw file response — export/download, something apiFetch's
@@ -41,6 +41,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
+  }
+  // Sent regardless of skipAuth/role — harmless for the vast majority of
+  // tenants/requests that never touch device lock, and login itself needs
+  // it forwarded as the request body's deviceToken instead (see
+  // loginAction), not as this header, since there's no JWT yet to attach
+  // it to.
+  const deviceToken = await getDeviceToken();
+  if (deviceToken) {
+    headers["X-Device-Token"] = deviceToken;
   }
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -86,6 +95,10 @@ export async function apiFetchMultipart<T>(
   const token = await getSessionToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  }
+  const deviceToken = await getDeviceToken();
+  if (deviceToken) {
+    headers["X-Device-Token"] = deviceToken;
   }
 
   const res = await fetch(`${API_URL}${path}`, {

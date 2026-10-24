@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as argon2 from 'argon2';
+import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
+import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import {
   assertNoOverlap,
@@ -18,6 +21,16 @@ export interface Schedule {
 
 export interface AppointmentDefaults {
   defaultDurationMinutes: number;
+}
+
+export interface DeviceLock {
+  enabled: boolean;
+  // Only ever true once a credential has actually been generated — the
+  // raw secret itself is never readable back, by design (same as a
+  // password): this just tells the admin UI whether "Generar" would be a
+  // first credential or a replacement, and whether disabling without a
+  // credential even matters.
+  hasCredential: boolean;
 }
 
 export interface ClinicProfile {
@@ -100,6 +113,56 @@ export class SettingsService {
     tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
     await this.tenants.save(tenant);
     return { defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes };
+  }
+
+  async getDeviceLock(tenantId: string): Promise<DeviceLock> {
+    const tenant = await this.findTenant(tenantId);
+    return {
+      enabled: tenant.deviceLockEnabled,
+      hasCredential: tenant.deviceSecretHash !== null,
+    };
+  }
+
+  async updateDeviceLock(
+    tenantId: string,
+    dto: UpdateDeviceLockDto,
+  ): Promise<DeviceLock> {
+    const tenant = await this.findTenant(tenantId);
+    tenant.deviceLockEnabled = dto.enabled;
+    await this.tenants.save(tenant);
+    return {
+      enabled: tenant.deviceLockEnabled,
+      hasCredential: tenant.deviceSecretHash !== null,
+    };
+  }
+
+  // Returns the raw token exactly once — only the argon2 hash is persisted,
+  // so this is the only moment the admin can see/copy the install link.
+  // Replaces (not adds to) any previous credential: every device installed
+  // from an earlier link stops working immediately, the same instant this
+  // saves, via JwtStrategy's live re-check on the next request each makes.
+  async generateDeviceCredential(
+    tenantId: string,
+  ): Promise<{ token: string } & DeviceLock> {
+    const tenant = await this.findTenant(tenantId);
+    const token = randomBytes(32).toString('base64url');
+    tenant.deviceSecretHash = await argon2.hash(token);
+    await this.tenants.save(tenant);
+    return {
+      token,
+      enabled: tenant.deviceLockEnabled,
+      hasCredential: true,
+    };
+  }
+
+  // Drops the stored credential without touching the enabled toggle — every
+  // installed device stops working (enforceDeviceLock short-circuits once
+  // deviceSecretHash is null), and the admin can generate a fresh one later.
+  async revokeDeviceCredential(tenantId: string): Promise<DeviceLock> {
+    const tenant = await this.findTenant(tenantId);
+    tenant.deviceSecretHash = null;
+    await this.tenants.save(tenant);
+    return { enabled: tenant.deviceLockEnabled, hasCredential: false };
   }
 
   async getClinicProfile(tenantId: string): Promise<ClinicProfile> {

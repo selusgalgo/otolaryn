@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
+  LockClosedIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +51,12 @@ const SECTIONS: {
     title: "Compañías de seguros",
     description: "Aseguradoras con las que trabaja la clínica.",
     icon: ShieldCheckIcon,
+  },
+  {
+    href: "/settings/security",
+    title: "Seguridad",
+    description: "Restringir el acceso de los profesionales a ordenadores autorizados.",
+    icon: LockClosedIcon,
   },
 ];
 

@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
+  Post,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,6 +19,7 @@ import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
 import { logoFileToDataUri } from './clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
+import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { SettingsService } from './settings.service';
 
@@ -70,6 +73,40 @@ export class SettingsController {
       user.tenantId as string,
       dto,
     );
+  }
+
+  // Admin-only, both read and write — unlike the sections above, device
+  // lock is a security control for the clinic's own computers, not
+  // something profesional/recepcion need to see or that a PDF export
+  // depends on.
+  @Get('device-lock')
+  @Roles('admin')
+  getDeviceLock(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.getDeviceLock(user.tenantId as string);
+  }
+
+  @Patch('device-lock')
+  @Roles('admin')
+  updateDeviceLock(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateDeviceLockDto,
+  ) {
+    return this.settings.updateDeviceLock(user.tenantId as string, dto);
+  }
+
+  // Returns the raw token — the one and only time it's ever visible, since
+  // only its argon2 hash is persisted. Replaces any existing credential,
+  // so every previously installed device is instantly de-authorized.
+  @Post('device-lock/credential')
+  @Roles('admin')
+  generateDeviceCredential(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.generateDeviceCredential(user.tenantId as string);
+  }
+
+  @Delete('device-lock/credential')
+  @Roles('admin')
+  revokeDeviceCredential(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.revokeDeviceCredential(user.tenantId as string);
   }
 
   // Read access for every role — the clinic's name/address/phone/logo show

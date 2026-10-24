@@ -12,8 +12,13 @@ export function middleware(request: NextRequest) {
   const hasSession = request.cookies.has(COOKIE_NAME);
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/login";
+  // The one-time device-install link an admin sends to a clinic computer —
+  // visited before anyone has logged in there, so it can't require a
+  // session cookie. It only ever sets the long-lived device cookie and
+  // redirects to /login itself.
+  const isDeviceAuthPage = pathname === "/device-auth";
 
-  if (!hasSession && !isLoginPage) {
+  if (!hasSession && !isLoginPage && !isDeviceAuthPage) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

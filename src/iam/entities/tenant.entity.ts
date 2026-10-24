@@ -47,4 +47,21 @@ export class Tenant {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  // Device-lock opt-in (see TenantDeviceLock1736100000000) — restricts
+  // this tenant's profesional-role users to computers that already carry
+  // the device credential below. admin/recepcion are never affected,
+  // regardless of this flag. Enforcement (AuthService.login,
+  // JwtStrategy.validate) only actually blocks when this is true AND
+  // deviceSecretHash is set, so flipping this on before generating a
+  // credential never locks the clinic's profesionales out.
+  @Column({ name: 'device_lock_enabled', type: 'boolean', default: false })
+  deviceLockEnabled: boolean;
+
+  // Argon2 hash of the current device credential — never the raw value,
+  // same reasoning as User.passwordHash. Regenerating replaces this (and
+  // silently invalidates every previously installed device, by design —
+  // that's how "revoke" works, there's no separate revoke-only action).
+  @Column({ name: 'device_secret_hash', type: 'text', nullable: true })
+  deviceSecretHash: string | null;
 }

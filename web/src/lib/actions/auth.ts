@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { homeForRole } from "@/lib/auth";
-import { clearSessionToken, setSessionToken } from "@/lib/session";
+import { clearSessionToken, getDeviceToken, setSessionToken } from "@/lib/session";
 import type { Me } from "@/lib/types";
 
 export interface LoginState {
@@ -21,9 +21,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
   let destination = "/dashboard";
   try {
+    const deviceToken = await getDeviceToken();
     const { accessToken } = await apiFetch<LoginResponse>("/auth/login", {
       method: "POST",
-      body: { identifier, password },
+      body: { identifier, password, ...(deviceToken ? { deviceToken } : {}) },
       skipAuth: true,
     });
     await setSessionToken(accessToken);
@@ -33,7 +34,20 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     destination = homeForRole(me.role);
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.status === 401 ? "Email/usuario o contraseña incorrectos." : err.message };
+      // A 401 normally collapses to this generic message on purpose (same
+      // anti-enumeration intent as AuthService's dummy-hash check — it
+      // shouldn't be possible to tell "wrong password" apart from
+      // "deactivated account" from the response). The device-lock message
+      // is the one deliberate exception: it's shown verbatim because the
+      // password was actually correct, and the user needs to know to
+      // contact the admin about this specific computer, not retype it.
+      const isDeviceLocked = err.message.startsWith("Este dispositivo no está autorizado");
+      return {
+        error:
+          err.status === 401 && !isDeviceLocked
+            ? "Email/usuario o contraseña incorrectos."
+            : err.message,
+      };
     }
     return { error: "No se pudo conectar con el servidor." };
   }

@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { Repository } from 'typeorm';
+import { enforceDeviceLock } from './device-lock.util';
+import { Tenant } from './entities/tenant.entity';
 import { User } from './entities/user.entity';
 
 // A precomputed, valid Argon2id hash with no corresponding real password.
@@ -17,12 +19,14 @@ const DUMMY_PASSWORD_HASH =
 export class AuthService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
     private readonly jwt: JwtService,
   ) {}
 
   async login(
     identifier: string,
     password: string,
+    deviceToken?: string,
   ): Promise<{ accessToken: string }> {
     // iam.users carries no RLS (see entity comment), so this lookup runs on
     // the plain pooled connection — there is no tenant context yet.
@@ -60,6 +64,18 @@ export class AuthService {
       throw new UnauthorizedException(
         'Esta cuenta ha sido desactivada. Contacta con el administrador de la clínica.',
       );
+    }
+
+    // tenantId is null only for superadmin, which is never 'profesional' —
+    // enforceDeviceLock is a no-op for every other role anyway, but guard
+    // explicitly rather than risk a lookup on a null id.
+    if (user.tenantId) {
+      const tenant = await this.tenants.findOne({
+        where: { id: user.tenantId },
+      });
+      if (tenant) {
+        await enforceDeviceLock(tenant, user.role, deviceToken);
+      }
     }
 
     const accessToken = await this.jwt.signAsync({

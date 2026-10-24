@@ -20,7 +20,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.identifier, dto.password);
+    return this.auth.login(dto.identifier, dto.password, dto.deviceToken);
   }
 
   // Just echoes fields already attached to the request by JwtStrategy —
