@@ -12,5 +12,12 @@ export async function GET(request: NextRequest) {
   if (token) {
     await setDeviceToken(token);
   }
-  return NextResponse.redirect(new URL("/login", request.url));
+  // A relative Location, not NextResponse.redirect(new URL("/login",
+  // request.url)): behind this app's reverse proxy (both on
+  // servidor.eiduo.es and Vercel), request.url reflects the Node process's
+  // own bind host/port, not the public domain — an absolute redirect built
+  // from it pointed browsers at http://localhost:3001/login instead of the
+  // real site. middleware.ts's own redirects use the same relative-path
+  // approach for the same reason.
+  return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
 }
