@@ -10,6 +10,29 @@ export interface ClinicalEntryFormState {
   // Solo lo usa el modo edición (ClinicalEntryForm's onSuccess) — crear
   // redirige en vez de devolver success, así que nunca lo necesita.
   success?: boolean;
+  // Distingue "la sesión caducó mientras escribías" de cualquier otro
+  // fallo (validación, red, etc.) — el formulario usa esto para mostrar
+  // un aviso específico con un botón directo a volver a iniciar sesión,
+  // en vez del error genérico de abajo. Ver ClinicalEntryForm.
+  sessionExpired?: boolean;
+}
+
+// 401 del backend aquí solo puede significar una cosa: el JWT de la
+// cookie ya caducó (nunca "contraseña incorrecta", eso solo pasa en
+// /auth/login) — mientras la persona escribía una consulta larga, la
+// sesión (1h) expiró por debajo. Centralizado porque las dos acciones de
+// abajo necesitan el mismo trato.
+function clinicalEntryErrorState(err: unknown): ClinicalEntryFormState {
+  if (err instanceof ApiError) {
+    if (err.status === 401) {
+      return {
+        error: "Tu sesión ha caducado. Lo que has escrito está a salvo en este dispositivo.",
+        sessionExpired: true,
+      };
+    }
+    return { error: err.message };
+  }
+  return { error: "No se pudo guardar." };
 }
 
 export async function createClinicalEntryAction(
@@ -39,10 +62,7 @@ export async function createClinicalEntryAction(
       body,
     });
   } catch (err) {
-    if (err instanceof ApiError) {
-      return { error: err.message };
-    }
-    return { error: "No se pudo guardar la entrada." };
+    return clinicalEntryErrorState(err);
   }
 
   revalidatePath(`/patients/${patientId}`);
@@ -77,10 +97,7 @@ export async function updateClinicalEntryAction(
       body,
     });
   } catch (err) {
-    if (err instanceof ApiError) {
-      return { error: err.message };
-    }
-    return { error: "No se pudo guardar la consulta." };
+    return clinicalEntryErrorState(err);
   }
 
   revalidatePath(`/patients/${patientId}`);

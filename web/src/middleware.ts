@@ -17,8 +17,19 @@ export function middleware(request: NextRequest) {
   // session cookie. It only ever sets the long-lived device cookie and
   // redirects to /login itself.
   const isDeviceAuthPage = pathname === "/device-auth";
+  // A Server Action call (e.g. "Guardar" on a form) posts to the same
+  // page URL it's on, carrying this header — if the session cookie
+  // expired/disappeared mid-task and this redirects like any other
+  // request, the client can't make sense of a redirect in place of the
+  // action's actual return value and crashes instead of rendering
+  // whatever that action returned (here, a graceful "tu sesión ha
+  // caducado" state — see ClinicalEntryForm/clinical-entries actions).
+  // Letting it through is safe: the action itself calls the backend API,
+  // which re-verifies the JWT on every request regardless (see this
+  // file's own comment above on where the real security boundary is).
+  const isServerAction = request.headers.has("next-action");
 
-  if (!hasSession && !isLoginPage && !isDeviceAuthPage) {
+  if (!hasSession && !isLoginPage && !isDeviceAuthPage && !isServerAction) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

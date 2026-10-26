@@ -22,6 +22,14 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [rememberIdentifier, setRememberIdentifier] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // A dónde volver tras entrar — lo trae un ?redirect= cuando se llega
+  // aquí desde un aviso de "tu sesión ha caducado" a media tarea (ver
+  // ClinicalEntryForm), para no aterrizar en /dashboard sino justo donde
+  // se estaba. Via useEffect/window.location, no useSearchParams(), por
+  // la misma razón que REMEMBER_IDENTIFIER_KEY se lee así: /login es una
+  // página estática, y useSearchParams() la forzaría a exigir un límite
+  // Suspense.
+  const [redirectTarget, setRedirectTarget] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_IDENTIFIER_KEY);
@@ -29,6 +37,8 @@ export default function LoginPage() {
       setIdentifier(saved);
       setRememberIdentifier(true);
     }
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    if (redirect) setRedirectTarget(redirect);
   }, []);
 
   function handleSubmit() {
@@ -47,7 +57,13 @@ export default function LoginPage() {
         <Card>
           <CardContent>
             <h1 className="text-center text-2xl font-bold">Iniciar sesión</h1>
+            {redirectTarget && (
+              <p className="mt-2 text-center text-sm text-muted-foreground">
+                Tu sesión caducó. Al entrar, volverás justo donde lo dejaste.
+              </p>
+            )}
             <form action={formAction} onSubmit={handleSubmit} className="mt-8 space-y-6">
+              <input type="hidden" name="redirect" value={redirectTarget} />
               <div className="space-y-2">
                 <Label htmlFor="identifier">Email o nombre de usuario</Label>
                 <Input
