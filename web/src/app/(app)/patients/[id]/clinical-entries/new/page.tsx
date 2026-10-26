@@ -27,7 +27,7 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
           {patient.firstName} {patient.lastName}
         </p>
       </div>
-      <ClinicalEntryForm action={boundAction} />
+      <ClinicalEntryForm action={boundAction} draftKey={`clinical-entry-draft:new:${id}`} />
     </div>
   );
 }

@@ -18,9 +18,65 @@ interface ClinicalEntryFormProps {
   // Llamado tras un guardado correcto — lo usa el diálogo de edición para
   // cerrarse solo, igual que AppointmentForm.
   onSuccess?: () => void;
+  // Clave de localStorage para el autoguardado de este formulario en
+  // concreto (p.ej. distinta por paciente en alta, por entrada en
+  // edición) — sin esto no hay autoguardado. Ver motivación en el comentario
+  // de más abajo, junto a DRAFT_TTL_MS.
+  draftKey?: string;
 }
 
 const initialState: ClinicalEntryFormState = {};
+
+// Un profesional escribiendo una consulta larga puede tardar más de lo que
+// dura la sesión (1h) — si caduca a media escritura, la redirección a
+// login se lleva por delante todo lo no guardado. Este autoguardado es la
+// red de seguridad: cada AUTOSAVE_INTERVAL_MS (y al ocultarse la pestaña)
+// se vuelca el formulario entero a localStorage, y si al volver a abrir
+// este mismo formulario hay un borrador reciente, se ofrece recuperarlo.
+// DRAFT_TTL_MS descarta borradores viejos para no resucitar algo de hace
+// semanas que ya no tiene sentido.
+const AUTOSAVE_INTERVAL_MS = 15_000;
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+const DRAFT_FIELD_NAMES = [
+  "visitDate",
+  "chiefComplaint",
+  "examinationFindings",
+  "diagnosis",
+  "treatment",
+  "followUpNotes",
+] as const;
+
+interface ClinicalEntryDraft {
+  savedAt: number;
+  fields: Record<string, string>;
+}
+
+function readDraft(key: string): ClinicalEntryDraft | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ClinicalEntryDraft;
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > DRAFT_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
+  } catch {
+    // Borrador corrupto o localStorage inaccesible (modo privado, cuota
+    // llena) — se trata como si no hubiera borrador, nunca como un error
+    // que bloquee el formulario.
+    return null;
+  }
+}
+
+function formatDraftTime(savedAt: number): string {
+  return new Date(savedAt).toLocaleString("es-ES", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 // "YYYY-MM-DDTHH:MM" en la hora local del navegador, lo que pide un input
 // datetime-local. Con getters locales, no toISOString() (esa es UTC) — así
@@ -35,18 +91,87 @@ export function ClinicalEntryForm({
   initialValues,
   submitLabel = "Guardar entrada",
   onSuccess,
+  draftKey,
 }: ClinicalEntryFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
   const visitDateRef = useRef<HTMLInputElement>(null);
   const [chiefComplaint, setChiefComplaint] = useState(initialValues?.chiefComplaint ?? "");
   const [examinationFindings, setExaminationFindings] = useState(
     initialValues?.examinationFindings ?? "",
   );
   const [treatment, setTreatment] = useState(initialValues?.treatment ?? "");
+  // Borrador encontrado al montar, pendiente de que la persona decida
+  // restaurarlo o descartarlo — null una vez resuelto (en cualquiera de
+  // los dos sentidos) o si nunca hubo ninguno.
+  const [pendingDraft, setPendingDraft] = useState<ClinicalEntryDraft | null>(null);
 
   useEffect(() => {
-    if (state.success) onSuccess?.();
-  }, [state.success, onSuccess]);
+    if (state.success) {
+      if (draftKey) localStorage.removeItem(draftKey);
+      onSuccess?.();
+    }
+  }, [state.success, onSuccess, draftKey]);
+
+  // Solo se ofrece una vez, al montar — no en cada cambio de draftKey, que
+  // no debería cambiar durante la vida de un mismo formulario abierto.
+  useEffect(() => {
+    if (draftKey) setPendingDraft(readDraft(draftKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!draftKey) return;
+
+    function snapshot() {
+      if (!formRef.current) return;
+      // Solo los campos reales del formulario — FormData también trae los
+      // hidden inputs internos de Next ($ACTION_*, que codifican la server
+      // action enlazada) y no tiene sentido guardarlos: son específicos de
+      // este build/carga de página, no del borrador en sí.
+      const data = new FormData(formRef.current);
+      const fields: Record<string, string> = {};
+      for (const name of DRAFT_FIELD_NAMES) {
+        const value = data.get(name);
+        if (typeof value === "string") fields[name] = value;
+      }
+      localStorage.setItem(draftKey!, JSON.stringify({ savedAt: Date.now(), fields }));
+    }
+
+    const interval = setInterval(snapshot, AUTOSAVE_INTERVAL_MS);
+    // Además del intervalo, un volcado inmediato al ocultarse la pestaña
+    // (cambiar de app, cerrarla) — el caso más probable de perder lo
+    // escrito desde el último autoguardado periódico.
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") snapshot();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [draftKey]);
+
+  function applyDraft(draft: ClinicalEntryDraft) {
+    const f = draft.fields;
+    if (f.chiefComplaint !== undefined) setChiefComplaint(f.chiefComplaint);
+    if (f.examinationFindings !== undefined) setExaminationFindings(f.examinationFindings);
+    if (f.treatment !== undefined) setTreatment(f.treatment);
+    if (f.visitDate !== undefined && visitDateRef.current) visitDateRef.current.value = f.visitDate;
+    const form = formRef.current;
+    if (form) {
+      if (f.diagnosis !== undefined) (form.elements.namedItem("diagnosis") as HTMLTextAreaElement).value = f.diagnosis;
+      if (f.followUpNotes !== undefined) {
+        (form.elements.namedItem("followUpNotes") as HTMLTextAreaElement).value = f.followUpNotes;
+      }
+    }
+    setPendingDraft(null);
+  }
+
+  function discardDraft() {
+    if (draftKey) localStorage.removeItem(draftKey);
+    setPendingDraft(null);
+  }
 
   // Set imperatively after mount, not via defaultValue: both "now" and
   // the clinic-local reading of initialValues.visitDate only mean
@@ -62,7 +187,20 @@ export function ClinicalEntryForm({
   }, [initialValues]);
 
   return (
-    <form action={formAction} className="grid max-w-2xl gap-4">
+    <form ref={formRef} action={formAction} className="grid max-w-2xl gap-4">
+      {pendingDraft && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm">
+          <span>Hay un borrador autoguardado de las {formatDraftTime(pendingDraft.savedAt)}.</span>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={discardDraft}>
+              Descartar
+            </Button>
+            <Button type="button" size="sm" onClick={() => applyDraft(pendingDraft)}>
+              Restaurar
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="visitDate">Fecha de la consulta</Label>
         <Input id="visitDate" name="visitDate" type="datetime-local" ref={visitDateRef} disabled={pending} />

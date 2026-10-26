@@ -32,6 +32,7 @@ export function EditClinicalEntryDialog({ entry }: { entry: ClinicalEntry }) {
           initialValues={entry}
           submitLabel="Guardar cambios"
           onSuccess={() => setOpen(false)}
+          draftKey={`clinical-entry-draft:edit:${entry.id}`}
         />
       </DialogContent>
     </Dialog>
