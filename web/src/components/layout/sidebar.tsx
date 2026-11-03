@@ -92,8 +92,8 @@ function NavLinks({ me }: { me: Me }) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-black/10 text-nav-foreground"
-                : "text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground",
+                ? "bg-white/10 text-nav-foreground"
+                : "text-nav-foreground/70 hover:bg-white/5 hover:text-nav-foreground",
             )}
           >
             <Icon className="size-4 shrink-0" />
@@ -123,7 +123,7 @@ function MobileBottomNav({ me }: { me: Me }) {
               active ? "text-nav-foreground" : "text-nav-foreground/70",
             )}
           >
-            <span className={cn("rounded-full px-3 py-0.5", active && "bg-black/10")}>
+            <span className={cn("rounded-full px-3 py-0.5", active && "bg-white/10")}>
               <Icon className="size-5" />
             </span>
             {label}
@@ -151,7 +151,7 @@ function UserMenu({ me }: { me: Me }) {
           <button
             type="button"
             aria-label="Menú de cuenta"
-            className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-black/10"
+            className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-white/10"
           >
             <Avatar firstName={me.firstName} lastName={me.lastName} />
             <div className="min-w-0 flex-1">
@@ -213,7 +213,7 @@ export function Sidebar({ me }: { me: Me }) {
           <Link
             href="/account"
             aria-label="Mi cuenta"
-            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
+            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
           >
             <UserIcon className="size-5" />
           </Link>
@@ -221,7 +221,7 @@ export function Sidebar({ me }: { me: Me }) {
             <button
               type="submit"
               aria-label="Cerrar sesión"
-              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
+              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
             >
               <ArrowLeftOnRectangleIcon className="size-5" />
             </button>

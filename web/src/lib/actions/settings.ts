@@ -106,7 +106,7 @@ export async function updateDeviceLockAction(enabled: boolean): Promise<DeviceLo
       method: "PATCH",
       body: { enabled },
     });
-    revalidatePath("/settings/security");
+    revalidatePath("/settings");
     return { deviceLock };
   } catch (err) {
     if (err instanceof ApiError) return { error: err.message };
@@ -129,7 +129,7 @@ export async function generateDeviceCredentialAction(): Promise<GenerateDeviceCr
       "/settings/device-lock/credential",
       { method: "POST" },
     );
-    revalidatePath("/settings/security");
+    revalidatePath("/settings");
     return { token, deviceLock };
   } catch (err) {
     if (err instanceof ApiError) return { error: err.message };
@@ -142,7 +142,7 @@ export async function revokeDeviceCredentialAction(): Promise<DeviceLockActionSt
     const deviceLock = await apiFetch<DeviceLock>("/settings/device-lock/credential", {
       method: "DELETE",
     });
-    revalidatePath("/settings/security");
+    revalidatePath("/settings");
     return { deviceLock };
   } catch (err) {
     if (err instanceof ApiError) return { error: err.message };

@@ -56,8 +56,10 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-tint: var(--primary-tint);
   --color-nav-foreground: var(--nav-foreground);
   --color-nav: var(--nav);
+  --color-surface: var(--surface);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -71,55 +73,70 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Shadows tinted with the brand navy/blue instead of neutral black — the
+   same soft, lifted look as the Mederi website's cards. Overrides
+   Tailwind's own scale, so every existing shadow-xs/sm/md/lg (cards,
+   dialogs, dropdowns, popovers) picks it up without touching components. */
+@theme {
+  --shadow-xs: 0 1px 2px rgba(2, 35, 65, 0.05);
+  --shadow-sm: 0 1px 2px rgba(2, 35, 65, 0.04), 0 6px 16px -8px rgba(0, 34, 176, 0.12);
+  --shadow-md: 0 4px 8px -4px rgba(2, 35, 65, 0.06), 0 16px 32px -16px rgba(0, 34, 176, 0.2);
+  --shadow-lg: 0 8px 16px -8px rgba(2, 35, 65, 0.08), 0 30px 60px -30px rgba(0, 34, 176, 0.3);
+}
+
 :root {
-  /* Base palette: Black/White/Body-gray/Stock-gray, plus Mederi's brand
-     blues. --primary (#0022B0) drives buttons/links/focus rings;
-     --primary-hover (#3366FF) is its dedicated hover/active shade — not
-     derived via opacity, since the brand spec gives it as its own flat
-     color. --nav (#000066) is deliberately a separate, darker token from
-     --primary: the nav/sidebar chrome and buttons are two different brand
-     colors, not the same one reused. */
-  --black: #191919;
+  /* Corporate palette, aligned with the Mederi website (mederi-landing
+     theme): --dark (#022341) is the brand navy used for text and the
+     sidebar chrome; --primary (#0022B0) drives buttons/links;
+     --primary-hover (#3366FF) is its own flat hover shade (the website's
+     "secondary"), not an opacity of primary. Neutrals are mixed from the
+     navy rather than pure gray, so borders and muted text stay in the
+     same blue family as everything else. */
+  --dark: #022341;
   --white: #ffffff;
-  --body: #616161;
-  --stock: #e5e5e5;
+  --body: color-mix(in srgb, var(--dark) 66%, var(--white));
+  --stock: color-mix(in srgb, var(--dark) 11%, var(--white));
+  --surface: #f5f7fb;
 
   --card: var(--white);
-  --card-foreground: var(--black);
+  --card-foreground: var(--dark);
   --popover: var(--white);
-  --popover-foreground: var(--black);
+  --popover-foreground: var(--dark);
   --primary: #0022b0;
   --primary-foreground: var(--white);
   --primary-hover: #3366ff;
-  --nav: #000066;
+  --primary-tint: color-mix(in srgb, var(--primary) 8%, var(--white));
+  --nav: var(--dark);
   --nav-foreground: var(--white);
-  --secondary: var(--stock);
-  --secondary-foreground: var(--black);
-  --muted: var(--stock);
+  --secondary: color-mix(in srgb, var(--primary-hover) 12%, var(--white));
+  --secondary-foreground: var(--primary);
+  --muted: #eef2f8;
   --muted-foreground: var(--body);
-  --accent: var(--stock);
-  --accent-foreground: var(--black);
-  --destructive: #f23d4c;
-  --success: #00e492;
+  --accent: var(--primary-tint);
+  --accent-foreground: var(--primary);
+  /* Website's danger/success — both readable as text on white, unlike the
+     previous #f23d4c / neon #00e492 used for tinted badges and buttons. */
+  --destructive: #b42318;
+  --success: #15803d;
   --border: var(--stock);
   --input: var(--stock);
-  --ring: #0022b0;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --ring: var(--primary-hover);
+  --chart-1: #0022b0;
+  --chart-2: #3366ff;
+  --chart-3: #8aa4ff;
+  --chart-4: #022341;
+  --chart-5: #c7d4ff;
+  --radius: 0.75rem;
   --sidebar: var(--white);
-  --sidebar-foreground: var(--black);
+  --sidebar-foreground: var(--dark);
   --sidebar-primary: var(--nav);
   --sidebar-primary-foreground: var(--white);
-  --sidebar-accent: var(--stock);
-  --sidebar-accent-foreground: var(--black);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--dark);
   --sidebar-border: var(--stock);
-  --sidebar-ring: #0022b0;
+  --sidebar-ring: var(--primary-hover);
   --background: var(--white);
-  --foreground: var(--black);
+  --foreground: var(--dark);
 }
 
 .dark {
@@ -176,7 +193,7 @@
   h4,
   h5,
   h6 {
-    @apply font-heading font-medium text-heading;
+    @apply font-heading font-semibold tracking-tight text-heading;
   }
 }
 

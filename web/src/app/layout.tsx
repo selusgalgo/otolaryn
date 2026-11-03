@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
-// One family, three weights registered as separate @font-face entries under
-// the same CSS variable — so Tailwind's font-normal/font-medium/font-bold
-// utilities (weights 400/500/700) each resolve to the matching physical
-// file instead of the browser faking bold/medium by synthesizing it.
+// Inter as a single variable font (weights 100–900, Latin + Spanish subset)
+// — the same file the Mederi website ships, so every Tailwind weight
+// utility (font-medium/semibold/bold) maps to a real cut instead of the
+// browser synthesizing bold from the regular face.
 const inter = localFont({
-  src: [
-    { path: "./fonts/Inter-Regular.ttf", weight: "400", style: "normal" },
-    { path: "./fonts/Inter-Medium.ttf", weight: "500", style: "normal" },
-  ],
+  src: "./fonts/Inter-Variable.woff2",
+  weight: "100 900",
+  style: "normal",
   variable: "--font-inter",
   display: "swap",
 });

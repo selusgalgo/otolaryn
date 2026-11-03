@@ -16,7 +16,7 @@ export function InitialsAvatar({ firstName, lastName, size = "md" }: InitialsAva
   return (
     <div
       aria-hidden="true"
-      className={`flex shrink-0 select-none items-center justify-center rounded-full bg-stock font-bold text-muted-foreground ${SIZE_CLASSES[size]}`}
+      className={`flex shrink-0 select-none items-center justify-center rounded-full bg-primary-tint font-semibold text-primary ${SIZE_CLASSES[size]}`}
     >
       {initials}
     </div>

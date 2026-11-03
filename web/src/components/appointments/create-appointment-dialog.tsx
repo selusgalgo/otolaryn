@@ -21,7 +21,7 @@ export function CreateAppointmentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
+        <Button>
           <PlusIcon data-icon="inline-start" />
           Nueva cita
         </Button>

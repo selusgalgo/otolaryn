@@ -243,7 +243,7 @@ export function PatientsTable({
                   <Link href={`/patients/${patient.id}`} className="group flex items-center gap-3">
                     <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
                     <div>
-                      <div className="font-medium group-hover:underline">
+                      <div className="font-semibold group-hover:underline">
                         {patient.firstName} {patient.lastName}
                       </div>
                       {/* Nº de historia (legacy_id) — relaciona este paciente
@@ -261,9 +261,9 @@ export function PatientsTable({
                     </div>
                   </Link>
                 </TableCell>
-                <TableCell className="font-medium">{formatDocumentId(patient.documentId)}</TableCell>
-                <TableCell className="font-medium">{patient.phone}</TableCell>
-                <TableCell className="font-medium">{formatDateShort(patient.dateOfBirth)}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDocumentId(patient.documentId)}</TableCell>
+                <TableCell className="text-muted-foreground">{patient.phone}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDateShort(patient.dateOfBirth)}</TableCell>
                 <TableCell>
                   <PatientRowActions
                     patient={patient}

@@ -3,9 +3,11 @@ import { ROLE_LABELS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 
 // Semantic color rule: 700 for the text, 50 for the background — one hue
-// per role so they're distinguishable at a glance in a list.
+// per role so they're distinguishable at a glance in a list. Admin uses the
+// brand blue instead of a separate purple, keeping it on the corporate
+// palette.
 const ROLE_STYLES: Record<Role, string> = {
-  admin: "bg-violet-50 text-violet-700",
+  admin: "bg-primary-tint text-primary",
   profesional: "bg-teal-50 text-teal-700",
   recepcion: "bg-orange-50 text-orange-700",
   superadmin: "bg-rose-50 text-rose-700",
