@@ -185,9 +185,12 @@ export class ClinicalEntriesService {
 
     const doctorMapping =
       (extra?.doctorMapping as Record<string, string> | undefined) ?? {};
-    const authorUserId = row.doctorName
-      ? doctorMapping[row.doctorName]
-      : undefined;
+    // Object.hasOwn: doctorName comes from the uploaded file, and a plain
+    // index would resolve names like "constructor" to inherited properties.
+    const authorUserId =
+      row.doctorName && Object.hasOwn(doctorMapping, row.doctorName)
+        ? doctorMapping[row.doctorName]
+        : undefined;
     if (!authorUserId) {
       return {
         created: false,

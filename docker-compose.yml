@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     ports:
-      - '5432:5432'
+      # Loopback only: this dev database uses the default postgres/postgres
+      # superuser and shouldn't be reachable from the rest of the network.
+      - '127.0.0.1:5432:5432'
     volumes:
       - otolaryn_pgdata:/var/lib/postgresql/data
       - ./docker/init:/docker-entrypoint-initdb.d:ro

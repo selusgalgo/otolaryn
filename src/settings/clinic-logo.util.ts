@@ -11,6 +11,12 @@ import { Jimp } from 'jimp';
 // since that's the size an admin actually picked.
 const MAX_LOGO_BYTES = 1_000_000;
 
+// Hard cap for the FileInterceptor on both logo routes, so an oversized
+// upload is cut off while buffering instead of after. Deliberately above
+// MAX_LOGO_BYTES so anything in between still gets the friendly Spanish
+// message below rather than multer's generic 413.
+export const MAX_LOGO_UPLOAD_BYTES = 2 * MAX_LOGO_BYTES;
+
 const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 // Turns an uploaded logo file into the data: URI stored on Tenant.logo —

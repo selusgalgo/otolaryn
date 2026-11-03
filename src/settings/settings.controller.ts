@@ -17,7 +17,7 @@ import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
-import { logoFileToDataUri } from './clinic-logo.util';
+import { logoFileToDataUri, MAX_LOGO_UPLOAD_BYTES } from './clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
@@ -123,7 +123,12 @@ export class SettingsController {
   // as PatientsController's import endpoints (small-file, no disk write).
   @Patch('clinic-profile')
   @Roles('admin')
-  @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_LOGO_UPLOAD_BYTES },
+    }),
+  )
   async updateClinicProfile(
     @CurrentUser() user: CurrentUserPayload,
     @Body('name') name?: string,

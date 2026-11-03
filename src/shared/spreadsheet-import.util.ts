@@ -12,6 +12,12 @@ const SSF = XLSX.SSF as unknown as {
   parse_date_code(value: number): DateCode | undefined;
 };
 
+// Upload cap for every import route's FileInterceptor — the whole file is
+// buffered in memory and parsed in one go, so without it the request body
+// is the only bound. Matches the web's serverActions.bodySizeLimit (25mb),
+// which already had to fit the largest real legacy dump (~14 MB).
+export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
+
 const CSV_EXTENSIONS = ['.csv'];
 const SPREADSHEET_EXTENSIONS = ['.xls', '.xlsx'];
 

@@ -76,6 +76,17 @@ function isoToDayFirst(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+// A CSV cell starting with one of these is evaluated as a formula by
+// Excel/LibreOffice when the export is opened — and these fields are free
+// text any role that creates patients can write. The leading apostrophe
+// makes the spreadsheet show the value as plain text. Not needed for XLSX:
+// json_to_sheet already writes these as string cells.
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+function neutralizeCsvFormula(text: string): string {
+  return FORMULA_TRIGGER.test(text) ? `'${text}` : text;
+}
+
 export function buildPatientsExport(
   patients: Patient[],
   format: 'csv' | 'xlsx',
@@ -84,8 +95,9 @@ export function buildPatientsExport(
     const row: Record<string, string> = {};
     for (const { field, label } of COLUMNS) {
       const value = p[field as keyof Patient];
-      const text = value == null ? '' : String(value);
-      row[label] = field === 'dateOfBirth' && text ? isoToDayFirst(text) : text;
+      const raw = value == null ? '' : String(value);
+      const text = field === 'dateOfBirth' && raw ? isoToDayFirst(raw) : raw;
+      row[label] = format === 'csv' ? neutralizeCsvFormula(text) : text;
     }
     return row;
   });

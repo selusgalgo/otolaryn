@@ -19,7 +19,10 @@ import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
 import { ListPatientsQueryDto } from '../patients/dto/list-patients-query.dto';
 import { PatientsService } from '../patients/patients.service';
-import { logoFileToDataUri } from '../settings/clinic-logo.util';
+import {
+  logoFileToDataUri,
+  MAX_LOGO_UPLOAD_BYTES,
+} from '../settings/clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import { RouteTenantContextInterceptor } from '../tenancy/route-tenant-context.interceptor';
@@ -93,7 +96,12 @@ export class PlatformController {
   // Same multipart shape as SettingsController's own clinic-profile PATCH
   // — see logoFileToDataUri for the validation both share.
   @Patch(':id/clinic-profile')
-  @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_LOGO_UPLOAD_BYTES },
+    }),
+  )
   async updateClinicProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('name') name?: string,

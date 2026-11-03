@@ -77,7 +77,30 @@ export class AppointmentsService {
     private readonly clinicHours: Repository<ClinicHour>,
     @InjectRepository(Tenant)
     private readonly tenants: Repository<Tenant>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
+
+  // appointments.practitioner_id is a plain FK to iam.users(id), which has
+  // no RLS and isn't scoped by tenant (unlike patient_id's composite FK) —
+  // so a practitionerId from the body has to be checked here, or an
+  // admin/recepcion could attach a user from another clinic.
+  private async assertPractitionerInTenant(
+    practitionerId: string,
+  ): Promise<void> {
+    const exists = await this.users.exists({
+      where: {
+        id: practitionerId,
+        tenantId: this.tenancyContext.tenantId,
+        active: true,
+      },
+    });
+    if (!exists) {
+      throw new BadRequestException(
+        'El profesional seleccionado no existe en esta clínica',
+      );
+    }
+  }
 
   private get repo() {
     // No explicit WHERE tenant_id here on purpose: RLS is what must filter
@@ -153,6 +176,7 @@ export class AppointmentsService {
       if (!dto.practitionerId) {
         throw new BadRequestException('Selecciona un profesional');
       }
+      await this.assertPractitionerInTenant(dto.practitionerId);
       practitionerId = dto.practitionerId;
     }
 
@@ -192,7 +216,11 @@ export class AppointmentsService {
   > {
     const qb = this.repo
       .createQueryBuilder('a')
-      .leftJoin(User, 'practitioner', 'practitioner.id = a.practitionerId')
+      .leftJoin(
+        User,
+        'practitioner',
+        'practitioner.id = a.practitionerId AND practitioner.tenantId = a.tenantId',
+      )
       .addSelect(
         "NULLIF(TRIM(CONCAT(practitioner.firstName, ' ', practitioner.lastName)), '')",
         'practitionerName',
@@ -280,6 +308,9 @@ export class AppointmentsService {
     if (dto.practitionerId !== undefined && user.role !== 'profesional') {
       // A profesional can't reassign their own appointment to someone
       // else — only admin/recepcion redistribute the agenda.
+      if (dto.practitionerId !== appointment.practitionerId) {
+        await this.assertPractitionerInTenant(dto.practitionerId);
+      }
       appointment.practitionerId = dto.practitionerId;
     }
     if (dto.notes !== undefined) {

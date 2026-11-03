@@ -21,6 +21,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AntecedenteType } from '../antecedentes/entities/antecedente-type.entity';
+import { MAX_IMPORT_FILE_BYTES } from '../shared/spreadsheet-import.util';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
@@ -130,7 +131,12 @@ export class PatientsController {
   // existe para cubrir.
   @Post('import/preview')
   @Roles('admin', 'recepcion')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   async preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
@@ -149,7 +155,12 @@ export class PatientsController {
 
   @Post('import')
   @Roles('admin', 'recepcion')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   async import(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,
@@ -213,7 +224,12 @@ export class PatientsController {
   // paciente por su Nº de historia — ver PatientsService.updateRow.
   @Post('import-update/preview')
   @Roles('admin', 'recepcion')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   async previewUpdate(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
@@ -232,7 +248,12 @@ export class PatientsController {
 
   @Post('import-update')
   @Roles('admin', 'recepcion')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   async importUpdate(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,

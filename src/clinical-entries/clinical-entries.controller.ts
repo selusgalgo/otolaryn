@@ -18,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from '../iam/current-user.decorator';
+import { MAX_IMPORT_FILE_BYTES } from '../shared/spreadsheet-import.util';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
@@ -97,7 +98,12 @@ export class ClinicalEntriesController {
   // acción clínica del día a día.
   @Post('clinical-entries/import/preview')
   @Roles('admin')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
@@ -117,7 +123,12 @@ export class ClinicalEntriesController {
   // importar. Vacío si no se mapeó ninguna columna de doctor.
   @Post('clinical-entries/import/doctors')
   @Roles('admin')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   importDoctors(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,
@@ -144,7 +155,12 @@ export class ClinicalEntriesController {
   // paso anterior) resuelve el autor de cada consulta.
   @Post('clinical-entries/import')
   @Roles('admin')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMPORT_FILE_BYTES },
+    }),
+  )
   import(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,

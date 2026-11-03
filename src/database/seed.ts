@@ -118,6 +118,12 @@ const TENANTS: TenantSeed[] = [
 ];
 
 async function seed() {
+  // Every seeded account (superadmin included) shares DEV_PASSWORD, which
+  // is public in this repo — refuse outright rather than rely on nobody
+  // ever running `npm run seed` against a production database.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to seed: NODE_ENV is production');
+  }
   const dataSource = await migrationDataSource.initialize();
   const passwordHash = await argon2.hash(DEV_PASSWORD, {
     type: argon2.argon2id,

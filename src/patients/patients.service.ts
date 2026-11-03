@@ -408,9 +408,15 @@ export class PatientsService {
       patient.firstConsultationOverride = row.firstConsultationOverride;
       touched = true;
     }
-    if (row.notes && patient.notes !== row.notes) {
-      patient.notes = row.notes;
-      touched = true;
+    if (row.notes) {
+      // Same treatment as importRow: a legacy cell is plain text, and the
+      // client renders notes as raw HTML — plainTextToRichText escapes it
+      // (newlines -> <br>) and runs it through the same allowlist.
+      const notes = plainTextToRichText(row.notes);
+      if (patient.notes !== notes) {
+        patient.notes = notes;
+        touched = true;
+      }
     }
     if (touched) {
       await this.repo.save(patient);

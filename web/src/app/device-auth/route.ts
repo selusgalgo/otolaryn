@@ -7,9 +7,14 @@ import { setDeviceToken } from "@/lib/session";
 // long-lived httpOnly cookie, after which every login/request from this
 // browser carries it automatically (see api.ts, loginAction). No session
 // required to visit this — see middleware.ts's isDeviceAuthPage carve-out.
+// Same shape SettingsService generates (randomBytes(32) as base64url) —
+// anything else can't be a real credential, so it's never stored. Keeps a
+// crafted link from planting an arbitrary cookie on a clinic computer.
+const DEVICE_TOKEN_FORMAT = /^[A-Za-z0-9_-]{43}$/;
+
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t");
-  if (token) {
+  if (token && DEVICE_TOKEN_FORMAT.test(token)) {
     await setDeviceToken(token);
   }
   // A relative Location, not NextResponse.redirect(new URL("/login",
