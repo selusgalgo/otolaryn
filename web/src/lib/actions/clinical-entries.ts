@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, isSessionEnded } from "@/lib/api";
 import type { ClinicalEntry } from "@/lib/types";
 
 export interface ClinicalEntryFormState {
@@ -15,20 +15,29 @@ export interface ClinicalEntryFormState {
   // un aviso específico con un botón directo a volver a iniciar sesión,
   // en vez del error genérico de abajo. Ver ClinicalEntryForm.
   sessionExpired?: boolean;
+  // Solo en el alta: a dónde ir tras crear la consulta. Antes la acción hacía
+  // redirect() y el formulario nunca llegaba a saber que el guardado había
+  // ido bien, así que el borrador autoguardado se quedaba y reaparecía en la
+  // siguiente consulta del paciente. Ahora navega el cliente, tras borrarlo.
+  redirectTo?: string;
 }
 
-// 401 del backend aquí solo puede significar una cosa: el JWT de la
-// cookie ya caducó (nunca "contraseña incorrecta", eso solo pasa en
-// /auth/login) — mientras la persona escribía una consulta larga, la
-// sesión (1h) expiró por debajo. Centralizado porque las dos acciones de
-// abajo necesitan el mismo trato.
+// Un 401 del backend aquí nunca es "contraseña incorrecta" (eso solo pasa en
+// /auth/login), pero tampoco es siempre "la sesión caducó": la API distingue
+// con `code` el JWT caducado de un dispositivo bloqueado o una cuenta
+// desactivada, donde volver a entrar no arregla nada. Sin `code` (una API
+// anterior a esa distinción) se sigue tratando como sesión caducada.
+// Centralizado porque las dos acciones de abajo necesitan el mismo trato.
 function clinicalEntryErrorState(err: unknown): ClinicalEntryFormState {
   if (err instanceof ApiError) {
     if (err.status === 401) {
-      return {
-        error: "Tu sesión ha caducado. Lo que has escrito está a salvo en este dispositivo.",
-        sessionExpired: true,
-      };
+      if (isSessionEnded(err) || err.code === undefined) {
+        return { error: "Tu sesión ha caducado.", sessionExpired: true };
+      }
+      if (err.code === "ACCOUNT_DISABLED") {
+        return { error: "Tu cuenta está desactivada. Contacta con el administrador de la clínica." };
+      }
+      return { error: err.message };
     }
     return { error: err.message };
   }
@@ -66,7 +75,7 @@ export async function createClinicalEntryAction(
   }
 
   revalidatePath(`/patients/${patientId}`);
-  redirect(`/patients/${patientId}/clinical-entries/${entry.id}`);
+  return { success: true, redirectTo: `/patients/${patientId}/clinical-entries/${entry.id}` };
 }
 
 // admin/profesional (ver ClinicalEntriesController) — a diferencia de

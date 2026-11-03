@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AppointmentDefaultsFormState } from "@/lib/actions/settings";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface AppointmentDefaultsFormProps {
   action: (
@@ -25,7 +26,7 @@ export function AppointmentDefaultsForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form action={formAction} className="grid max-w-xs gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-xs gap-4">
       <div className="space-y-2">
         <Label htmlFor="defaultDurationMinutes">Duración por defecto (minutos)</Label>
         <Input

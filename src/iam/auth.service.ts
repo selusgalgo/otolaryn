@@ -1,11 +1,19 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { Repository } from 'typeorm';
+import { AuthErrorCode } from './auth-error-codes';
+import type { CurrentUserPayload } from './current-user.decorator';
 import { enforceDeviceLock } from './device-lock.util';
 import { Tenant } from './entities/tenant.entity';
 import { User } from './entities/user.entity';
+import {
+  DEFAULT_SESSION_MAX_HOURS,
+  isSessionOver,
+  sessionEndFrom,
+} from './session-limits';
 
 // A precomputed, valid Argon2id hash with no corresponding real password.
 // Used to keep login's response time constant whether or not the
@@ -21,7 +29,14 @@ export class AuthService {
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
     private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
+
+  private sessionMaxHours(): number {
+    return Number(
+      this.config.get('SESSION_MAX_HOURS', DEFAULT_SESSION_MAX_HOURS),
+    );
+  }
 
   async login(
     identifier: string,
@@ -30,17 +45,20 @@ export class AuthService {
   ): Promise<{ accessToken: string }> {
     // iam.users carries no RLS (see entity comment), so this lookup runs on
     // the plain pooled connection — there is no tenant context yet.
-    // username is optional (many rows have it NULL), so this only ever
-    // matches on email for those — the OR never turns into a spurious match.
-    const user = await this.users
-      .createQueryBuilder('u')
-      .where(
-        'lower(u.email) = lower(:identifier) OR lower(u.username) = lower(:identifier)',
-        {
-          identifier,
-        },
-      )
-      .getOne();
+    // Email first, username only as a fallback: each column is unique on its
+    // own, but nothing stops one user's username from equalling another
+    // user's email — a single OR + getOne() would then pick either row
+    // depending on the query plan, and the email owner's correct password
+    // could fail against the other row's hash.
+    const user =
+      (await this.users
+        .createQueryBuilder('u')
+        .where('lower(u.email) = lower(:identifier)', { identifier })
+        .getOne()) ??
+      (await this.users
+        .createQueryBuilder('u')
+        .where('lower(u.username) = lower(:identifier)', { identifier })
+        .getOne());
 
     // Always run argon2.verify, even for a nonexistent user, against the
     // dummy hash — so "no such user" and "wrong password" take the same
@@ -84,8 +102,42 @@ export class AuthService {
       role: user.role,
       first_name: user.firstName,
       last_name: user.lastName,
+      session_end: sessionEndFrom(
+        Math.floor(Date.now() / 1000),
+        this.sessionMaxHours(),
+      ),
     });
 
+    return { accessToken };
+  }
+
+  // Renueva el token de una sesión en curso (sin pedir la contraseña) para
+  // que quien está trabajando no se quede fuera a la hora. Solo se llega
+  // aquí con un JWT válido: JwtStrategy ya comprobó firma, caducidad, cuenta
+  // activa y dispositivo, así que desactivar a alguien o revocar el
+  // dispositivo también corta las renovaciones. Rol y nombres salen de la
+  // fila fresca, no del token viejo. `session_end` se conserva tal cual:
+  // renovar no alarga el techo absoluto.
+  async refresh(
+    current: CurrentUserPayload,
+    nowSec: number = Math.floor(Date.now() / 1000),
+  ): Promise<{ accessToken: string }> {
+    if (isSessionOver(current.sessionEnd, nowSec)) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+        code: AuthErrorCode.SessionExpired,
+      });
+    }
+    const accessToken = await this.jwt.signAsync({
+      sub: current.userId,
+      tenant_id: current.tenantId,
+      role: current.role,
+      first_name: current.firstName,
+      last_name: current.lastName,
+      session_end: current.sessionEnd,
+    });
     return { accessToken };
   }
 }

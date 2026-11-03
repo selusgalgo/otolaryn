@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ClinicProfileFormState } from "@/lib/actions/settings";
 import type { ClinicProfile } from "@/lib/types";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface ClinicProfileFormProps {
   action: (
@@ -45,7 +46,7 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
   }
 
   return (
-    <form action={formAction} className="grid max-w-md gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-md gap-4">
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la clínica</Label>
         <Input

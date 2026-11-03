@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { ScheduleFormState } from "@/lib/actions/settings";
 import type { DaySchedule, TimeSlot } from "@/lib/types";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 const WEEKDAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -59,7 +60,7 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
   }
 
   return (
-    <form action={formAction} className="grid max-w-2xl gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-2xl gap-4">
       <div className="divide-y">
         {days.map((day, dayIndex) => {
           const open = day.slots.length > 0;

@@ -23,6 +23,14 @@ export class AuthController {
     return this.auth.login(dto.identifier, dto.password, dto.deviceToken);
   }
 
+  // Renueva el JWT de una sesión en curso — ver AuthService.refresh.
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  refresh(@CurrentUser() user: CurrentUserPayload) {
+    return this.auth.refresh(user);
+  }
+
   // Just echoes fields already attached to the request by JwtStrategy —
   // no extra DB lookup here, agendaAccess included since that strategy
   // already re-fetches the user row on every request anyway.

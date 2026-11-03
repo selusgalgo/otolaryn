@@ -1,5 +1,5 @@
 import { API_URL } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getDeviceToken, getSessionToken } from "@/lib/session";
 
 // Same "bridge the httpOnly cookie to an Authorization header and stream
 // the binary straight back" shape as /patients/export's Route Handler —
@@ -10,9 +10,15 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
   const token = await getSessionToken();
+  const deviceToken = await getDeviceToken();
 
   const upstream = await fetch(`${API_URL}/patients/${id}/pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
+      // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
+      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+    },
     cache: "no-store",
   });
 

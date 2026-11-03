@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginAction, type LoginState } from "@/lib/actions/auth";
+import { clearAllDrafts } from "@/lib/drafts";
 
 const initialState: LoginState = {};
 
@@ -16,6 +17,16 @@ const initialState: LoginState = {};
 // first client render matches the server-rendered empty form and React
 // doesn't flag a hydration mismatch.
 const REMEMBER_IDENTIFIER_KEY = "otolaryn_remembered_identifier";
+
+// Por qué se ha llegado aquí (?reason=). Los motivos de sesión terminada
+// vienen del middleware, de /session/expired o del logout.
+const REASON_MESSAGES: Record<string, string> = {
+  SESSION_EXPIRED: "Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.",
+  TOKEN_INVALID: "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
+  DEVICE_LOCKED:
+    "Este dispositivo no está autorizado para acceder a la aplicación. Contacta con el administrador de la clínica.",
+  ACCOUNT_DISABLED: "Tu cuenta está desactivada. Contacta con el administrador de la clínica.",
+};
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
@@ -30,6 +41,7 @@ export default function LoginPage() {
   // página estática, y useSearchParams() la forzaría a exigir un límite
   // Suspense.
   const [redirectTarget, setRedirectTarget] = useState("");
+  const [reasonMessage, setReasonMessage] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_IDENTIFIER_KEY);
@@ -37,8 +49,15 @@ export default function LoginPage() {
       setIdentifier(saved);
       setRememberIdentifier(true);
     }
-    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
     if (redirect) setRedirectTarget(redirect);
+    const reason = params.get("reason") ?? "";
+    if (REASON_MESSAGES[reason]) setReasonMessage(REASON_MESSAGES[reason]);
+    // Cierre de sesión explícito: no dejar borradores clínicos en un
+    // ordenador que puede ser compartido. Una sesión caducada NO pasa por
+    // aquí — ahí los borradores son justo lo que hay que conservar.
+    if (reason === "logout") clearAllDrafts();
   }, []);
 
   function handleSubmit() {
@@ -50,16 +69,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
+    // Same soft blue glow from the top as the Mederi website's hero.
+    <div className="flex min-h-screen flex-col items-center justify-center bg-surface bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(51,102,255,0.12),transparent_70%)] p-4">
       <div className="w-full max-w-sm">
         {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
         <img src="/logo.svg" alt="Mederi" className="mx-auto mb-8 h-36 w-auto" />
-        <Card>
-          <CardContent>
-            <h1 className="text-center text-2xl font-bold">Iniciar sesión</h1>
+        <Card className="rounded-2xl shadow-lg">
+          <CardContent className="px-6 py-2">
+            <h1 className="text-center text-2xl font-semibold tracking-tight">Iniciar sesión</h1>
+            {reasonMessage && (
+              <p role="status" className="mt-2 text-center text-sm text-muted-foreground">
+                {reasonMessage}
+              </p>
+            )}
             {redirectTarget && (
               <p className="mt-2 text-center text-sm text-muted-foreground">
-                Tu sesión caducó. Al entrar, volverás justo donde lo dejaste.
+                Al entrar, volverás justo donde lo dejaste.
               </p>
             )}
             <form action={formAction} onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -113,7 +138,7 @@ export default function LoginPage() {
                 </Label>
               </div>
               {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-              <Button type="submit" className="w-full" disabled={pending}>
+              <Button type="submit" size="lg" className="w-full" disabled={pending}>
                 {pending ? "Entrando..." : "Entrar"}
               </Button>
             </form>

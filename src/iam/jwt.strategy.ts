@@ -5,7 +5,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
+import { AuthErrorCode } from './auth-error-codes';
 import { enforceDeviceLock } from './device-lock.util';
+import {
+  DEFAULT_SESSION_MAX_HOURS,
+  effectiveSessionEnd,
+  isSessionOver,
+} from './session-limits';
 import { Tenant } from './entities/tenant.entity';
 import { User } from './entities/user.entity';
 
@@ -15,10 +21,14 @@ interface JwtPayload {
   role: string;
   first_name: string;
   last_name: string;
+  session_end?: number;
+  iat?: number;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly sessionMaxHours: number;
+
   constructor(
     config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
@@ -39,6 +49,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // on/off or regenerating the credential takes effect immediately.
       passReqToCallback: true,
     });
+    this.sessionMaxHours = Number(
+      config.get('SESSION_MAX_HOURS', DEFAULT_SESSION_MAX_HOURS),
+    );
   }
 
   // Runs only after passport-jwt has already verified the signature and
@@ -50,33 +63,60 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // account that just lost its job at the clinic. One extra lookup by id
   // per authenticated request is a small, well-known price for that
   // guarantee; iam.users is tiny and this is a PK lookup.
+  //
+  // role and tenantId come from that same freshly loaded row, not from the
+  // token: otherwise a user an admin demotes keeps the old role's routes
+  // (and, demoted to profesional, skips the device lock) until the token
+  // expires — the same stale-claim window as deactivation above.
   async validate(req: Request, payload: JwtPayload) {
-    const user = await this.users.findOne({ where: { id: payload.sub } });
-    if (!user || !user.active) {
-      throw new UnauthorizedException();
+    // Techo absoluto de la sesión (ver session-limits.ts): un token que sigue
+    // sin caducar pero cuya sesión ya agotó su tiempo máximo no vale.
+    const sessionEnd = effectiveSessionEnd(
+      payload.session_end,
+      payload.iat,
+      this.sessionMaxHours,
+    );
+    if (isSessionOver(sessionEnd, Math.floor(Date.now() / 1000))) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+        code: AuthErrorCode.SessionExpired,
+      });
     }
 
-    if (payload.tenant_id) {
+    const user = await this.users.findOne({ where: { id: payload.sub } });
+    if (!user || !user.active) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+        code: AuthErrorCode.AccountDisabled,
+      });
+    }
+
+    if (user.tenantId) {
       const tenant = await this.tenants.findOne({
-        where: { id: payload.tenant_id },
+        where: { id: user.tenantId },
       });
       if (tenant) {
         const deviceToken = req.headers['x-device-token'];
         await enforceDeviceLock(
           tenant,
-          payload.role,
+          user.role,
           typeof deviceToken === 'string' ? deviceToken : undefined,
         );
       }
     }
 
     return {
-      userId: payload.sub,
-      tenantId: payload.tenant_id,
-      role: payload.role,
+      userId: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
       firstName: payload.first_name,
       lastName: payload.last_name,
       agendaAccess: user.agendaAccess,
+      sessionEnd,
     };
   }
 }

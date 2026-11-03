@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
 import { ASSIGNABLE_ROLES, ROLE_LABELS, STAFF_FUNCTIONS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface UserFormProps {
   action: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
@@ -25,7 +26,7 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
   }, [state.success, onSuccess]);
 
   return (
-    <form action={formAction} className="grid max-w-lg gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-lg gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">Nombre</Label>

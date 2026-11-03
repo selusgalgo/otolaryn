@@ -1,13 +1,23 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useDraftScope } from "@/components/layout/draft-scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Textarea } from "@/components/ui/textarea";
 import type { ClinicalEntryFormState } from "@/lib/actions/clinical-entries";
+import {
+  buildDraftKey,
+  purgeStaleDrafts,
+  readDraft,
+  removeDraft,
+  writeDraft,
+  type StoredDraft,
+} from "@/lib/drafts";
 import type { ClinicalEntry } from "@/lib/types";
 
 interface ClinicalEntryFormProps {
@@ -19,10 +29,11 @@ interface ClinicalEntryFormProps {
   // Llamado tras un guardado correcto — lo usa el diálogo de edición para
   // cerrarse solo, igual que AppointmentForm.
   onSuccess?: () => void;
-  // Clave de localStorage para el autoguardado de este formulario en
-  // concreto (p.ej. distinta por paciente en alta, por entrada en
-  // edición) — sin esto no hay autoguardado. Ver motivación en el comentario
-  // de más abajo, junto a DRAFT_TTL_MS.
+  // Identifica este formulario en concreto para el autoguardado (p.ej.
+  // distinto por paciente en alta, por entrada en edición); la clave final
+  // añade clínica y usuario (ver DraftScopeProvider). Sin esto no hay
+  // autoguardado. Ver motivación en el comentario de más abajo, junto a
+  // DRAFT_TTL_MS.
   draftKey?: string;
 }
 
@@ -31,13 +42,14 @@ const initialState: ClinicalEntryFormState = {};
 // Un profesional escribiendo una consulta larga puede tardar más de lo que
 // dura la sesión (1h) — si caduca a media escritura, la redirección a
 // login se lleva por delante todo lo no guardado. Este autoguardado es la
-// red de seguridad: cada AUTOSAVE_INTERVAL_MS (y al ocultarse la pestaña)
-// se vuelca el formulario entero a localStorage, y si al volver a abrir
-// este mismo formulario hay un borrador reciente, se ofrece recuperarlo.
-// DRAFT_TTL_MS descarta borradores viejos para no resucitar algo de hace
-// semanas que ya no tiene sentido.
+// red de seguridad: cada AUTOSAVE_INTERVAL_MS, al ocultarse la pestaña, al
+// irse de la página y al desmontarse el formulario se vuelca el formulario
+// entero a localStorage, y si al volver a abrir este mismo formulario hay un
+// borrador reciente, se ofrece recuperarlo. DRAFT_TTL_MS descarta
+// borradores viejos para no resucitar algo que ya no tiene sentido y para
+// no dejar texto clínico más de una jornada en un ordenador compartido.
 const AUTOSAVE_INTERVAL_MS = 15_000;
-const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+const DRAFT_TTL_MS = 8 * 60 * 60 * 1000;
 // Un borrador recién dejado (típicamente: la sesión acaba de caducar y la
 // persona está volviendo a entrar para seguir) se aplica solo, sin pedir
 // confirmación — es lo más práctico, y el riesgo de pisar algo que no
@@ -45,36 +57,40 @@ const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 // pestaña/dispositivo olvidado, por ejemplo) sí se pregunta primero. Ver
 // pendingDraft vs. autoAppliedDraft más abajo.
 const AUTO_APPLY_THRESHOLD_MS = 10 * 60 * 1000;
-const DRAFT_FIELD_NAMES = [
-  "visitDate",
-  "chiefComplaint",
-  "examinationFindings",
-  "diagnosis",
-  "treatment",
-  "followUpNotes",
-] as const;
 
-interface ClinicalEntryDraft {
-  savedAt: number;
-  fields: Record<string, string>;
+interface FormValues {
+  visitDate: string;
+  chiefComplaint: string;
+  examinationFindings: string;
+  diagnosis: string;
+  treatment: string;
+  followUpNotes: string;
 }
 
-function readDraft(key: string): ClinicalEntryDraft | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ClinicalEntryDraft;
-    if (!parsed.savedAt || Date.now() - parsed.savedAt > DRAFT_TTL_MS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    return parsed;
-  } catch {
-    // Borrador corrupto o localStorage inaccesible (modo privado, cuota
-    // llena) — se trata como si no hubiera borrador, nunca como un error
-    // que bloquee el formulario.
-    return null;
-  }
+type ClinicalEntryDraft = StoredDraft<Partial<FormValues>>;
+
+const TEXT_FIELDS = ["chiefComplaint", "examinationFindings", "diagnosis", "treatment", "followUpNotes"] as const;
+
+function initialTexts(initialValues?: ClinicalEntry): Omit<FormValues, "visitDate"> {
+  return {
+    chiefComplaint: initialValues?.chiefComplaint ?? "",
+    examinationFindings: initialValues?.examinationFindings ?? "",
+    diagnosis: initialValues?.diagnosis ?? "",
+    treatment: initialValues?.treatment ?? "",
+    followUpNotes: initialValues?.followUpNotes ?? "",
+  };
+}
+
+// El editor de texto enriquecido devuelve "<p></p>" para un campo vacío.
+function normalizeText(value: string): string {
+  return value === "<p></p>" ? "" : value;
+}
+
+// Sin nada escrito que valga la pena guardar (solo la fecha por defecto, o
+// lo mismo que ya hay guardado en el servidor): no se crea ni se pisa ningún
+// borrador.
+function isPristine(values: FormValues, initial: Omit<FormValues, "visitDate">): boolean {
+  return TEXT_FIELDS.every((name) => normalizeText(values[name]) === normalizeText(initial[name]));
 }
 
 function formatDraftTime(savedAt: number): string {
@@ -103,149 +119,174 @@ export function ClinicalEntryForm({
 }: ClinicalEntryFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const pathname = usePathname();
-  const formRef = useRef<HTMLFormElement>(null);
-  const visitDateRef = useRef<HTMLInputElement>(null);
-  const [chiefComplaint, setChiefComplaint] = useState(initialValues?.chiefComplaint ?? "");
-  const [examinationFindings, setExaminationFindings] = useState(
-    initialValues?.examinationFindings ?? "",
+  const router = useRouter();
+  const scope = useDraftScope();
+  // Sin usuario identificado no hay autoguardado: mejor ninguno que uno cuya
+  // clave pueda mezclar a dos personas en el mismo ordenador.
+  const storageKey = draftKey && scope ? buildDraftKey(scope, draftKey) : undefined;
+
+  // Todos los campos son controlados. Con campos no controlados (defaultValue)
+  // React 19 los vaciaba al terminar la acción de guardado, también cuando
+  // fallaba — sesión caducada incluida — y además no se podían leer del
+  // FormData mientras el formulario estaba deshabilitado (pending). Con
+  // estado propio, ni el reset ni `disabled` pueden perder lo escrito.
+  const [values, setValues] = useState<FormValues>(() => ({ visitDate: "", ...initialTexts(initialValues) }));
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [values]);
+  const initialRef = useRef(initialTexts(initialValues));
+
+  const setField = useCallback(
+    (name: keyof FormValues, value: string) => setValues((v) => ({ ...v, [name]: value })),
+    [],
   );
-  const [treatment, setTreatment] = useState(initialValues?.treatment ?? "");
+
   // Borrador encontrado al montar, pendiente de que la persona decida
   // restaurarlo o descartarlo — null una vez resuelto (en cualquiera de
   // los dos sentidos) o si nunca hubo ninguno. Solo para borradores con
   // más de AUTO_APPLY_THRESHOLD_MS; uno más reciente va directo a
   // autoAppliedDraft sin pasar por aquí.
   const [pendingDraft, setPendingDraft] = useState<ClinicalEntryDraft | null>(null);
+  // Mientras haya un borrador pendiente de decidir, el autoguardado NO
+  // escribe: el formulario aún está vacío y pisaría justo el borrador que se
+  // está ofreciendo (y le renovaría la fecha).
+  const pendingDraftRef = useRef(false);
   // Borrador ya aplicado solo, sin pedir confirmación — distinto de
   // pendingDraft en que el formulario ya tiene este contenido ahora mismo;
   // "Descartar" aquí significa deshacerlo y volver a initialValues, no
   // simplemente ignorar una oferta.
   const [autoAppliedDraft, setAutoAppliedDraft] = useState<ClinicalEntryDraft | null>(null);
+  // La consulta ya se guardó bien: el borrador sobra y nada debe volver a
+  // escribirlo (ni el intervalo ni la limpieza al desmontar).
+  const settledRef = useRef(false);
+  // No se pudo escribir el borrador (almacenamiento lleno o bloqueado).
+  const [draftFailed, setDraftFailed] = useState(false);
 
   const saveDraftNow = useCallback(() => {
-    if (!draftKey || !formRef.current) return;
-    // Solo los campos reales del formulario — FormData también trae los
-    // hidden inputs internos de Next ($ACTION_*, que codifican la server
-    // action enlazada) y no tiene sentido guardarlos: son específicos de
-    // este build/carga de página, no del borrador en sí.
-    const data = new FormData(formRef.current);
-    const fields: Record<string, string> = {};
-    for (const name of DRAFT_FIELD_NAMES) {
-      const value = data.get(name);
-      if (typeof value === "string") fields[name] = value;
-    }
-    localStorage.setItem(draftKey, JSON.stringify({ savedAt: Date.now(), fields }));
-  }, [draftKey]);
+    if (!storageKey || settledRef.current || pendingDraftRef.current) return;
+    if (isPristine(valuesRef.current, initialRef.current)) return;
+    const ok = writeDraft(storageKey, valuesRef.current);
+    setDraftFailed(!ok);
+  }, [storageKey]);
 
   function applyDraft(draft: ClinicalEntryDraft) {
-    const f = draft.fields;
-    if (f.chiefComplaint !== undefined) setChiefComplaint(f.chiefComplaint);
-    if (f.examinationFindings !== undefined) setExaminationFindings(f.examinationFindings);
-    if (f.treatment !== undefined) setTreatment(f.treatment);
-    if (f.visitDate !== undefined && visitDateRef.current) visitDateRef.current.value = f.visitDate;
-    const form = formRef.current;
-    if (form) {
-      if (f.diagnosis !== undefined) (form.elements.namedItem("diagnosis") as HTMLTextAreaElement).value = f.diagnosis;
-      if (f.followUpNotes !== undefined) {
-        (form.elements.namedItem("followUpNotes") as HTMLTextAreaElement).value = f.followUpNotes;
-      }
-    }
+    setValues((v) => ({ ...v, ...draft.fields }));
   }
 
   function resetToInitialValues() {
-    setChiefComplaint(initialValues?.chiefComplaint ?? "");
-    setExaminationFindings(initialValues?.examinationFindings ?? "");
-    setTreatment(initialValues?.treatment ?? "");
-    const form = formRef.current;
-    if (form) {
-      (form.elements.namedItem("diagnosis") as HTMLTextAreaElement).value = initialValues?.diagnosis ?? "";
-      (form.elements.namedItem("followUpNotes") as HTMLTextAreaElement).value = initialValues?.followUpNotes ?? "";
-    }
-    if (visitDateRef.current) {
-      visitDateRef.current.value = toDateTimeInputValue(
-        initialValues ? new Date(initialValues.visitDate) : new Date(),
-      );
-    }
+    setValues({
+      ...initialTexts(initialValues),
+      visitDate: toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date()),
+    });
   }
 
   function acceptPendingDraft() {
     if (pendingDraft) applyDraft(pendingDraft);
+    pendingDraftRef.current = false;
     setPendingDraft(null);
   }
 
   function discardPendingDraft() {
-    if (draftKey) localStorage.removeItem(draftKey);
+    removeDraft(storageKey);
+    pendingDraftRef.current = false;
     setPendingDraft(null);
   }
 
   function discardAutoApplied() {
-    if (draftKey) localStorage.removeItem(draftKey);
+    removeDraft(storageKey);
     resetToInitialValues();
     setAutoAppliedDraft(null);
   }
 
+  // Resultado de la acción: guardado correcto → fuera el borrador y, en el
+  // alta, navegar a la consulta creada (la acción ya no hace redirect, ver
+  // ClinicalEntryFormState.redirectTo). Un error deja el formulario tal cual
+  // y fuerza un volcado inmediato del borrador por si la persona cierra la
+  // pestaña en vez de reintentar.
+  const onSuccessRef = useRef(onSuccess);
   useEffect(() => {
-    if (state.success) {
-      if (draftKey) localStorage.removeItem(draftKey);
-      onSuccess?.();
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  useEffect(() => {
+    if (state.success || state.redirectTo) {
+      settledRef.current = true;
+      removeDraft(storageKey);
+      if (state.redirectTo) router.push(state.redirectTo);
+      else onSuccessRef.current?.();
+    } else if (state.error) {
+      saveDraftNow();
     }
-  }, [state.success, onSuccess, draftKey]);
+  }, [state, storageKey, router, saveDraftNow]);
 
-  // La sesión acaba de caducar justo al intentar guardar — el texto ya
-  // está en el formulario (nunca se pierde solo por este error, ver
-  // clinicalEntryErrorState), pero por si la persona cierra la pestaña en
-  // vez de volver a entrar enseguida, se fuerza un volcado inmediato aquí
-  // en vez de esperar al siguiente tick del intervalo.
+  // Set imperatively after mount, not via initial state: both "now" and
+  // the clinic-local reading of initialValues.visitDate only mean
+  // anything in the browser's own clock/timezone, so neither can be
+  // computed during the server render without risking a hydration
+  // mismatch against whatever the client then computes a moment later.
   useEffect(() => {
-    if (state.sessionExpired) saveDraftNow();
-  }, [state.sessionExpired, saveDraftNow]);
+    setValues((v) =>
+      v.visitDate
+        ? v
+        : { ...v, visitDate: toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date()) },
+    );
+  }, [initialValues]);
 
-  // Solo se mira una vez, al montar — no en cada cambio de draftKey, que
+  // Solo se mira una vez, al montar — no en cada cambio de storageKey, que
   // no debería cambiar durante la vida de un mismo formulario abierto.
   useEffect(() => {
-    if (!draftKey) return;
-    const draft = readDraft(draftKey);
+    purgeStaleDrafts(DRAFT_TTL_MS);
+    if (!storageKey) return;
+    const draft = readDraft<Partial<FormValues>>(storageKey, DRAFT_TTL_MS);
     if (!draft) return;
     if (Date.now() - draft.savedAt < AUTO_APPLY_THRESHOLD_MS) {
       applyDraft(draft);
       setAutoAppliedDraft(draft);
     } else {
+      pendingDraftRef.current = true;
       setPendingDraft(draft);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!draftKey) return;
+    if (!storageKey) return;
     const interval = setInterval(saveDraftNow, AUTOSAVE_INTERVAL_MS);
-    // Además del intervalo, un volcado inmediato al ocultarse la pestaña
-    // (cambiar de app, cerrarla) — el caso más probable de perder lo
-    // escrito desde el último autoguardado periódico.
+    // Además del intervalo, un volcado inmediato al ocultarse la pestaña o
+    // irse de la página (cambiar de app, cerrarla, recargar) y al desmontarse
+    // el formulario (navegar por la barra lateral, cerrar el diálogo de
+    // edición): los casos más probables de perder lo escrito desde el último
+    // autoguardado periódico.
     function onVisibilityChange() {
       if (document.visibilityState === "hidden") saveDraftNow();
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", saveDraftNow);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", saveDraftNow);
+      saveDraftNow();
     };
-  }, [draftKey, saveDraftNow]);
+  }, [storageKey, saveDraftNow]);
 
-  // Set imperatively after mount, not via defaultValue: both "now" and
-  // the clinic-local reading of initialValues.visitDate only mean
-  // anything in the browser's own clock/timezone, so neither can be
-  // computed during the server render without risking a hydration
-  // mismatch against whatever the client then computes a moment later.
-  useEffect(() => {
-    if (visitDateRef.current && !visitDateRef.current.value) {
-      visitDateRef.current.value = toDateTimeInputValue(
-        initialValues ? new Date(initialValues.visitDate) : new Date(),
-      );
-    }
-  }, [initialValues]);
+  // En vez de <form action={formAction}>: ese prop hace que React vacíe el
+  // formulario al terminar, aunque el guardado falle (ver el comentario sobre
+  // los campos controlados). Se guarda un borrador justo antes de enviar —
+  // si el envío muere por la sesión, la red o el servidor, ya está a salvo.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    saveDraftNow();
+    const data = new FormData(event.currentTarget);
+    startTransition(() => formAction(data));
+  }
+
+  const loginHref = `/session/expired?reason=SESSION_EXPIRED&redirect=${encodeURIComponent(pathname)}`;
 
   return (
-    <form ref={formRef} action={formAction} className="grid max-w-2xl gap-4">
+    <form onSubmit={handleSubmit} className="grid max-w-2xl gap-4">
       {autoAppliedDraft && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm">
           <span>
@@ -270,57 +311,93 @@ export function ClinicalEntryForm({
           </div>
         </div>
       )}
+      {draftFailed && (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          No se puede guardar una copia automática en este dispositivo (almacenamiento lleno o bloqueado). Guarda
+          la consulta cuanto antes o copia el texto antes de salir de esta página.
+        </p>
+      )}
       <div className="space-y-2">
         <Label htmlFor="visitDate">Fecha de la consulta</Label>
-        <Input id="visitDate" name="visitDate" type="datetime-local" ref={visitDateRef} disabled={pending} />
+        <Input
+          id="visitDate"
+          name="visitDate"
+          type="datetime-local"
+          value={values.visitDate}
+          onChange={(e) => setField("visitDate", e.target.value)}
+          disabled={pending}
+        />
         <p className="text-xs text-muted-foreground">
           Se rellena con la fecha y hora actuales — edítala si la consulta fue en otro momento.
         </p>
       </div>
       <div className="space-y-2">
         <Label>Motivo de consulta</Label>
-        <input type="hidden" name="chiefComplaint" value={chiefComplaint} />
-        <RichTextEditor value={chiefComplaint} onChange={setChiefComplaint} disabled={pending} />
+        <input type="hidden" name="chiefComplaint" value={values.chiefComplaint} />
+        <RichTextEditor
+          value={values.chiefComplaint}
+          onChange={(html) => setField("chiefComplaint", html)}
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label>Exploración</Label>
-        <input type="hidden" name="examinationFindings" value={examinationFindings} />
-        <RichTextEditor value={examinationFindings} onChange={setExaminationFindings} disabled={pending} />
+        <input type="hidden" name="examinationFindings" value={values.examinationFindings} />
+        <RichTextEditor
+          value={values.examinationFindings}
+          onChange={(html) => setField("examinationFindings", html)}
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="diagnosis">Diagnóstico</Label>
         <Textarea
           id="diagnosis"
           name="diagnosis"
-          defaultValue={initialValues?.diagnosis ?? ""}
+          value={values.diagnosis}
+          onChange={(e) => setField("diagnosis", e.target.value)}
           disabled={pending}
           rows={2}
         />
       </div>
       <div className="space-y-2">
         <Label>Tratamiento</Label>
-        <input type="hidden" name="treatment" value={treatment} />
-        <RichTextEditor value={treatment} onChange={setTreatment} disabled={pending} />
+        <input type="hidden" name="treatment" value={values.treatment} />
+        <RichTextEditor
+          value={values.treatment}
+          onChange={(html) => setField("treatment", html)}
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="followUpNotes">Notas de seguimiento</Label>
         <Textarea
           id="followUpNotes"
           name="followUpNotes"
-          defaultValue={initialValues?.followUpNotes ?? ""}
+          value={values.followUpNotes}
+          onChange={(e) => setField("followUpNotes", e.target.value)}
           disabled={pending}
           rows={2}
         />
       </div>
       {state.sessionExpired ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
-          <span className="text-destructive">{state.error}</span>
+          <span className="text-destructive">
+            {state.error}{" "}
+            {draftFailed
+              ? "No se ha podido guardar una copia en este dispositivo: copia el texto antes de salir."
+              : "Lo que has escrito está guardado como borrador en este dispositivo."}
+          </span>
           <Button type="button" size="sm" asChild>
-            <a href={`/login?redirect=${encodeURIComponent(pathname)}`}>Iniciar sesión y seguir editando</a>
+            <a href={loginHref}>Iniciar sesión y seguir editando</a>
           </Button>
         </div>
       ) : (
-        state.error && <p className="text-sm text-destructive">{state.error}</p>
+        state.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {state.error}
+          </p>
+        )
       )}
       <Button type="submit" disabled={pending} className="w-fit">
         {pending ? "Guardando..." : submitLabel}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updatePasswordAction, type PasswordFormState } from "@/lib/actions/account";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 const initialState: PasswordFormState = {};
 
@@ -17,7 +18,7 @@ export function PasswordForm() {
   }, [state.success]);
 
   return (
-    <form ref={formRef} action={formAction} className="grid max-w-sm gap-4">
+    <form ref={formRef} onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-sm gap-4">
       <div className="space-y-2">
         <Label htmlFor="currentPassword">Contraseña actual</Label>
         <Input

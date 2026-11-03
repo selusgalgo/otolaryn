@@ -9,6 +9,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { Patient } from "@/lib/types";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface PatientFormProps {
   action: (prevState: PatientFormState, formData: FormData) => Promise<PatientFormState>;
@@ -57,7 +58,7 @@ export function PatientForm({
   }, [state.success, onSuccess]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="space-y-4">
       <div className="space-y-4">
         <h3 className="text-sm font-medium">Datos del paciente</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">

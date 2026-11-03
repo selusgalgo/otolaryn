@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SessionGuard } from "@/components/layout/session-guard";
 import { logoutAction } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
 import { ArrowLeftOnRectangleIcon, UserIcon } from "@heroicons/react/24/outline";
@@ -15,7 +16,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-surface">
       <header className="flex items-center justify-between bg-nav px-4 py-3">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
@@ -26,7 +27,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <Link
             href="/account"
             aria-label="Mi cuenta"
-            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
+            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
           >
             <UserIcon className="size-5" />
           </Link>
@@ -34,7 +35,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             <button
               type="submit"
               aria-label="Cerrar sesión"
-              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-black/10 hover:text-nav-foreground"
+              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
             >
               <ArrowLeftOnRectangleIcon className="size-5" />
             </button>
@@ -42,6 +43,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      <SessionGuard />
     </div>
   );
 }

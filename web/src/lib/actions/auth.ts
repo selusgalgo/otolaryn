@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { homeForRole } from "@/lib/auth";
+import { safeRedirectTarget } from "@/lib/safe-redirect";
 import { clearSessionToken, getDeviceToken, setSessionToken } from "@/lib/session";
 import type { Me } from "@/lib/types";
 
@@ -12,19 +13,6 @@ export interface LoginState {
 
 interface LoginResponse {
   accessToken: string;
-}
-
-// Solo rutas internas relativas ("/patients/123/..."), nunca lo que venga
-// en ?redirect= tal cual — si no, un enlace de login manipulado podría
-// mandar a alguien fuera de la app tras autenticarse (open redirect).
-// "//evil.com" parece relativo pero el navegador lo trata como absoluto,
-// de ahí el chequeo explícito además del "empieza por /".
-function safeRedirectTarget(raw: FormDataEntryValue | null): string | null {
-  const value = typeof raw === "string" ? raw : "";
-  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("://")) {
-    return value;
-  }
-  return null;
 }
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
@@ -65,7 +53,8 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       // is the one deliberate exception: it's shown verbatim because the
       // password was actually correct, and the user needs to know to
       // contact the admin about this specific computer, not retype it.
-      const isDeviceLocked = err.message.startsWith("Este dispositivo no está autorizado");
+      const isDeviceLocked =
+        err.code === "DEVICE_LOCKED" || err.message.startsWith("Este dispositivo no está autorizado");
       return {
         error:
           err.status === 401 && !isDeviceLocked
@@ -84,5 +73,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
 export async function logoutAction(): Promise<void> {
   await clearSessionToken();
-  redirect("/login");
+  // reason=logout: la pantalla de login borra los borradores locales de
+  // consultas (texto clínico en este navegador) — ver LoginPage.
+  redirect("/login?reason=logout");
 }

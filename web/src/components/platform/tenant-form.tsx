@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { TenantFormState } from "@/lib/actions/platform";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface TenantFormProps {
   action: (prevState: TenantFormState, formData: FormData) => Promise<TenantFormState>;
@@ -23,7 +24,7 @@ export function TenantForm({ action, submitLabel, submitIcon, onSuccess }: Tenan
   }, [state.success, onSuccess]);
 
   return (
-    <form action={formAction} className="grid max-w-lg gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-lg gap-4">
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la clínica</Label>
         <Input id="name" name="name" required disabled={pending} />

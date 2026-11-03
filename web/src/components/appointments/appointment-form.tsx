@@ -14,6 +14,7 @@ import { clinicDateInputValue, clinicTimeInputValue, formatInClinicTimeZone } fr
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface AppointmentFormProps {
   action: (prevState: AppointmentFormState, formData: FormData) => Promise<AppointmentFormState>;
@@ -137,6 +138,10 @@ export function AppointmentForm({
   // to them.
   const needsPractitionerFirst = practitioners != null;
 
+  // Valida y, si todo está bien, envía sin que React vacíe el formulario si
+  // la acción falla (ver keepValuesOnSubmit).
+  const submitKeepingValues = keepValuesOnSubmit(formAction);
+
   function validateBeforeSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (needsPractitionerFirst && !practitionerId) {
       e.preventDefault();
@@ -149,6 +154,7 @@ export function AppointmentForm({
       return;
     }
     setClientError(null);
+    submitKeepingValues(e);
   }
 
   const showSuggestions = suggestSlots && !initialValues;
@@ -367,7 +373,7 @@ export function AppointmentForm({
 
   if (columns) {
     return (
-      <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+      <form onSubmit={validateBeforeSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
         <div className="grid flex-1 gap-x-6 gap-y-4 overflow-y-auto px-1 py-1 sm:grid-cols-2">
           <div className="space-y-4">
             {children}
@@ -387,7 +393,7 @@ export function AppointmentForm({
   }
 
   return (
-    <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="grid max-w-md gap-4">
+    <form onSubmit={validateBeforeSubmit} noValidate className="grid max-w-md gap-4">
       {children}
       {practitionerField}
       {suggestionsField}

@@ -15,6 +15,25 @@ export class ApiError extends Error {
     this.status = status;
     this.details = details;
   }
+
+  // Código estable que la API añade a cada 401 (ver AuthErrorCode en el
+  // backend): distingue sesión caducada de dispositivo bloqueado o cuenta
+  // desactivada, que por status solo son indistinguibles.
+  get code(): string | undefined {
+    const code = (this.details as { code?: unknown } | undefined)?.code;
+    return typeof code === "string" ? code : undefined;
+  }
+}
+
+// La sesión terminó (JWT caducado, ausente o inválido): volver a entrar lo
+// arregla. No incluye DEVICE_LOCKED ni ACCOUNT_DISABLED, donde entrar de
+// nuevo no ayuda.
+export function isSessionEnded(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.status === 401 &&
+    (err.code === "SESSION_EXPIRED" || err.code === "TOKEN_INVALID")
+  );
 }
 
 interface ApiFetchOptions {

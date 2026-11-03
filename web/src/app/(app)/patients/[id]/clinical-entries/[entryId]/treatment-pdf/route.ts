@@ -1,5 +1,5 @@
 import { API_URL } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getDeviceToken, getSessionToken } from "@/lib/session";
 
 // Same bridging shape as /patients/[id]/pdf — the [id] patient segment in
 // the URL is only there for the page hierarchy (and isn't even read here);
@@ -10,9 +10,15 @@ export async function GET(
 ): Promise<Response> {
   const { entryId } = await params;
   const token = await getSessionToken();
+  const deviceToken = await getDeviceToken();
 
   const upstream = await fetch(`${API_URL}/clinical-entries/${entryId}/treatment-pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
+      // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
+      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+    },
     cache: "no-store",
   });
 

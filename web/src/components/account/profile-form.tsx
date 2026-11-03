@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateProfileAction, type ProfileFormState } from "@/lib/actions/account";
 import type { AccountProfile } from "@/lib/types";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 const initialState: ProfileFormState = {};
 
@@ -13,7 +14,7 @@ export function ProfileForm({ profile }: { profile: AccountProfile }) {
   const [state, formAction, pending] = useActionState(updateProfileAction, initialState);
 
   return (
-    <form action={formAction} className="grid max-w-sm gap-4">
+    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-sm gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">Nombre</Label>

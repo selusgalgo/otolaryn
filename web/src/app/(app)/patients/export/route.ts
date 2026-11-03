@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { API_URL } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getDeviceToken, getSessionToken } from "@/lib/session";
 
 // A plain <a href> download can't carry the JWT — it lives in an httpOnly
 // cookie only readable server-side (see lib/session.ts), and the API
@@ -9,6 +9,7 @@ import { getSessionToken } from "@/lib/session";
 // server-side, forward it to the API, stream the file straight back.
 export async function GET(request: NextRequest): Promise<Response> {
   const token = await getSessionToken();
+  const deviceToken = await getDeviceToken();
   const format = request.nextUrl.searchParams.get("format") ?? "csv";
   const search = request.nextUrl.searchParams.get("search");
 
@@ -16,7 +17,12 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (search) query.set("search", search);
 
   const upstream = await fetch(`${API_URL}/patients/export?${query.toString()}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
+      // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
+      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+    },
     cache: "no-store",
   });
 

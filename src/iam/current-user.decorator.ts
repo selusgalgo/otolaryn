@@ -12,6 +12,8 @@ export interface CurrentUserPayload {
   // anywhere else, an admin flipping it needs to take effect immediately,
   // not at the profesional's next login.
   agendaAccess: boolean;
+  // Fin absoluto de la sesión (segundos epoch), ver session-limits.ts.
+  sessionEnd?: number;
 }
 
 // Pulls the object JwtStrategy.validate() attached as request.user, so

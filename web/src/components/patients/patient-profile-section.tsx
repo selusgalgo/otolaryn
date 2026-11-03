@@ -14,6 +14,7 @@ import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Patient } from "@/lib/types";
 import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface PatientProfileSectionProps {
   patient: Patient;
@@ -76,7 +77,7 @@ export function PatientProfileSection({
       </div>
 
       {editing ? (
-        <form action={formAction} className="space-y-4">
+        <form onSubmit={keepValuesOnSubmit(formAction)} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
             <Card className="md:col-span-3">
               <CardContent className="flex flex-col items-center gap-3 text-center">

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { decodeJwtClaims } from "./jwt";
 
 const COOKIE_NAME = "otolaryn_session";
 const DEVICE_COOKIE_NAME = "otolaryn_device";
@@ -8,6 +9,16 @@ const DEVICE_COOKIE_NAME = "otolaryn_device";
 // whole point of routing every API call through the server (Server
 // Components / Route Handlers / Server Actions) instead of fetching from
 // the browser directly.
+// La cookie dura lo que el propio token (su `exp`), no una hora fija: si el
+// backend corre con otro JWT_EXPIRES_IN, cookie y JWT caducan a la vez en vez
+// de dejar una cookie que sigue enviando un token ya muerto. 1h solo si el
+// token no se puede leer.
+function sessionMaxAgeSeconds(token: string): number {
+  const exp = decodeJwtClaims(token)?.exp;
+  if (typeof exp !== "number") return 60 * 60;
+  return Math.max(1, Math.floor(exp - Date.now() / 1000));
+}
+
 export async function setSessionToken(token: string): Promise<void> {
   const store = await cookies();
   store.set(COOKIE_NAME, token, {
@@ -15,7 +26,7 @@ export async function setSessionToken(token: string): Promise<void> {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60, // matches the backend's default JWT_EXPIRES_IN=1h
+    maxAge: sessionMaxAgeSeconds(token),
   });
 }
 
