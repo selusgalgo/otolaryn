@@ -54,7 +54,9 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       // password was actually correct, and the user needs to know to
       // contact the admin about this specific computer, not retype it.
       const isDeviceLocked =
-        err.code === "DEVICE_LOCKED" || err.message.startsWith("Este dispositivo no está autorizado");
+        err.code === "DEVICE_LOCKED" ||
+        err.code === "DEVICE_CREDENTIAL_INVALID" ||
+        err.message.startsWith("Este dispositivo no está autorizado");
       return {
         error:
           err.status === 401 && !isDeviceLocked

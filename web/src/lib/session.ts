@@ -48,6 +48,12 @@ export async function clearSessionToken(): Promise<void> {
 // by apiFetch (to attach X-Device-Token) and loginAction (to forward it as
 // deviceToken) — most tenants never set device lock, so this cookie is
 // simply absent for them and every check involving it is a no-op.
+// Sin maxAge ni expires, una cookie es "de sesión": el navegador la borra al
+// cerrarse y el ordenador dejaba de estar autorizado hasta volver a abrir el
+// enlace de instalación (el comentario de arriba decía que debía durar, pero
+// no lo hacía). 400 días es el máximo que los navegadores respetan.
+const DEVICE_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
+
 export async function setDeviceToken(token: string): Promise<void> {
   const store = await cookies();
   store.set(DEVICE_COOKIE_NAME, token, {
@@ -55,6 +61,7 @@ export async function setDeviceToken(token: string): Promise<void> {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
+    maxAge: DEVICE_COOKIE_MAX_AGE_SECONDS,
   });
 }
 

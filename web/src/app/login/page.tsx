@@ -25,6 +25,8 @@ const REASON_MESSAGES: Record<string, string> = {
   TOKEN_INVALID: "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
   DEVICE_LOCKED:
     "Este dispositivo no está autorizado para acceder a la aplicación. Contacta con el administrador de la clínica.",
+  DEVICE_CREDENTIAL_INVALID:
+    "La credencial de este ordenador ya no es válida: el administrador de la clínica ha generado una nueva. Pídele el enlace de instalación actualizado y ábrelo en este ordenador.",
   ACCOUNT_DISABLED: "Tu cuenta está desactivada. Contacta con el administrador de la clínica.",
 };
 

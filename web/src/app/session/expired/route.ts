@@ -7,7 +7,13 @@ import { clearSessionToken } from "@/lib/session";
 // por aquí, /login con la cookie presente rebotaría a /dashboard, que
 // volvería a fallar. Borra la cookie y lleva a /login conservando a dónde
 // volver y el motivo, para que la pantalla de login lo explique.
-const KNOWN_REASONS = new Set(["SESSION_EXPIRED", "TOKEN_INVALID", "DEVICE_LOCKED", "ACCOUNT_DISABLED"]);
+const KNOWN_REASONS = new Set([
+  "SESSION_EXPIRED",
+  "TOKEN_INVALID",
+  "DEVICE_LOCKED",
+  "DEVICE_CREDENTIAL_INVALID",
+  "ACCOUNT_DISABLED",
+]);
 
 export async function GET(request: NextRequest): Promise<Response> {
   await clearSessionToken();

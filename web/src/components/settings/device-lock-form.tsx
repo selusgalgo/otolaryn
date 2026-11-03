@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +26,23 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
+  // `pending` tarda un render en llegar: un doble clic rápido en "Generar
+  // nueva credencial" lanzaba dos generaciones seguidas, y solo la última
+  // queda vigente — cualquier enlace copiado de la primera ya no valía. Esta
+  // marca (síncrona) deja pasar una sola acción de cada vez.
+  const inFlightRef = useRef(false);
+
+  function runOnce(task: () => Promise<void>) {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    startTransition(async () => {
+      try {
+        await task();
+      } finally {
+        inFlightRef.current = false;
+      }
+    });
+  }
 
   const installLink =
     newToken && typeof window !== "undefined"
@@ -35,7 +52,7 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
   function toggleEnabled(enabled: boolean) {
     setError(null);
     setDeviceLock((prev) => ({ ...prev, enabled }));
-    startTransition(async () => {
+    runOnce(async () => {
       const state = await updateDeviceLockAction(enabled);
       if (state.error) setError(state.error);
       if (state.deviceLock) setDeviceLock(state.deviceLock);
@@ -45,7 +62,7 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
   function generate() {
     setError(null);
     setCopied(false);
-    startTransition(async () => {
+    runOnce(async () => {
       const state = await generateDeviceCredentialAction();
       if (state.error) {
         setError(state.error);
@@ -59,7 +76,7 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
   function revoke() {
     setError(null);
     setNewToken(null);
-    startTransition(async () => {
+    runOnce(async () => {
       const state = await revokeDeviceCredentialAction();
       if (state.error) {
         setError(state.error);

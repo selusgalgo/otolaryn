@@ -6,12 +6,24 @@ import { Tenant } from './entities/tenant.entity';
 const DEVICE_LOCKED_MESSAGE =
   'Este dispositivo no está autorizado para acceder a la aplicación. Contacta con el administrador de la clínica.';
 
+const DEVICE_CREDENTIAL_INVALID_MESSAGE =
+  'La credencial de este ordenador ya no es válida: el administrador de la clínica ha generado una nueva. Pídele el enlace de instalación actualizado y ábrelo en este ordenador.';
+
 function deviceLocked(): UnauthorizedException {
   return new UnauthorizedException({
     statusCode: 401,
     message: DEVICE_LOCKED_MESSAGE,
     error: 'Unauthorized',
     code: AuthErrorCode.DeviceLocked,
+  });
+}
+
+function deviceCredentialInvalid(): UnauthorizedException {
+  return new UnauthorizedException({
+    statusCode: 401,
+    message: DEVICE_CREDENTIAL_INVALID_MESSAGE,
+    error: 'Unauthorized',
+    code: AuthErrorCode.DeviceCredentialInvalid,
   });
 }
 
@@ -36,8 +48,12 @@ export async function enforceDeviceLock(
     throw deviceLocked();
   }
 
-  const matches = await argon2.verify(tenant.deviceSecretHash, deviceToken);
+  // Un hash corrupto hace que verify lance en vez de devolver false: se
+  // trata igual que una credencial que no coincide.
+  const matches = await argon2
+    .verify(tenant.deviceSecretHash, deviceToken)
+    .catch(() => false);
   if (!matches) {
-    throw deviceLocked();
+    throw deviceCredentialInvalid();
   }
 }
