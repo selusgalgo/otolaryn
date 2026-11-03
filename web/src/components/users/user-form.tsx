@@ -5,7 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
-import { ASSIGNABLE_ROLES, ROLE_LABELS, STAFF_FUNCTIONS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
+import {
+  ASSIGNABLE_ROLES,
+  HONORIFIC_LABELS,
+  HONORIFICS,
+  practicesMedicine,
+  ROLE_LABELS,
+  STAFF_FUNCTIONS,
+  STAFF_FUNCTION_LABELS,
+} from "@/lib/roles";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface UserFormProps {
@@ -20,6 +28,9 @@ const initialState: UserFormState = {};
 export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [role, setRole] = useState<string>("profesional");
+  // Controlado (no solo defaultValue) porque el desplegable de tratamiento de
+  // más abajo depende de si el administrador ejerce además como médico.
+  const [staffFunction, setStaffFunction] = useState<string>("");
 
   useEffect(() => {
     if (state.success) onSuccess?.();
@@ -68,7 +79,8 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
           <select
             id="staffFunction"
             name="staffFunction"
-            defaultValue=""
+            value={staffFunction}
+            onChange={(e) => setStaffFunction(e.target.value)}
             disabled={pending}
             className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
@@ -79,6 +91,25 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
               </option>
             ))}
           </select>
+        </div>
+      )}
+      {practicesMedicine(role, staffFunction) && (
+        <div className="space-y-2">
+          <Label htmlFor="honorific">Tratamiento</Label>
+          <select
+            id="honorific"
+            name="honorific"
+            defaultValue="Dr."
+            disabled={pending}
+            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+          >
+            {HONORIFICS.map((value) => (
+              <option key={value} value={value}>
+                {HONORIFIC_LABELS[value]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">Cómo se antepone su nombre en las consultas.</p>
         </div>
       )}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

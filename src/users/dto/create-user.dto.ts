@@ -6,7 +6,11 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import type { StaffFunction, UserRole } from '../../iam/entities/user.entity';
+import type {
+  Honorific,
+  StaffFunction,
+  UserRole,
+} from '../../iam/entities/user.entity';
 
 // superadmin is deliberately excluded — that role is never created through
 // a tenant-scoped endpoint, only via seeding or a platform-level flow.
@@ -17,6 +21,8 @@ export const ASSIGNABLE_ROLES: UserRole[] = [
 ];
 
 export const STAFF_FUNCTIONS: StaffFunction[] = ['profesional', 'recepcion'];
+
+export const HONORIFICS: Honorific[] = ['Dr.', 'Dra.'];
 
 export class CreateUserDto {
   @IsEmail()
@@ -45,4 +51,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsIn([...STAFF_FUNCTIONS, ''])
   staffFunction?: StaffFunction | '';
+
+  // Cómo se muestra el nombre de un médico ("Dr." o "Dra."). Se guarda para
+  // cualquier rol, pero solo se usa con quien ejerce como médico; si no se
+  // envía queda en 'Dr.'.
+  @IsOptional()
+  @IsIn(HONORIFICS)
+  honorific?: Honorific;
 }

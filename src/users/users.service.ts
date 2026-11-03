@@ -69,6 +69,7 @@ export class UsersService {
       lastName: dto.lastName,
       role: dto.role,
       staffFunction: dto.role === 'admin' ? dto.staffFunction || null : null,
+      honorific: dto.honorific ?? 'Dr.',
       passwordHash,
     });
 
@@ -109,6 +110,11 @@ export class UsersService {
     if (dto.staffFunction !== undefined)
       user.staffFunction = dto.staffFunction || null;
     if (dto.agendaAccess !== undefined) user.agendaAccess = dto.agendaAccess;
+    // A diferencia de staffFunction y agendaAccess, no se reinicia al cambiar
+    // de rol: es una preferencia de cómo se escribe el nombre, y si alguien
+    // deja de ser médico sus consultas pasadas deben seguir mostrando el
+    // tratamiento con el que se firmaron.
+    if (dto.honorific !== undefined) user.honorific = dto.honorific;
     // Whatever staffFunction ends up as above, it only survives if the
     // user is (still, or now) an admin — same invariant as create(), and
     // what stops a role change away from admin leaving a stale value.
@@ -242,6 +248,7 @@ function stripPasswordHash(user: User): SafeUser {
     lastName: user.lastName,
     role: user.role,
     staffFunction: user.staffFunction,
+    honorific: user.honorific,
     active: user.active,
     agendaAccess: user.agendaAccess,
     createdAt: user.createdAt,

@@ -17,7 +17,7 @@ import { stripHtml, truncateText } from "@/lib/utils";
 
 // Topes de caracteres para que Fecha | Motivo | Doctor | Acciones quepan
 // las cuatro sin que la fila crezca de alto — Motivo es rich text ya
-// pasado por stripHtml, Doctor es "Dr. " + el nombre completo.
+// pasado por stripHtml, Doctor es "Dr. "/"Dra. " + el nombre completo.
 const MOTIVO_MAX_CHARS = 60;
 const DOCTOR_NAME_MAX_CHARS = 12;
 
@@ -106,6 +106,8 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                 <TableBody>
                   {entries.data.map((entry) => {
                     const authorName = entry.authorName;
+                    // "Dr." por defecto si la API aún no envía el tratamiento.
+                    const authorHonorific = entry.authorHonorific ?? "Dr.";
                     return (
                       <TableRow key={entry.id}>
                         <TableCell className="whitespace-nowrap">
@@ -124,12 +126,12 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                               perder el dato. */}
                           {authorName && (
                             <div className="text-left text-xs font-bold text-muted-foreground md:hidden">
-                              Dr. {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
+                              {authorHonorific} {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
                             </div>
                           )}
                         </TableCell>
                         <TableCell className="hidden font-bold md:table-cell">
-                          {authorName ? `Dr. ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
+                          {authorName ? `${authorHonorific} ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">

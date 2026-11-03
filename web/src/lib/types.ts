@@ -45,6 +45,9 @@ export interface ClinicalEntry {
   // Only present on GET /patients/:patientId/clinical-entries (list);
   // null if the author's own row is somehow gone.
   authorName: string | null;
+  // "Dr." o "Dra." del autor, resuelto junto a authorName (misma consulta,
+  // mismo caso de null).
+  authorHonorific: Honorific | null;
   createdAt: string;
 }
 
@@ -79,6 +82,10 @@ export type Role = "superadmin" | "admin" | "profesional" | "recepcion";
 // practices or also staffs the front desk, without losing admin access.
 export type StaffFunction = "profesional" | "recepcion";
 
+// Cómo se antepone el nombre de un médico en pantalla. Solo se usa con quien
+// ejerce como médico; "Dr." por defecto.
+export type Honorific = "Dr." | "Dra.";
+
 export interface Me {
   firstName: string;
   lastName: string;
@@ -106,6 +113,7 @@ export interface AppUser {
   lastName: string;
   role: Role;
   staffFunction: StaffFunction | null;
+  honorific: Honorific;
   active: boolean;
   agendaAccess: boolean;
   createdAt: string;

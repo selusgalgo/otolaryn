@@ -5,7 +5,7 @@ import type {
   RowOutcome,
 } from '../import-jobs/import-jobs.service';
 import { ImportJobsService } from '../import-jobs/import-jobs.service';
-import { User } from '../iam/entities/user.entity';
+import { type Honorific, User } from '../iam/entities/user.entity';
 import { InsuranceService } from '../insurance/insurance.service';
 import { Patient } from '../patients/entities/patient.entity';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
@@ -270,7 +270,14 @@ export class ClinicalEntriesService {
     patientId: string,
     page: number,
     pageSize: number,
-  ): Promise<PaginatedResult<ClinicalEntry & { authorName: string | null }>> {
+  ): Promise<
+    PaginatedResult<
+      ClinicalEntry & {
+        authorName: string | null;
+        authorHonorific: Honorific | null;
+      }
+    >
+  > {
     await this.patients.findOne(patientId);
 
     const qb = this.repo
@@ -280,6 +287,7 @@ export class ClinicalEntriesService {
         "NULLIF(TRIM(CONCAT(author.firstName, ' ', author.lastName)), '')",
         'authorName',
       )
+      .addSelect('author.honorific', 'authorHonorific')
       .where('ce.patientId = :patientId', { patientId })
       .orderBy('ce.visitDate', 'DESC')
       .addOrderBy('ce.createdAt', 'DESC')
@@ -290,6 +298,8 @@ export class ClinicalEntriesService {
     const data = entities.map((entry, i) => ({
       ...entry,
       authorName: (raw[i] as { authorName: string | null }).authorName,
+      authorHonorific: (raw[i] as { authorHonorific: Honorific | null })
+        .authorHonorific,
     }));
     const total = await qb.getCount();
     return { data, total, page, pageSize };

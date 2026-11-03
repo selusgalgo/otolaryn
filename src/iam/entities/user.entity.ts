@@ -13,6 +13,10 @@ export type UserRole = 'superadmin' | 'admin' | 'profesional' | 'recepcion';
 // roles: they already say which one they are via role itself.
 export type StaffFunction = 'profesional' | 'recepcion';
 
+// Cómo se antepone el nombre de un médico en pantalla. Solo se usa para
+// quien ejerce como médico; 'Dr.' por defecto (ver UserHonorific migration).
+export type Honorific = 'Dr.' | 'Dra.';
+
 // Deliberately NOT row-level-secured: login must look up a user by email
 // before any tenant context exists, so this table can't depend on
 // app.tenant_id being set. Isolation for this table is enforced the
@@ -51,6 +55,9 @@ export class User {
 
   @Column({ name: 'staff_function', type: 'text', nullable: true })
   staffFunction: StaffFunction | null;
+
+  @Column({ type: 'text', default: 'Dr.' })
+  honorific: Honorific;
 
   // Blocks login (AuthService.login, JwtStrategy.validate) and drops the
   // user out of the "Profesional" bookable picker (UsersService.findAll)

@@ -6,8 +6,16 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import type { StaffFunction, UserRole } from '../../iam/entities/user.entity';
-import { ASSIGNABLE_ROLES, STAFF_FUNCTIONS } from './create-user.dto';
+import type {
+  Honorific,
+  StaffFunction,
+  UserRole,
+} from '../../iam/entities/user.entity';
+import {
+  ASSIGNABLE_ROLES,
+  HONORIFICS,
+  STAFF_FUNCTIONS,
+} from './create-user.dto';
 
 // All fields optional — a caller sends only what it's changing.
 export class UpdateUserDto {
@@ -49,4 +57,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   agendaAccess?: boolean;
+
+  // Ver CreateUserDto.honorific.
+  @IsOptional()
+  @IsIn(HONORIFICS)
+  honorific?: Honorific;
 }

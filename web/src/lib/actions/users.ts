@@ -9,6 +9,14 @@ export interface UserFormState {
   success?: boolean;
 }
 
+// El selector Dr./Dra. solo se pinta para quien ejerce como médico, así que
+// en el resto de formularios el campo no viene: entonces no se envía nada y
+// la API conserva el valor que ya tenía (o "Dr." por defecto al crear).
+function honorificField(formData: FormData): { honorific?: string } {
+  const honorific = String(formData.get("honorific") ?? "");
+  return honorific ? { honorific } : {};
+}
+
 export async function createUserAction(
   _prevState: UserFormState,
   formData: FormData,
@@ -23,6 +31,7 @@ export async function createUserAction(
         password: String(formData.get("password") ?? ""),
         role: String(formData.get("role") ?? "profesional"),
         staffFunction: String(formData.get("staffFunction") ?? ""),
+        ...honorificField(formData),
       },
     });
   } catch (err) {
@@ -53,6 +62,7 @@ export async function updateUserAction(
         username: String(formData.get("username") ?? "").trim(),
         role: String(formData.get("role") ?? ""),
         staffFunction: String(formData.get("staffFunction") ?? ""),
+        ...honorificField(formData),
         // Absent from the FormData entirely when unchecked (standard
         // checkbox semantics) or when the field isn't rendered at all for
         // a non-profesional role — either way that's "false", which the

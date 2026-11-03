@@ -385,6 +385,77 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(login.status).toBe(200);
   });
 
+  it('stores the Dr./Dra. honorific per user (default Dr.), validates it, and shows it on the consulta author', async () => {
+    const password = 'RolesTest-Honorific1!';
+    const makeUser = (extra: Record<string, unknown>, tag: string) =>
+      request(server)
+        .post('/users')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({
+          email: `roles-honorific-${tag}-${Date.now()}@rls-test.local`,
+          firstName: 'Ana',
+          lastName: 'Doctora',
+          password,
+          role: 'profesional',
+          ...extra,
+        });
+
+    const byDefault = await makeUser({}, 'default');
+    expect(byDefault.status).toBe(201);
+    expect((byDefault.body as UserResponse).honorific).toBe('Dr.');
+
+    const invalid = await makeUser({ honorific: 'Sr.' }, 'invalid');
+    expect(invalid.status).toBe(400);
+
+    const doctora = await makeUser({ honorific: 'Dra.' }, 'dra');
+    expect(doctora.status).toBe(201);
+    const doctoraBody = doctora.body as UserResponse;
+    expect(doctoraBody.honorific).toBe('Dra.');
+
+    // La doctora firma una consulta; el listado de la ficha trae su
+    // tratamiento junto al nombre, no un "Dr." fijo.
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ identifier: doctoraBody.email, password });
+    const tokenDoctora = (login.body as LoginResponse).accessToken;
+    const entry = await request(server)
+      .post(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenDoctora}`)
+      .send({ chiefComplaint: 'Consulta firmada por una doctora' });
+    expect(entry.status).toBe(201);
+    const entryId = (entry.body as UserResponse).id;
+
+    const list = await request(server)
+      .get(`/patients/${tenantA.patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(list.status).toBe(200);
+    const found = (
+      list.body as {
+        data: Array<{
+          id: string;
+          authorName: string;
+          authorHonorific: string;
+        }>;
+      }
+    ).data.find((e) => e.id === entryId);
+    expect(found?.authorName).toBe('Ana Doctora');
+    expect(found?.authorHonorific).toBe('Dra.');
+
+    // Editable, y no se reinicia al cambiar de rol (las consultas ya firmadas
+    // deben seguir mostrando el tratamiento con el que se firmaron).
+    const switched = await request(server)
+      .patch(`/users/${doctoraBody.id}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ honorific: 'Dr.' });
+    expect(switched.status).toBe(200);
+    expect((switched.body as UserResponse).honorific).toBe('Dr.');
+    const demoted = await request(server)
+      .patch(`/users/${doctoraBody.id}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ honorific: 'Dra.', role: 'recepcion' });
+    expect((demoted.body as UserResponse).honorific).toBe('Dra.');
+  });
+
   it('lets admin edit and reset the password of a user in their own tenant, but not profesional/recepcion', async () => {
     const email = `roles-editable-${Date.now()}@rls-test.local`;
     const created = await request(server)
@@ -747,9 +818,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
       .set('Authorization', `Bearer ${tokenAdmin}`);
     const listedAppointment = (
       agendaListing.body as { data: AppointmentResponse[] }
-    ).data.find(
-      (a) => a.id === (appointment.body as AppointmentResponse).id,
-    );
+    ).data.find((a) => a.id === (appointment.body as AppointmentResponse).id);
     expect(listedAppointment?.practitionerName).toBe('Se Desactiva');
 
     // Same for Historia clínica: the consulta they wrote still shows their
@@ -762,9 +831,7 @@ describe('Roles — RolesGuard + scoping matrix', () => {
       clinicalEntriesListing.body as {
         data: { id: string; authorName?: string | null }[];
       }
-    ).data.find(
-      (e) => e.id === (clinicalEntry.body as { id: string }).id,
-    );
+    ).data.find((e) => e.id === (clinicalEntry.body as { id: string }).id);
     expect(listedEntry?.authorName).toBe('Se Desactiva');
     const plainListing = await request(server)
       .get('/users')

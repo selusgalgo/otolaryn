@@ -6,7 +6,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
-import { ASSIGNABLE_ROLES, ROLE_LABELS, STAFF_FUNCTIONS, STAFF_FUNCTION_LABELS } from "@/lib/roles";
+import {
+  ASSIGNABLE_ROLES,
+  HONORIFIC_LABELS,
+  HONORIFICS,
+  practicesMedicine,
+  ROLE_LABELS,
+  STAFF_FUNCTIONS,
+  STAFF_FUNCTION_LABELS,
+} from "@/lib/roles";
 import type { AppUser } from "@/lib/types";
 
 const initialState: UserFormState = {};
@@ -38,6 +46,7 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const [role, setRole] = useState<string>(user.role);
   const [staffFunction, setStaffFunction] = useState<string>(user.staffFunction ?? "");
+  const [honorific, setHonorific] = useState<string>(user.honorific ?? "Dr.");
   const [dataState, dataFormAction, dataPending] = useActionState(updateAction, initialState);
   const [passwordState, passwordFormAction, passwordPending] = useActionState(
     resetPasswordAction,
@@ -167,6 +176,26 @@ export function EditUserDialog({
                 {STAFF_FUNCTIONS.map((value) => (
                   <option key={value} value={value}>
                     {STAFF_FUNCTION_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {practicesMedicine(role, staffFunction) && (
+            <div className="space-y-2">
+              <Label htmlFor="editHonorific">Tratamiento</Label>
+              <select
+                key={`honorific-${saveCount}`}
+                id="editHonorific"
+                name="honorific"
+                value={honorific}
+                onChange={(e) => setHonorific(e.target.value)}
+                disabled={dataPending}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+              >
+                {HONORIFICS.map((value) => (
+                  <option key={value} value={value}>
+                    {HONORIFIC_LABELS[value]}
                   </option>
                 ))}
               </select>

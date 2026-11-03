@@ -1,4 +1,4 @@
-import type { Role, StaffFunction } from "@/lib/types";
+import type { Honorific, Role, StaffFunction } from "@/lib/types";
 
 // Single source of truth — was previously duplicated (and drifting: "Admin"
 // vs "Administrador") between the /users list and the user creation form.
@@ -24,3 +24,16 @@ export const STAFF_FUNCTION_LABELS: Record<StaffFunction, string> = {
 };
 
 export const STAFF_FUNCTIONS: StaffFunction[] = ["profesional", "recepcion"];
+
+export const HONORIFICS: Honorific[] = ["Dr.", "Dra."];
+
+export const HONORIFIC_LABELS: Record<Honorific, string> = {
+  "Dr.": "Dr. (doctor)",
+  "Dra.": "Dra. (doctora)",
+};
+
+// Quien ejerce como médico: rol "profesional", o administrador con la función
+// adicional "Doctor". Solo a ellos se les pregunta el tratamiento (Dr./Dra.).
+export function practicesMedicine(role: string, staffFunction: string | null | undefined): boolean {
+  return role === "profesional" || (role === "admin" && staffFunction === "profesional");
+}
