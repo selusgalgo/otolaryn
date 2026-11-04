@@ -4,11 +4,8 @@ import { useEffect } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import {
-  Bars3BottomLeftIcon,
-  ListBulletIcon,
-  NumberedListIcon,
-} from "@heroicons/react/24/outline";
+import { ListBulletIcon, NumberedListIcon } from "@heroicons/react/24/outline";
+import { HeadingMenu } from "@/components/ui/heading-menu";
 import { cn } from "@/lib/utils";
 
 // Matches the backend's own allowlist exactly (see rich-text.util.ts) —
@@ -35,6 +32,10 @@ function useRichTextEditor(
     content: value,
     editable: !disabled,
     immediatelyRender: false,
+    // Sin esto Tiptap 3 no repinta al mover el cursor, y el estado "pulsado" de
+    // los botones de la barra (negrita, listas, el menú Encabezados...) se
+    // quedaba desfasado hasta la siguiente tecla.
+    shouldRerenderOnTransaction: true,
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     editorProps: {
       attributes: {
@@ -77,6 +78,7 @@ function ToolbarButton({
     <button
       type="button"
       aria-label={label}
+      title={label}
       aria-pressed={active}
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
@@ -131,30 +133,7 @@ export function RichTextEditor({ value, onChange, disabled, placeholder }: RichT
           <span className="italic">I</span>
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-border" />
-        <ToolbarButton
-          label="Encabezado 1"
-          active={!!editor?.isActive("heading", { level: 1 })}
-          disabled={disabled}
-          onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          H1
-        </ToolbarButton>
-        <ToolbarButton
-          label="Encabezado 2"
-          active={!!editor?.isActive("heading", { level: 2 })}
-          disabled={disabled}
-          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          H2
-        </ToolbarButton>
-        <ToolbarButton
-          label="Encabezado 3"
-          active={!!editor?.isActive("heading", { level: 3 })}
-          disabled={disabled}
-          onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-        >
-          H3
-        </ToolbarButton>
+        <HeadingMenu editor={editor} disabled={disabled} />
         <div className="mx-1 h-4 w-px bg-border" />
         <ToolbarButton
           label="Lista con viñetas"
@@ -178,7 +157,11 @@ export function RichTextEditor({ value, onChange, disabled, placeholder }: RichT
           disabled={disabled}
           onClick={() => editor?.chain().focus().toggleBlockquote().run()}
         >
-          <Bars3BottomLeftIcon className="size-4" />
+          {/* Comillas tipográficas: es lo que se reconoce como "cita"; el icono de
+              líneas que había no decía nada. */}
+          <span aria-hidden className="font-serif text-lg leading-none">
+            “
+          </span>
         </ToolbarButton>
       </div>
       <EditorContent editor={editor} />

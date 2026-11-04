@@ -204,17 +204,17 @@
    element itself) and to RichTextContent's read-only render of the same
    HTML, so what's typed looks like what's saved. */
 .rich-text-content h1 {
-  font-size: 1.25rem;
+  font-size: 1.3125rem; /* 21 px */
   font-weight: 600;
   margin: 0.5rem 0 0.25rem;
 }
 .rich-text-content h2 {
-  font-size: 1.1rem;
+  font-size: 1.125rem; /* 18 px */
   font-weight: 600;
   margin: 0.5rem 0 0.25rem;
 }
 .rich-text-content h3 {
-  font-size: 1rem;
+  font-size: 1rem; /* 16 px */
   font-weight: 600;
   margin: 0.5rem 0 0.25rem;
 }
