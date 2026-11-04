@@ -68,6 +68,8 @@ export interface Appointment {
   // current active status — see ClinicalEntry.authorName for the same
   // reasoning. Only present on GET /appointments (list).
   practitionerName: string | null;
+  // "Dr." o "Dra." del profesional, resuelto junto a practitionerName.
+  practitionerHonorific: Honorific | null;
   scheduledAt: string;
   durationMinutes: number;
   status: AppointmentStatus;
@@ -99,6 +101,10 @@ export interface Me {
   // Only meaningful for role "profesional" — always true for every other
   // role. An admin-controlled toggle, not tied to `active`.
   agendaAccess: boolean;
+  // Con el rol y la función adicional se sabe si el usuario actual ejerce como
+  // médico, y con el tratamiento cómo se antepone su nombre ("Dr."/"Dra.").
+  honorific: Honorific;
+  staffFunction: StaffFunction | null;
 }
 
 export interface TodayDashboard {

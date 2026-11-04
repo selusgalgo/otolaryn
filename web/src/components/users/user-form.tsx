@@ -38,6 +38,26 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
 
   return (
     <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-lg gap-4">
+      {/* Encima del nombre, que es donde luego se antepone ("Dra. Ana Ruiz"); solo
+          para quien ejerce como médico, según el rol y la función de más abajo. */}
+      {practicesMedicine(role, staffFunction) && (
+        <div className="space-y-2">
+          <Label htmlFor="honorific">Tratamiento</Label>
+          <select
+            id="honorific"
+            name="honorific"
+            defaultValue="Dr."
+            disabled={pending}
+            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+          >
+            {HONORIFICS.map((value) => (
+              <option key={value} value={value}>
+                {HONORIFIC_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">Nombre</Label>
@@ -91,25 +111,6 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
               </option>
             ))}
           </select>
-        </div>
-      )}
-      {practicesMedicine(role, staffFunction) && (
-        <div className="space-y-2">
-          <Label htmlFor="honorific">Tratamiento</Label>
-          <select
-            id="honorific"
-            name="honorific"
-            defaultValue="Dr."
-            disabled={pending}
-            className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-          >
-            {HONORIFICS.map((value) => (
-              <option key={value} value={value}>
-                {HONORIFIC_LABELS[value]}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">Cómo se antepone su nombre en las consultas.</p>
         </div>
       )}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

@@ -42,6 +42,8 @@ export class AuthController {
       lastName: user.lastName,
       role: user.role,
       agendaAccess: user.agendaAccess,
+      honorific: user.honorific,
+      staffFunction: user.staffFunction,
     };
   }
 }

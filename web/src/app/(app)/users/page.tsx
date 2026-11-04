@@ -4,6 +4,7 @@ import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { RoleBadge } from "@/components/users/role-badge";
 import { UserRowActions } from "@/components/users/user-row-actions";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
+import { isDoctor, userDisplayName } from "@/lib/doctor-name";
 import { apiFetch } from "@/lib/api";
 import {
   deleteUserAction,
@@ -55,9 +56,14 @@ export default async function UsersPage() {
               <TableRow key={user.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <InitialsAvatar firstName={user.firstName} lastName={user.lastName} size="sm" />
+                    <InitialsAvatar
+                      firstName={user.firstName}
+                      lastName={user.lastName}
+                      size="sm"
+                      variant={isDoctor(user) ? "doctor" : "patient"}
+                    />
                     <span className={!user.active ? "text-muted-foreground line-through" : undefined}>
-                      {user.firstName} {user.lastName}
+                      {userDisplayName(user)}
                     </span>
                     {!user.active && (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">

@@ -11,6 +11,8 @@ const user: CurrentUserPayload = {
   firstName: 'Ana',
   lastName: 'Ruiz',
   agendaAccess: true,
+  honorific: 'Dra.',
+  staffFunction: null,
   sessionEnd: 10_000,
 };
 

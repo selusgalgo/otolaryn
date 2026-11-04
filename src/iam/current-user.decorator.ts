@@ -1,4 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { Honorific, StaffFunction } from './entities/user.entity';
 
 export interface CurrentUserPayload {
   userId: string;
@@ -12,6 +13,11 @@ export interface CurrentUserPayload {
   // anywhere else, an admin flipping it needs to take effect immediately,
   // not at the profesional's next login.
   agendaAccess: boolean;
+  // Cómo se antepone el nombre de un médico ("Dr."/"Dra.") y su función
+  // adicional si es administrador: con ellos la web decide, sin otra consulta,
+  // si el usuario actual ejerce como médico y cómo mostrar su nombre.
+  honorific: Honorific;
+  staffFunction: StaffFunction | null;
   // Fin absoluto de la sesión (segundos epoch), ver session-limits.ts.
   sessionEnd?: number;
 }

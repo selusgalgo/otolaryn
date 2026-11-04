@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { userDisplayName } from "@/lib/doctor-name";
 import type { AppUser } from "@/lib/types";
 
 interface DeleteUserDialogProps {
@@ -54,7 +55,7 @@ export function DeleteUserDialog({ user, deleteAction, open, onOpenChange }: Del
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            ¿Eliminar a {user.firstName} {user.lastName}?
+            ¿Eliminar a {userDisplayName(user)}?
           </DialogTitle>
           <DialogDescription>
             Esta acción no se puede deshacer. La persona perderá acceso a la plataforma de

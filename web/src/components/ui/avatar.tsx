@@ -8,6 +8,8 @@ interface AvatarProps {
   // not a rewrite. Until then it's always undefined and the circle always
   // shows initials.
   src?: string | null;
+  // "doctor" para quien ejerce como médico (verde), como en InitialsAvatar.
+  variant?: "patient" | "doctor";
   className?: string;
 }
 
@@ -15,11 +17,13 @@ function initialsOf(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
 
-export function Avatar({ firstName, lastName, src, className }: AvatarProps) {
+export function Avatar({ firstName, lastName, src, variant = "patient", className }: AvatarProps) {
   return (
     <span
+      data-variant={variant}
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-tint text-sm font-semibold text-primary",
+        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold",
+        variant === "doctor" ? "bg-success/15 text-success" : "bg-primary-tint text-primary",
         className,
       )}
     >

@@ -5,6 +5,7 @@ import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { isDoctor, withHonorific } from "@/lib/doctor-name";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
@@ -67,7 +68,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Hola, {me.firstName}</h1>
+      <h1 className="text-2xl font-bold">
+        Hola, {isDoctor(me) ? withHonorific(me.firstName, me.honorific) : me.firstName}
+      </h1>
 
       {canSeeAgenda && (
         <AgendaCalendar

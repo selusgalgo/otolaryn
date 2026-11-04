@@ -116,6 +116,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       firstName: payload.first_name,
       lastName: payload.last_name,
       agendaAccess: user.agendaAccess,
+      honorific: user.honorific,
+      staffFunction: user.staffFunction,
       sessionEnd,
     };
   }

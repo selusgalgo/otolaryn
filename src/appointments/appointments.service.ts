@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
-import { User } from '../iam/entities/user.entity';
+import { type Honorific, User } from '../iam/entities/user.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { PaginatedResult, PatientsService } from '../patients/patients.service';
 import { groupByWeekday } from '../settings/schedule.util';
@@ -212,7 +212,12 @@ export class AppointmentsService {
     query: ListAppointmentsQueryDto,
     user: CurrentUserPayload,
   ): Promise<
-    PaginatedResult<Appointment & { practitionerName: string | null }>
+    PaginatedResult<
+      Appointment & {
+        practitionerName: string | null;
+        practitionerHonorific: Honorific | null;
+      }
+    >
   > {
     const qb = this.repo
       .createQueryBuilder('a')
@@ -225,6 +230,7 @@ export class AppointmentsService {
         "NULLIF(TRIM(CONCAT(practitioner.firstName, ' ', practitioner.lastName)), '')",
         'practitionerName',
       )
+      .addSelect('practitioner.honorific', 'practitionerHonorific')
       .orderBy('a.scheduledAt', 'ASC');
 
     if (query.from) {
@@ -255,6 +261,9 @@ export class AppointmentsService {
       ...entry,
       practitionerName: (raw[i] as { practitionerName: string | null })
         .practitionerName,
+      practitionerHonorific: (
+        raw[i] as { practitionerHonorific: Honorific | null }
+      ).practitionerHonorific,
     }));
     const total = await qb.getCount();
     return { data, total, page: query.page, pageSize: query.pageSize };

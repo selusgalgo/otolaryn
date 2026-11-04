@@ -12,6 +12,7 @@ import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { getCurrentUser } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar-grid";
 import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
+import { withHonorific } from "@/lib/doctor-name";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Appointment, AppointmentDefaults, Paginated, Patient, Schedule } from "@/lib/types";
 import { formatDocumentId, splitName } from "@/lib/utils";
@@ -185,8 +186,8 @@ export default async function AppointmentsPage({
                   <TableCell>
                     {practitionerName ? (
                       <div className="flex items-center gap-3">
-                        <InitialsAvatar {...splitName(practitionerName)} size="sm" />
-                        {practitionerName}
+                        <InitialsAvatar {...splitName(practitionerName)} size="sm" variant="doctor" />
+                        {withHonorific(practitionerName, appointment.practitionerHonorific)}
                       </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>

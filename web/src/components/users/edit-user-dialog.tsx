@@ -15,6 +15,7 @@ import {
   STAFF_FUNCTIONS,
   STAFF_FUNCTION_LABELS,
 } from "@/lib/roles";
+import { userDisplayName } from "@/lib/doctor-name";
 import type { AppUser } from "@/lib/types";
 
 const initialState: UserFormState = {};
@@ -80,7 +81,7 @@ export function EditUserDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Editar {user.firstName} {user.lastName}
+            Editar {userDisplayName(user)}
           </DialogTitle>
         </DialogHeader>
 
@@ -96,6 +97,28 @@ export function EditUserDialog({
               disabled={dataPending}
             />
           </div>
+          {/* Encima del nombre, que es donde luego se antepone ("Dra. Ana Ruiz"); solo
+              para quien ejerce como médico, según el rol y la función de más abajo. */}
+          {practicesMedicine(role, staffFunction) && (
+            <div className="space-y-2">
+              <Label htmlFor="editHonorific">Tratamiento</Label>
+              <select
+                key={`honorific-${saveCount}`}
+                id="editHonorific"
+                name="honorific"
+                value={honorific}
+                onChange={(e) => setHonorific(e.target.value)}
+                disabled={dataPending}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+              >
+                {HONORIFICS.map((value) => (
+                  <option key={value} value={value}>
+                    {HONORIFIC_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="editFirstName">Nombre</Label>
@@ -176,26 +199,6 @@ export function EditUserDialog({
                 {STAFF_FUNCTIONS.map((value) => (
                   <option key={value} value={value}>
                     {STAFF_FUNCTION_LABELS[value]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {practicesMedicine(role, staffFunction) && (
-            <div className="space-y-2">
-              <Label htmlFor="editHonorific">Tratamiento</Label>
-              <select
-                key={`honorific-${saveCount}`}
-                id="editHonorific"
-                name="honorific"
-                value={honorific}
-                onChange={(e) => setHonorific(e.target.value)}
-                disabled={dataPending}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-              >
-                {HONORIFICS.map((value) => (
-                  <option key={value} value={value}>
-                    {HONORIFIC_LABELS[value]}
                   </option>
                 ))}
               </select>

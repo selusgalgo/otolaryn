@@ -20,6 +20,7 @@ import { DeactivateUserDialog } from "@/components/users/deactivate-user-dialog"
 import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import type { UserFormState } from "@/lib/actions/users";
+import { userDisplayName } from "@/lib/doctor-name";
 import type { AppUser } from "@/lib/types";
 
 interface UserRowActionsProps {
@@ -61,7 +62,7 @@ export function UserRowActions({
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`Acciones para ${user.firstName} ${user.lastName}`}
+            aria-label={`Acciones para ${userDisplayName(user)}`}
           >
             <EllipsisVerticalIcon />
           </Button>

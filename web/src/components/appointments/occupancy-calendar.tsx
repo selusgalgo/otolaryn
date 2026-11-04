@@ -18,7 +18,7 @@ import {
 } from "@/lib/occupancy";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Schedule } from "@/lib/types";
-import { cn, splitName } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface OccupancyCalendarProps {
   year: number;
@@ -428,7 +428,7 @@ export function OccupancyCalendar({
               Todos los profesionales
             </Link>
             {practitioners.map((p) => {
-              const { firstName, lastName } = splitName(p.label);
+              const { firstName, lastName } = p;
               const active = selectedPractitionerId === p.id;
               const dotStatus = computeDayOccupancy(
                 activeDate,
@@ -448,7 +448,7 @@ export function OccupancyCalendar({
                       : "border-input bg-background hover:bg-muted",
                   )}
                 >
-                  <InitialsAvatar firstName={firstName} lastName={lastName} size="sm" />
+                  <InitialsAvatar firstName={firstName} lastName={lastName} size="sm" variant="doctor" />
                   <span className="flex-1 truncate">{p.label}</span>
                   <span
                     title={OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.label}

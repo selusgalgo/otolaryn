@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { UserRowActions } from "@/components/users/user-row-actions";
 import { apiFetch } from "@/lib/api";
+import { userDisplayName } from "@/lib/doctor-name";
 import { formatDocumentId } from "@/lib/utils";
 import {
   createTenantUserAction,
@@ -113,7 +114,7 @@ export default async function TenantOverviewPage({
                     {users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
-                          {user.firstName} {user.lastName}
+                          {userDisplayName(user)}
                           <div className="text-xs text-muted-foreground">{user.email}</div>
                         </TableCell>
                         <TableCell>

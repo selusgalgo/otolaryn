@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { userDisplayName } from "@/lib/doctor-name";
 import type { AppUser } from "@/lib/types";
 
 interface DeactivateUserDialogProps {
@@ -57,7 +58,7 @@ export function DeactivateUserDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            ¿Desactivar a {user.firstName} {user.lastName}?
+            ¿Desactivar a {userDisplayName(user)}?
           </DialogTitle>
           <DialogDescription>
             Perderá acceso a la plataforma de inmediato. Sus citas e historia clínica se

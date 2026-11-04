@@ -441,6 +441,39 @@ describe('Roles — RolesGuard + scoping matrix', () => {
     expect(found?.authorName).toBe('Ana Doctora');
     expect(found?.authorHonorific).toBe('Dra.');
 
+    // Su sesión y sus citas también llevan el tratamiento, para que la web
+    // pinte «Dra.» delante del nombre en todas partes (barra lateral, citas,
+    // selectores).
+    const me = await request(server)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${tokenDoctora}`);
+    expect(me.body).toMatchObject({
+      role: 'profesional',
+      honorific: 'Dra.',
+      staffFunction: null,
+    });
+    const appointment = await request(server)
+      .post(`/patients/${tenantA.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenDoctora}`)
+      .send({ scheduledAt: '2027-09-01T09:00:00.000Z', durationMinutes: 30 });
+    expect(appointment.status).toBe(201);
+    const appointments = await request(server)
+      .get(
+        '/appointments?from=2027-09-01T00:00:00.000Z&to=2027-09-02T00:00:00.000Z',
+      )
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    const listedAppointment = (
+      appointments.body as {
+        data: Array<{
+          id: string;
+          practitionerName: string;
+          practitionerHonorific: string;
+        }>;
+      }
+    ).data.find((a) => a.id === (appointment.body as UserResponse).id);
+    expect(listedAppointment?.practitionerName).toBe('Ana Doctora');
+    expect(listedAppointment?.practitionerHonorific).toBe('Dra.');
+
     // Editable, y no se reinicia al cambiar de rol (las consultas ya firmadas
     // deben seguir mostrando el tratamiento con el que se firmaron).
     const switched = await request(server)

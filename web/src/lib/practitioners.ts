@@ -1,10 +1,15 @@
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { withHonorific } from "@/lib/doctor-name";
 import type { AppUser } from "@/lib/types";
 
 export interface PractitionerOption {
   id: string;
+  // Nombre para mostrar, ya con "Dr."/"Dra." delante (siempre es un médico).
   label: string;
+  // Por separado y sin tratamiento: de ahí salen las iniciales de la burbuja.
+  firstName: string;
+  lastName: string;
 }
 
 // null means "don't show a practitioner picker at all" — a profesional's
@@ -20,5 +25,10 @@ export async function getPractitionerOptions(): Promise<PractitionerOption[] | n
     return null;
   }
   const bookable = await apiFetch<AppUser[]>("/users?bookable=true");
-  return bookable.map((u) => ({ id: u.id, label: `${u.firstName} ${u.lastName}` }));
+  return bookable.map((u) => ({
+    id: u.id,
+    label: withHonorific(`${u.firstName} ${u.lastName}`, u.honorific),
+    firstName: u.firstName,
+    lastName: u.lastName,
+  }));
 }

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
+import { isDoctor, userDisplayName } from "@/lib/doctor-name";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { Me, Role } from "@/lib/types";
 
@@ -153,11 +154,9 @@ function UserMenu({ me }: { me: Me }) {
             aria-label="Menú de cuenta"
             className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-white/10"
           >
-            <Avatar firstName={me.firstName} lastName={me.lastName} />
+            <Avatar firstName={me.firstName} lastName={me.lastName} variant={isDoctor(me) ? "doctor" : "patient"} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-nav-foreground">
-                {me.firstName} {me.lastName}
-              </p>
+              <p className="truncate text-sm font-medium text-nav-foreground">{userDisplayName(me)}</p>
               <p className="truncate text-xs text-nav-foreground/60">{ROLE_LABELS[me.role]}</p>
             </div>
             <EllipsisVerticalIcon className="size-4 shrink-0 text-nav-foreground/70" />
