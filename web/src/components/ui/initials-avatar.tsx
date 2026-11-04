@@ -1,3 +1,5 @@
+import { DOCTOR_COLOR_CLASSES } from "@/lib/roles";
+
 const SIZE_CLASSES = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
@@ -5,12 +7,13 @@ const SIZE_CLASSES = {
 };
 
 // Pacientes (y cualquier persona que no sea médico) en azul de marca; los
-// profesionales médicos en verde, para distinguirlos de un vistazo en listas
+// profesionales médicos en turquesa (los colores de la etiqueta del rol
+// Profesional, ver DOCTOR_COLOR_CLASSES), para distinguirlos de un vistazo en listas
 // donde salen juntos. El color no es lo único que los separa: sus nombres
 // llevan además "Dr."/"Dra." delante.
 const VARIANT_CLASSES = {
   patient: "bg-primary-tint text-primary",
-  doctor: "bg-success/15 text-success",
+  doctor: DOCTOR_COLOR_CLASSES,
 };
 
 interface InitialsAvatarProps {

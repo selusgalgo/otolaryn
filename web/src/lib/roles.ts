@@ -25,6 +25,12 @@ export const STAFF_FUNCTION_LABELS: Record<StaffFunction, string> = {
 
 export const STAFF_FUNCTIONS: StaffFunction[] = ["profesional", "recepcion"];
 
+// Color de "médico": texto 700 sobre fondo 50, el mismo par que la etiqueta del
+// rol Profesional (RoleBadge) y que las burbujas de iniciales de los doctores,
+// para que guarden la misma relación cromática. Un solo sitio, así no se
+// desincronizan.
+export const DOCTOR_COLOR_CLASSES = "bg-teal-50 text-teal-700";
+
 export const HONORIFICS: Honorific[] = ["Dr.", "Dra."];
 
 export const HONORIFIC_LABELS: Record<Honorific, string> = {

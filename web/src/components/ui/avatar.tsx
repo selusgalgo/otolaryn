@@ -1,3 +1,4 @@
+import { DOCTOR_COLOR_CLASSES } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface AvatarProps {
@@ -23,7 +24,7 @@ export function Avatar({ firstName, lastName, src, variant = "patient", classNam
       data-variant={variant}
       className={cn(
         "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold",
-        variant === "doctor" ? "bg-success/15 text-success" : "bg-primary-tint text-primary",
+        variant === "doctor" ? DOCTOR_COLOR_CLASSES : "bg-primary-tint text-primary",
         className,
       )}
     >

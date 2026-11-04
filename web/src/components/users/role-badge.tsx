@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ROLE_LABELS } from "@/lib/roles";
+import { DOCTOR_COLOR_CLASSES, ROLE_LABELS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 
 // Semantic color rule: 700 for the text, 50 for the background — one hue
@@ -8,7 +8,7 @@ import type { Role } from "@/lib/types";
 // palette.
 const ROLE_STYLES: Record<Role, string> = {
   admin: "bg-primary-tint text-primary",
-  profesional: "bg-teal-50 text-teal-700",
+  profesional: DOCTOR_COLOR_CLASSES,
   recepcion: "bg-orange-50 text-orange-700",
   superadmin: "bg-rose-50 text-rose-700",
 };
