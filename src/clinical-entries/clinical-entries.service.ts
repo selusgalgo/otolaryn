@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Brackets, QueryFailedError } from 'typeorm';
 import type {
   ImportJobProgress,
   RowOutcome,
@@ -16,6 +20,7 @@ import {
 } from '../shared/rich-text.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
+import { draftCutoff, withDraftExpiry } from './clinical-entry-draft.util';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { UpdateClinicalEntryDto } from './dto/update-clinical-entry.dto';
 import { ClinicalEntry } from './entities/clinical-entry.entity';
@@ -32,7 +37,7 @@ const UNIQUE_VIOLATION = '23505';
 // reads as the obviously-a-placeholder value it is instead of looking
 // like real data. A value that already carries its own time (every
 // manual "Nueva consulta" from the UI) passes through untouched.
-function toVisitDate(visitDate: string): Date {
+export function toVisitDate(visitDate: string): Date {
   return /^\d{4}-\d{2}-\d{2}$/.test(visitDate)
     ? new Date(`${visitDate}T10:00:00`)
     : new Date(visitDate);
@@ -266,15 +271,22 @@ export class ClinicalEntriesService {
   // GET /users?bookable=true deliberately excludes deactivated users (see
   // UsersService.findAll), which is right for "who can I book a new
   // appointment with" but wrong for "who actually saw this patient before".
+  //
+  // Los borradores (ver ClinicalEntryDraftsService) salen en este mismo listado
+  // con status 'borrador' y draftExpiresAt, pero solo para su autor y para los
+  // administradores — recepción y otros profesionales no los ven — y solo
+  // mientras no hayan caducado.
   async findAllForPatient(
     patientId: string,
     page: number,
     pageSize: number,
+    viewer: { userId: string; role: string },
   ): Promise<
     PaginatedResult<
       ClinicalEntry & {
         authorName: string | null;
         authorHonorific: Honorific | null;
+        draftExpiresAt: Date | null;
       }
     >
   > {
@@ -289,6 +301,24 @@ export class ClinicalEntriesService {
       )
       .addSelect('author.honorific', 'authorHonorific')
       .where('ce.patientId = :patientId', { patientId })
+      .andWhere(
+        new Brackets((visible) =>
+          visible.where("ce.status = 'firmada'").orWhere(
+            new Brackets((draft) => {
+              draft
+                .where("ce.status = 'borrador'")
+                .andWhere('ce.draftUpdatedAt > :cutoff', {
+                  cutoff: draftCutoff(),
+                });
+              if (viewer.role !== 'admin') {
+                draft.andWhere('ce.authorUserId = :viewerId', {
+                  viewerId: viewer.userId,
+                });
+              }
+            }),
+          ),
+        ),
+      )
       .orderBy('ce.visitDate', 'DESC')
       .addOrderBy('ce.createdAt', 'DESC')
       .skip((page - 1) * pageSize)
@@ -296,7 +326,7 @@ export class ClinicalEntriesService {
 
     const { entities, raw } = await qb.getRawAndEntities();
     const data = entities.map((entry, i) => ({
-      ...entry,
+      ...withDraftExpiry(entry),
       authorName: (raw[i] as { authorName: string | null }).authorName,
       authorHonorific: (raw[i] as { authorHonorific: Honorific | null })
         .authorHonorific,
@@ -311,8 +341,9 @@ export class ClinicalEntriesService {
   // artificially large page size.
   async findAllForPatientUnpaged(patientId: string): Promise<ClinicalEntry[]> {
     await this.patients.findOne(patientId);
+    // Solo las firmadas: un borrador no es historia clínica y no sale en el PDF.
     return this.repo.find({
-      where: { patientId },
+      where: { patientId, status: 'firmada' },
       order: { visitDate: 'DESC', createdAt: 'DESC' },
     });
   }
@@ -325,6 +356,34 @@ export class ClinicalEntriesService {
     return entry;
   }
 
+  // Lectura para el usuario que consulta (GET /clinical-entries/:id): un
+  // borrador solo lo ve su autor o un administrador, y caducado ya no existe.
+  // Para cualquier otro, 404 — igual que si no existiera.
+  async findOneVisibleTo(
+    id: string,
+    viewer: { userId: string; role: string },
+  ): Promise<ClinicalEntry & { draftExpiresAt: Date | null }> {
+    const entry = await this.findOne(id);
+    if (entry.status === 'borrador') {
+      const isAuthorOrAdmin =
+        entry.authorUserId === viewer.userId || viewer.role === 'admin';
+      const expired =
+        !entry.draftUpdatedAt || entry.draftUpdatedAt <= draftCutoff();
+      if (!isAuthorOrAdmin || expired) {
+        throw new NotFoundException('Consulta no encontrada');
+      }
+    }
+    return withDraftExpiry(entry);
+  }
+
+  private assertSigned(entry: ClinicalEntry): void {
+    if (entry.status === 'borrador') {
+      throw new ConflictException(
+        'Es un borrador: se edita y se firma desde el propio borrador, y se descarta con "Descartar borrador".',
+      );
+    }
+  }
+
   // admin/profesional only (see controller) — lets a typo or a missed
   // field get fixed in place instead of only ever adding a new entry.
   // Same sanitization as create() for the rich-text fields.
@@ -333,6 +392,7 @@ export class ClinicalEntriesService {
     dto: UpdateClinicalEntryDto,
   ): Promise<ClinicalEntry> {
     const entry = await this.findOne(id);
+    this.assertSigned(entry);
     if (dto.visitDate !== undefined)
       entry.visitDate = toVisitDate(dto.visitDate);
     if (dto.chiefComplaint !== undefined)
@@ -355,7 +415,7 @@ export class ClinicalEntriesService {
   // an old link to it never 500s, it just stops showing up anywhere
   // findOne()/findAllForPatient() etc. are used.
   async softDelete(id: string): Promise<void> {
-    await this.findOne(id);
+    this.assertSigned(await this.findOne(id));
     await this.repo.softDelete(id);
   }
 }

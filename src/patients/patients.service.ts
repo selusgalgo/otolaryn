@@ -159,6 +159,9 @@ export class PatientsService {
       .createQueryBuilder('ce')
       .select('MIN(ce.visit_date)', 'min')
       .where('ce.patient_id = :id', { id })
+      // Un borrador no es una consulta realizada: no adelanta la "primera
+      // consulta" del paciente.
+      .andWhere("ce.status = 'firmada'")
       .getRawOne<{ min: Date | null }>();
     const computed = row?.min ? row.min.toISOString().slice(0, 10) : null;
     const override = patient.firstConsultationOverride;

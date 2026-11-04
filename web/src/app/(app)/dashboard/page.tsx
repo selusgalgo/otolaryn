@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DraftBadge } from "@/components/clinical-entries/draft-badge";
 import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
@@ -49,7 +50,9 @@ export default async function DashboardPage() {
   // clinicalEntries is null (not just empty) for recepcion — that widget
   // doesn't render for that role at all, see below. The API only returns
   // patientId, not a name, so names are resolved here for display.
-  const patientIds = Array.from(new Set((dashboard.clinicalEntries ?? []).map((e) => e.patientId)));
+  const patientIds = Array.from(
+    new Set([...(dashboard.clinicalEntries ?? []), ...(dashboard.drafts ?? [])].map((e) => e.patientId)),
+  );
   const patients = await Promise.all(
     patientIds.map((id) => apiFetch<Patient>(`/patients/${id}`).catch(() => null)),
   );
@@ -107,6 +110,41 @@ export default async function DashboardPage() {
                 ))}
               </ul>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Borradores de consulta pendientes (los propios; todos los de la clínica
+          para un administrador): recordatorio para terminarlos antes de que se
+          borren solos a los 10 días. Los que están a punto de caducar salen
+          primero y en tono de alerta (ver DraftBadge). */}
+      {dashboard.drafts !== null && dashboard.drafts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Borradores pendientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {dashboard.drafts.map((draft) => (
+                <li key={draft.id} className="py-2">
+                  <Link
+                    href={`/patients/${draft.patientId}/clinical-entries/${draft.id}`}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 hover:underline"
+                  >
+                    <span className="text-sm">
+                      <span className="font-bold">{patientName(draft.patientId)}</span>
+                      {" · "}
+                      {draft.chiefComplaint ? (
+                        truncateText(stripHtml(draft.chiefComplaint), MOTIVO_MAX_CHARS)
+                      ) : (
+                        <span className="text-muted-foreground">Sin motivo todavía</span>
+                      )}
+                    </span>
+                    <DraftBadge expiresAt={draft.draftExpiresAt} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}

@@ -5,6 +5,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { ClinicalEntryStatus } from '../clinical-entry-draft.util';
 
 // admin/profesional can edit an entry in place (ClinicalEntriesService.
 // update, e.g. to fix a typo) and admin can remove one outright
@@ -53,6 +54,16 @@ export class ClinicalEntry {
   // null for entries created normally through the app.
   @Column({ name: 'legacy_id', type: 'text', nullable: true })
   legacyId: string | null;
+
+  // 'firmada' para toda consulta que cuenta en la historia clínica; 'borrador'
+  // mientras se está escribiendo (ver la migración ClinicalEntryDraft y
+  // ClinicalEntryDraftsService). El CHECK de BD mantiene draftUpdatedAt no nulo
+  // si y solo si es borrador.
+  @Column({ type: 'text', default: 'firmada' })
+  status: ClinicalEntryStatus;
+
+  @Column({ name: 'draft_updated_at', type: 'timestamptz', nullable: true })
+  draftUpdatedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

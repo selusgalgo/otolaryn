@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ClinicalEntryRowActions } from "@/components/clinical-entries/clinical-entry-row-actions";
+import { DraftBadge } from "@/components/clinical-entries/draft-badge";
 import { PatientAntecedentesCard } from "@/components/patients/patient-antecedentes-card";
 import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getInsuranceOptions } from "@/lib/insurance";
+import { decodeJwtClaims } from "@/lib/jwt";
 import { getPractitionerOptions } from "@/lib/practitioners";
+import { getSessionToken } from "@/lib/session";
 import type { AntecedenteType, ClinicalEntry, Paginated, Patient, PatientAntecedente } from "@/lib/types";
 import { stripHtml, truncateText } from "@/lib/utils";
 
@@ -56,6 +59,11 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     ]);
   const canCreateClinicalEntries = me.role !== "recepcion";
   const canDeleteClinicalEntries = me.role === "admin";
+  // Quién es el usuario actual, para saber qué borradores son suyos (los puede
+  // continuar) frente a los de otros que solo ve un administrador. Se lee del
+  // JWT de la cookie sin verificar la firma: es solo para decidir qué botón
+  // mostrar — la API es la que impide editar un borrador ajeno.
+  const meId = decodeJwtClaims(await getSessionToken())?.sub;
 
   const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
 
@@ -108,6 +116,8 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                     const authorName = entry.authorName;
                     // "Dr." por defecto si la API aún no envía el tratamiento.
                     const authorHonorific = entry.authorHonorific ?? "Dr.";
+                    const isDraft = entry.status === "borrador";
+                    const isOwnDraft = isDraft && entry.authorUserId === meId;
                     return (
                       <TableRow key={entry.id}>
                         <TableCell className="whitespace-nowrap">
@@ -119,7 +129,16 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                           </Link>
                         </TableCell>
                         <TableCell>
-                          {truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)}
+                          {isDraft && (
+                            <div className="mb-1">
+                              <DraftBadge expiresAt={entry.draftExpiresAt} />
+                            </div>
+                          )}
+                          {entry.chiefComplaint ? (
+                            truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)
+                          ) : (
+                            isDraft && <span className="text-muted-foreground">Sin motivo todavía</span>
+                          )}
                           {/* En escritorio el doctor vive en su propia
                               columna — en móvil, donde esa columna se
                               oculta, se muestra aquí debajo para no
@@ -134,15 +153,23 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                           {authorName ? `${authorHonorific} ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
-                            <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
-                              <EyeIcon />
-                            </Link>
-                          </Button>
+                          {isOwnDraft ? (
+                            <Button asChild size="sm" variant="outline">
+                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>Continuar</Link>
+                            </Button>
+                          ) : (
+                            <Button asChild variant="ghost" size="icon" aria-label="Ver esta consulta">
+                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
+                                <EyeIcon />
+                              </Link>
+                            </Button>
+                          )}
                           <ClinicalEntryRowActions
                             patientId={id}
                             entryId={entry.id}
                             canDelete={canDeleteClinicalEntries}
+                            isDraft={isDraft}
+                            canDiscard={isOwnDraft || canDeleteClinicalEntries}
                           />
                         </TableCell>
                       </TableRow>

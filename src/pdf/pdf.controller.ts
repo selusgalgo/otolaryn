@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   NotFoundException,
@@ -122,6 +123,11 @@ export class PdfController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     const entry = await this.clinicalEntries.findOne(id);
+    if (entry.status === 'borrador') {
+      throw new BadRequestException(
+        'Un borrador no se puede imprimir: fírmalo primero.',
+      );
+    }
     if (!entry.treatment) {
       throw new NotFoundException(
         'Esta consulta no tiene tratamiento indicado',

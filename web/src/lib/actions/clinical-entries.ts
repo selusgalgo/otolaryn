@@ -44,18 +44,17 @@ function clinicalEntryErrorState(err: unknown): ClinicalEntryFormState {
   return { error: "No se pudo guardar." };
 }
 
-export async function createClinicalEntryAction(
-  patientId: string,
-  _prevState: ClinicalEntryFormState,
-  formData: FormData,
-): Promise<ClinicalEntryFormState> {
+// Cuerpo de alta de una consulta a partir del formulario: los campos vacíos se
+// omiten (en el alta "vacío" es "nada que guardar todavía", a diferencia de la
+// edición). Lo comparten crear una consulta y firmar un borrador.
+function entryBodyFromForm(formData: FormData) {
   const visitDate = String(formData.get("visitDate") ?? "").trim();
   const examinationFindings = String(formData.get("examinationFindings") ?? "").trim();
   const diagnosis = String(formData.get("diagnosis") ?? "").trim();
   const treatment = String(formData.get("treatment") ?? "").trim();
   const followUpNotes = String(formData.get("followUpNotes") ?? "").trim();
 
-  const body = {
+  return {
     chiefComplaint: String(formData.get("chiefComplaint") ?? "").trim(),
     ...(visitDate ? { visitDate: new Date(visitDate).toISOString() } : {}),
     ...(examinationFindings ? { examinationFindings } : {}),
@@ -63,6 +62,14 @@ export async function createClinicalEntryAction(
     ...(treatment ? { treatment } : {}),
     ...(followUpNotes ? { followUpNotes } : {}),
   };
+}
+
+export async function createClinicalEntryAction(
+  patientId: string,
+  _prevState: ClinicalEntryFormState,
+  formData: FormData,
+): Promise<ClinicalEntryFormState> {
+  const body = entryBodyFromForm(formData);
 
   let entry: ClinicalEntry;
   try {
@@ -124,4 +131,103 @@ export async function deleteClinicalEntryAction(
   await apiFetch(`/clinical-entries/${entryId}`, { method: "DELETE" });
   revalidatePath(`/patients/${patientId}`);
   redirect(`/patients/${patientId}`);
+}
+
+// ---- Borradores en el servidor (solo altas) -------------------------------
+// Un borrador aparece en la ficha del paciente con la etiqueta "Borrador" para
+// seguir desde cualquier ordenador; solo lo ven su autor y los administradores
+// y se borra solo a los 10 días sin tocarlo. Editar una consulta ya firmada no
+// usa borradores en el servidor (ver ClinicalEntryForm).
+
+export interface DraftValues {
+  visitDate: string;
+  chiefComplaint: string;
+  examinationFindings: string;
+  diagnosis: string;
+  treatment: string;
+  followUpNotes: string;
+}
+
+export interface DraftSaveResult {
+  id?: string;
+  savedAt?: string;
+  error?: string;
+  // La sesión caducó mientras se autoguardaba: el borrador local sigue siendo
+  // la red de seguridad (ver ClinicalEntryForm).
+  sessionExpired?: boolean;
+}
+
+// Crea el borrador la primera vez (draftId null) y lo actualiza después. Se
+// llama desde el autoguardado del formulario, no desde un <form>, así que
+// devuelve el resultado en vez de redirigir y no revalida la página: la ficha
+// del paciente es dinámica y se vuelve a pedir al navegar a ella.
+export async function saveClinicalEntryDraftAction(
+  patientId: string,
+  draftId: string | null,
+  values: DraftValues,
+): Promise<DraftSaveResult> {
+  const body = {
+    ...(values.visitDate ? { visitDate: new Date(values.visitDate).toISOString() } : {}),
+    chiefComplaint: values.chiefComplaint,
+    examinationFindings: values.examinationFindings,
+    diagnosis: values.diagnosis,
+    treatment: values.treatment,
+    followUpNotes: values.followUpNotes,
+  };
+  try {
+    const draft = draftId
+      ? await apiFetch<ClinicalEntry>(`/clinical-entry-drafts/${draftId}`, { method: "PATCH", body })
+      : await apiFetch<ClinicalEntry>(`/patients/${patientId}/clinical-entry-drafts`, {
+          method: "POST",
+          body,
+        });
+    return { id: draft.id, savedAt: new Date().toISOString() };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 401 && (isSessionEnded(err) || err.code === undefined)) {
+        return { error: "Tu sesión ha caducado.", sessionExpired: true };
+      }
+      if (err.status === 404) {
+        return { error: "Este borrador ya no existe (caducó o se descartó)." };
+      }
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar el borrador." };
+  }
+}
+
+// Firma el borrador: pasa a ser una consulta de la historia clínica con los
+// valores del formulario (aquí sí se exige el motivo de consulta).
+export async function finalizeClinicalEntryDraftAction(
+  patientId: string,
+  draftId: string,
+  _prevState: ClinicalEntryFormState,
+  formData: FormData,
+): Promise<ClinicalEntryFormState> {
+  try {
+    await apiFetch<ClinicalEntry>(`/clinical-entry-drafts/${draftId}/finalize`, {
+      method: "POST",
+      body: entryBodyFromForm(formData),
+    });
+  } catch (err) {
+    return clinicalEntryErrorState(err);
+  }
+
+  revalidatePath(`/patients/${patientId}`);
+  return { success: true, redirectTo: `/patients/${patientId}/clinical-entries/${draftId}` };
+}
+
+// Borrado real del borrador (no es historia clínica). Lo pueden hacer su autor
+// y un administrador.
+export async function discardClinicalEntryDraftAction(
+  patientId: string,
+  draftId: string,
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch(`/clinical-entry-drafts/${draftId}`, { method: "DELETE" });
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : "No se pudo descartar el borrador." };
+  }
+  revalidatePath(`/patients/${patientId}`);
+  return {};
 }

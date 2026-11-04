@@ -48,6 +48,12 @@ export interface ClinicalEntry {
   // "Dr." o "Dra." del autor, resuelto junto a authorName (misma consulta,
   // mismo caso de null).
   authorHonorific: Honorific | null;
+  // "borrador" mientras se está escribiendo (solo lo ven su autor y los
+  // administradores; se borra solo a los 10 días sin tocarlo), "firmada" para
+  // toda consulta que cuenta en la historia clínica.
+  status: "borrador" | "firmada";
+  // Cuándo se borrará el borrador si nadie lo toca; null si está firmada.
+  draftExpiresAt: string | null;
   createdAt: string;
 }
 
@@ -102,6 +108,9 @@ export interface TodayDashboard {
   // Omitted (null), not just empty, for recepcion — that role has no
   // access to clinical content at all.
   clinicalEntries: ClinicalEntry[] | null;
+  // Borradores de consulta pendientes (los propios; todos los de la clínica
+  // para un administrador). null para recepción, que no los ve nunca.
+  drafts: ClinicalEntry[] | null;
 }
 
 export interface AppUser {

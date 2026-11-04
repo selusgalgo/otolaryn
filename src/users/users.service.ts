@@ -187,13 +187,22 @@ export class UsersService {
     const manager = this.tenancyContext.manager;
     const [hasAppointments, hasClinicalEntries] = await Promise.all([
       manager.exists(Appointment, { where: { practitionerId: userId } }),
-      manager.exists(ClinicalEntry, { where: { authorUserId: userId } }),
+      // Solo las firmadas cuentan como historia clínica asociada: un borrador
+      // no lo es, y caduca solo a los pocos días.
+      manager.exists(ClinicalEntry, {
+        where: { authorUserId: userId, status: 'firmada' },
+      }),
     ]);
     if (hasAppointments || hasClinicalEntries) {
       throw new ConflictException(
         'Este usuario tiene citas o entradas de historia clínica asociadas — no se puede eliminar.',
       );
     }
+    // Sus borradores (author_user_id es NOT NULL) se van con él.
+    await manager.delete(ClinicalEntry, {
+      authorUserId: userId,
+      status: 'borrador',
+    });
 
     await this.repo.delete({ id: userId });
   }

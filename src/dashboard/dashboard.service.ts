@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Appointment } from '../appointments/entities/appointment.entity';
+import {
+  draftCutoff,
+  withDraftExpiry,
+} from '../clinical-entries/clinical-entry-draft.util';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { TenancyContext } from '../tenancy/tenancy-context';
@@ -13,6 +17,9 @@ export interface TodayDashboard {
   // Omitted entirely (not just empty) for recepcion — that role has no
   // access to clinical content at all.
   clinicalEntries: ClinicalEntry[] | null;
+  // Borradores de consulta pendientes (ver ClinicalEntryDraftsService); null
+  // para recepción, que no los ve nunca.
+  drafts: Array<ClinicalEntry & { draftExpiresAt: Date | null }> | null;
 }
 
 @Injectable()
@@ -58,7 +65,7 @@ export class DashboardService {
     }
 
     if (user.role === 'recepcion') {
-      return { appointments, clinicalEntries: null };
+      return { appointments, clinicalEntries: null, drafts: null };
     }
 
     const clinicalEntriesQb = this.tenancyContext.manager
@@ -68,6 +75,8 @@ export class DashboardService {
         dayStart,
         dayEnd,
       })
+      // Los borradores no son consultas del día: van aparte, en `drafts`.
+      .andWhere("c.status = 'firmada'")
       .orderBy('c.visitDate', 'DESC');
 
     // profesional: only entries they authored. admin: every entry today
@@ -80,6 +89,21 @@ export class DashboardService {
 
     const clinicalEntries = await clinicalEntriesQb.getMany();
 
-    return { appointments, clinicalEntries };
+    // Borradores pendientes (de cualquier día) para recordar terminarlos antes
+    // de que caduquen: los propios para el profesional, todos los de la clínica
+    // para el administrador. Los más cercanos a caducar, primero.
+    const draftsQb = this.tenancyContext.manager
+      .getRepository(ClinicalEntry)
+      .createQueryBuilder('c')
+      .where("c.status = 'borrador'")
+      .andWhere('c.draftUpdatedAt > :cutoff', { cutoff: draftCutoff() })
+      .orderBy('c.draftUpdatedAt', 'ASC')
+      .take(20);
+    if (user.role === 'profesional') {
+      draftsQb.andWhere('c.authorUserId = :userId', { userId: user.userId });
+    }
+    const drafts = (await draftsQb.getMany()).map(withDraftExpiry);
+
+    return { appointments, clinicalEntries, drafts };
   }
 }

@@ -81,11 +81,13 @@ export class ClinicalEntriesController {
   findAllForPatient(
     @Param('patientId', ParseUUIDPipe) patientId: string,
     @Query() query: ListClinicalEntriesQueryDto,
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.clinicalEntries.findAllForPatient(
       patientId,
       query.page,
       query.pageSize,
+      user,
     );
   }
 
@@ -208,8 +210,11 @@ export class ClinicalEntriesController {
 
   @Get('clinical-entries/:id')
   @Roles('admin', 'profesional', 'recepcion')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.clinicalEntries.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.clinicalEntries.findOneVisibleTo(id, user);
   }
 
   @Patch('clinical-entries/:id')

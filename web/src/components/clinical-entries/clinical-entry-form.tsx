@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Textarea } from "@/components/ui/textarea";
-import type { ClinicalEntryFormState } from "@/lib/actions/clinical-entries";
+import type { ClinicalEntryFormState, DraftSaveResult, DraftValues } from "@/lib/actions/clinical-entries";
 import {
   buildDraftKey,
   purgeStaleDrafts,
@@ -35,6 +35,25 @@ interface ClinicalEntryFormProps {
   // autoguardado. Ver motivación en el comentario de más abajo, junto a
   // DRAFT_TTL_MS.
   draftKey?: string;
+  // Borrador guardado en el servidor: aparece en la ficha del paciente con la
+  // etiqueta "Borrador" para seguir desde cualquier ordenador (visible solo
+  // para su autor y los administradores; se borra a los 10 días sin tocarlo).
+  // Solo para altas — editar una consulta ya firmada no lo usa, y sigue con el
+  // autoguardado local de arriba. Las acciones llegan por props (ya ligadas al
+  // paciente) para no acoplar el formulario a ellas.
+  serverDraft?: {
+    // Id de un borrador ya existente (página del borrador). En el alta no hay:
+    // el primer autoguardado lo crea.
+    draftId?: string;
+    save: (draftId: string | null, values: DraftValues) => Promise<DraftSaveResult>;
+    // Firma el borrador creado mientras se escribía el alta. Mientras no exista
+    // borrador se usa `action`, que crea la consulta directamente.
+    finalize?: (
+      draftId: string,
+      prevState: ClinicalEntryFormState,
+      formData: FormData,
+    ) => Promise<ClinicalEntryFormState>;
+  };
 }
 
 const initialState: ClinicalEntryFormState = {};
@@ -81,6 +100,13 @@ function initialTexts(initialValues?: ClinicalEntry): Omit<FormValues, "visitDat
   };
 }
 
+const FIELD_ORDER = ["visitDate", ...TEXT_FIELDS] as const;
+
+// Huella de los valores para saber si el servidor ya tiene lo último escrito.
+function snapshot(values: FormValues): string {
+  return JSON.stringify(FIELD_ORDER.map((name) => values[name]));
+}
+
 // El editor de texto enriquecido devuelve "<p></p>" para un campo vacío.
 function normalizeText(value: string): string {
   return value === "<p></p>" ? "" : value;
@@ -116,8 +142,25 @@ export function ClinicalEntryForm({
   submitLabel = "Guardar entrada",
   onSuccess,
   draftKey,
+  serverDraft,
 }: ClinicalEntryFormProps) {
-  const [state, formAction, pending] = useActionState(action, initialState);
+  // Id del borrador en el servidor: el de la página del borrador, o el que crea
+  // el primer autoguardado de un alta. Con él, "Guardar entrada" firma ESE
+  // borrador en vez de crear una consulta aparte y dejarlo huérfano.
+  const draftIdRef = useRef<string | null>(serverDraft?.draftId ?? null);
+  const serverDraftRef = useRef(serverDraft);
+  useEffect(() => {
+    serverDraftRef.current = serverDraft;
+  });
+  const submitAction = useCallback(
+    async (prevState: ClinicalEntryFormState, formData: FormData) => {
+      const id = draftIdRef.current;
+      const finalize = serverDraftRef.current?.finalize;
+      return id && finalize ? finalize(id, prevState, formData) : action(prevState, formData);
+    },
+    [action],
+  );
+  const [state, formAction, pending] = useActionState(submitAction, initialState);
   const pathname = usePathname();
   const router = useRouter();
   const scope = useDraftScope();
@@ -162,12 +205,64 @@ export function ClinicalEntryForm({
   const settledRef = useRef(false);
   // No se pudo escribir el borrador (almacenamiento lleno o bloqueado).
   const [draftFailed, setDraftFailed] = useState(false);
+  // Sincronización con el borrador del servidor (solo si hay `serverDraft`).
+  // lastSyncedRef: huella de lo último que el servidor ya tiene — evita volver a
+  // enviarlo y evita duplicarlo en localStorage. syncRef: la petición en vuelo,
+  // para no solapar dos y para que "Guardar entrada" espere a que termine.
+  const [serverSavedAt, setServerSavedAt] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const lastSyncedRef = useRef<string | null>(null);
+  const syncRef = useRef<Promise<void> | null>(null);
+  const submittingRef = useRef(false);
 
   const saveDraftNow = useCallback(() => {
     if (!storageKey || settledRef.current || pendingDraftRef.current) return;
     if (isPristine(valuesRef.current, initialRef.current)) return;
+    // Lo que el servidor ya tiene no se duplica en este navegador: texto
+    // clínico en claro en localStorage solo mientras haga falta como respaldo.
+    if (lastSyncedRef.current === snapshot(valuesRef.current)) return;
     const ok = writeDraft(storageKey, valuesRef.current);
     setDraftFailed(!ok);
+  }, [storageKey]);
+
+  const syncToServer = useCallback((): Promise<void> => {
+    const sd = serverDraftRef.current;
+    if (!sd || settledRef.current || pendingDraftRef.current) return Promise.resolve();
+    if (syncRef.current) return syncRef.current;
+    const values = valuesRef.current;
+    const snap = snapshot(values);
+    if (snap === lastSyncedRef.current) return Promise.resolve();
+    // Un alta sin borrador todavía no crea uno vacío: espera a que haya algo escrito.
+    if (!draftIdRef.current && isPristine(values, initialRef.current)) return Promise.resolve();
+
+    setSavingDraft(true);
+    const run = sd
+      .save(draftIdRef.current, { ...values })
+      .then((res) => {
+        if (res.id) {
+          draftIdRef.current = res.id;
+          lastSyncedRef.current = snap;
+          setServerSavedAt(res.savedAt ?? new Date().toISOString());
+          setSyncError(null);
+          // El servidor ya tiene lo último: sobra la copia local, salvo que se
+          // haya seguido escribiendo mientras tanto.
+          if (snapshot(valuesRef.current) === snap) removeDraft(storageKey);
+        } else {
+          setSyncError(
+            res.sessionExpired
+              ? "Tu sesión ha caducado: lo escrito se conserva en este dispositivo y se subirá al volver a entrar."
+              : (res.error ?? "No se pudo guardar el borrador en el servidor."),
+          );
+        }
+      })
+      .catch(() => setSyncError("No se pudo guardar el borrador en el servidor."))
+      .finally(() => {
+        syncRef.current = null;
+        setSavingDraft(false);
+      });
+    syncRef.current = run;
+    return run;
   }, [storageKey]);
 
   function applyDraft(draft: ClinicalEntryDraft) {
@@ -226,11 +321,14 @@ export function ClinicalEntryForm({
   // computed during the server render without risking a hydration
   // mismatch against whatever the client then computes a moment later.
   useEffect(() => {
-    setValues((v) =>
-      v.visitDate
-        ? v
-        : { ...v, visitDate: toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date()) },
-    );
+    const initialDate = toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date());
+    setValues((v) => (v.visitDate ? v : { ...v, visitDate: initialDate }));
+    // En la página de un borrador existente, lo que se acaba de cargar YA está
+    // en el servidor: sin esto, abrirlo lo reenviaría y renovaría su caducidad
+    // sin que nadie haya escrito nada.
+    if (serverDraftRef.current?.draftId && lastSyncedRef.current === null) {
+      lastSyncedRef.current = snapshot({ visitDate: initialDate, ...initialTexts(initialValues) });
+    }
   }, [initialValues]);
 
   // Solo se mira una vez, al montar — no en cada cambio de storageKey, que
@@ -252,14 +350,20 @@ export function ClinicalEntryForm({
 
   useEffect(() => {
     if (!storageKey) return;
-    const interval = setInterval(saveDraftNow, AUTOSAVE_INTERVAL_MS);
+    // Primero la copia local (síncrona, no puede fallar por red ni por sesión)
+    // y después, si hay borrador en el servidor, su sincronización.
+    const tick = () => {
+      saveDraftNow();
+      void syncToServer();
+    };
+    const interval = setInterval(tick, AUTOSAVE_INTERVAL_MS);
     // Además del intervalo, un volcado inmediato al ocultarse la pestaña o
     // irse de la página (cambiar de app, cerrarla, recargar) y al desmontarse
     // el formulario (navegar por la barra lateral, cerrar el diálogo de
     // edición): los casos más probables de perder lo escrito desde el último
     // autoguardado periódico.
     function onVisibilityChange() {
-      if (document.visibilityState === "hidden") saveDraftNow();
+      if (document.visibilityState === "hidden") tick();
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", saveDraftNow);
@@ -267,20 +371,30 @@ export function ClinicalEntryForm({
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", saveDraftNow);
-      saveDraftNow();
+      tick();
     };
-  }, [storageKey, saveDraftNow]);
+  }, [storageKey, saveDraftNow, syncToServer]);
 
   // En vez de <form action={formAction}>: ese prop hace que React vacíe el
   // formulario al terminar, aunque el guardado falle (ver el comentario sobre
   // los campos controlados). Se guarda un borrador justo antes de enviar —
   // si el envío muere por la sesión, la red o el servidor, ya está a salvo.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending) return;
-    saveDraftNow();
+    if (pending || submittingRef.current) return;
+    submittingRef.current = true;
+    // Antes de esperar nada: currentTarget deja de existir tras un await.
     const data = new FormData(event.currentTarget);
-    startTransition(() => formAction(data));
+    try {
+      saveDraftNow();
+      // Si el autoguardado está creando el borrador justo ahora, hay que
+      // esperar a que termine para firmar ESE borrador y no crear una consulta
+      // aparte dejando el borrador huérfano en la ficha.
+      if (syncRef.current) await syncRef.current;
+      startTransition(() => formAction(data));
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   const loginHref = `/session/expired?reason=SESSION_EXPIRED&redirect=${encodeURIComponent(pathname)}`;
@@ -315,6 +429,24 @@ export function ClinicalEntryForm({
         <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           No se puede guardar una copia automática en este dispositivo (almacenamiento lleno o bloqueado). Guarda
           la consulta cuanto antes o copia el texto antes de salir de esta página.
+        </p>
+      )}
+      {serverDraft && (
+        <p
+          aria-live="polite"
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            syncError
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : "border-input bg-muted/50 text-muted-foreground"
+          }`}
+        >
+          {syncError ??
+            (serverSavedAt
+              ? `Borrador guardado a las ${new Date(serverSavedAt).toLocaleTimeString("es-ES", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}. Aparece en la ficha del paciente como «Borrador» y se borra solo a los 10 días si nadie lo toca.`
+              : "Mientras escribes se guarda como borrador: aparecerá en la ficha del paciente con la etiqueta «Borrador» para que puedas seguir desde cualquier ordenador.")}
         </p>
       )}
       <div className="space-y-2">
@@ -399,9 +531,24 @@ export function ClinicalEntryForm({
           </p>
         )
       )}
-      <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Guardando..." : submitLabel}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending} className="w-fit">
+          {pending ? "Guardando..." : submitLabel}
+        </Button>
+        {serverDraft && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending || savingDraft}
+            onClick={() => {
+              saveDraftNow();
+              void syncToServer();
+            }}
+          >
+            {savingDraft ? "Guardando borrador..." : "Guardar borrador"}
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
