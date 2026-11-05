@@ -164,7 +164,9 @@ export default async function AppointmentsPage({
                         <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
                         <div>
                           <div className="font-medium">
-                            {patient.firstName} {patient.lastName}
+                            <Link href={`/patients/${patient.id}`} className="hover:underline">
+                              {patient.firstName} {patient.lastName}
+                            </Link>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {formatDocumentId(patient.documentId)}

@@ -27,16 +27,25 @@ const AFTERNOON_START_HOUR = 14;
 
 function AppointmentRow({ appointment }: { appointment: CalendarAppointment }) {
   return (
-    <Link
-      href={`/appointments/${appointment.id}`}
-      className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm hover:bg-muted/50"
-    >
-      <span className="font-medium">{appointment.patientName}</span>
-      <span className="flex shrink-0 items-center gap-2">
+    // Toda la fila abre la cita, salvo el nombre, que lleva a la ficha del
+    // paciente. Dos enlaces anidados no son HTML válido, así que el de la cita
+    // cubre la fila con un pseudo-elemento y el del nombre va por encima (z-10).
+    <div className="relative flex items-center justify-between gap-4 rounded-lg border p-3 text-sm hover:bg-muted/50">
+      <Link
+        href={`/patients/${appointment.patientId}`}
+        className="relative z-10 font-medium hover:underline"
+      >
+        {appointment.patientName}
+      </Link>
+      <Link
+        href={`/appointments/${appointment.id}`}
+        aria-label={`Ver la cita de ${appointment.patientName}`}
+        className="flex shrink-0 items-center gap-2 after:absolute after:inset-0"
+      >
         <span className="text-xs text-muted-foreground">{formatTime(appointment.scheduledAt)}</span>
         <AppointmentStatusBadge status={appointment.status} />
-      </span>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
