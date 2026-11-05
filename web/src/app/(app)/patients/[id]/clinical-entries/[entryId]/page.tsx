@@ -4,6 +4,7 @@ import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
+import { AttachmentsPanel } from "@/components/clinical-entries/attachments-panel";
 import { ClinicalEntryForm } from "@/components/clinical-entries/clinical-entry-form";
 import { DeleteClinicalEntryButton } from "@/components/clinical-entries/delete-clinical-entry-button";
 import { DiscardDraftButton } from "@/components/clinical-entries/discard-draft-button";
@@ -75,6 +76,7 @@ export default async function ClinicalEntryDetailPage({
           action={finalizeClinicalEntryDraftAction.bind(null, id, entry.id)}
           initialValues={entry}
           draftKey={`clinical-entry-draft:draft:${entry.id}`}
+          attachmentsPatientId={id}
           serverDraft={{ draftId: entry.id, save: saveClinicalEntryDraftAction.bind(null, id) }}
         />
       </div>
@@ -171,6 +173,9 @@ export default async function ClinicalEntryDetailPage({
           <CardContent className="whitespace-pre-wrap text-sm">{entry.followUpNotes}</CardContent>
         </Card>
       )}
+
+      {/* Lo ve quien ve la consulta; se añaden y quitan desde «Editar». */}
+      <AttachmentsPanel patientId={id} entryId={entryId} canManage={false} />
     </div>
   );
 }

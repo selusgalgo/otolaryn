@@ -10,6 +10,7 @@ import { Appointment } from '../appointments/entities/appointment.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import type { CurrentUserPayload } from '../iam/current-user.decorator';
 import { User, UserRole } from '../iam/entities/user.entity';
+import { AttachmentStorage } from '../attachments/attachment-storage.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -26,7 +27,10 @@ export type SafeUser = Omit<User, 'passwordHash'>;
 // everything else the interceptor sets up.
 @Injectable()
 export class UsersService {
-  constructor(private readonly tenancyContext: TenancyContext) {}
+  constructor(
+    private readonly tenancyContext: TenancyContext,
+    private readonly attachmentStorage: AttachmentStorage,
+  ) {}
 
   private get repo() {
     return this.tenancyContext.manager.getRepository(User);
@@ -198,11 +202,23 @@ export class UsersService {
         'Este usuario tiene citas o entradas de historia clínica asociadas — no se puede eliminar.',
       );
     }
-    // Sus borradores (author_user_id es NOT NULL) se van con él.
+    // Sus borradores (author_user_id es NOT NULL) se van con él, y también los
+    // archivos adjuntos de esos borradores (las filas, en cascada; los archivos
+    // de disco hay que borrarlos aparte).
+    const draftFiles = (await manager.query(
+      `SELECT a.storage_key
+         FROM public.clinical_entry_attachments a
+         JOIN public.clinical_entries e ON e.id = a.clinical_entry_id
+        WHERE e.author_user_id = $1 AND e.status = 'borrador'`,
+      [userId],
+    )) as { storage_key: string }[];
     await manager.delete(ClinicalEntry, {
       authorUserId: userId,
       status: 'borrador',
     });
+    await this.attachmentStorage.deleteMany(
+      draftFiles.map((f) => f.storage_key),
+    );
 
     await this.repo.delete({ id: userId });
   }

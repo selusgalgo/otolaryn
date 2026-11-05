@@ -287,6 +287,7 @@ export class ClinicalEntriesService {
         authorName: string | null;
         authorHonorific: Honorific | null;
         draftExpiresAt: Date | null;
+        attachmentCount: number;
       }
     >
   > {
@@ -300,6 +301,10 @@ export class ClinicalEntriesService {
         'authorName',
       )
       .addSelect('author.honorific', 'authorHonorific')
+      .addSelect(
+        '(SELECT COUNT(*) FROM public.clinical_entry_attachments att WHERE att.clinical_entry_id = ce.id)',
+        'attachmentCount',
+      )
       .where('ce.patientId = :patientId', { patientId })
       .andWhere(
         new Brackets((visible) =>
@@ -330,6 +335,9 @@ export class ClinicalEntriesService {
       authorName: (raw[i] as { authorName: string | null }).authorName,
       authorHonorific: (raw[i] as { authorHonorific: Honorific | null })
         .authorHonorific,
+      attachmentCount: Number(
+        (raw[i] as { attachmentCount: string | number }).attachmentCount,
+      ),
     }));
     const total = await qb.getCount();
     return { data, total, page, pageSize };

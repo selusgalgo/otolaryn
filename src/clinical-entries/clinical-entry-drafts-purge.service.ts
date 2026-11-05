@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { AttachmentStorage } from '../attachments/attachment-storage.service';
 import { DRAFT_TTL_DAYS } from './clinical-entry-draft.util';
 
 const FIRST_RUN_DELAY_MS = 60_000;
@@ -25,7 +26,10 @@ export class ClinicalEntryDraftsPurgeService
   private first?: NodeJS.Timeout;
   private timer?: NodeJS.Timeout;
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly storage: AttachmentStorage,
+  ) {}
 
   onModuleInit(): void {
     if (process.env.NODE_ENV === 'test') return;
@@ -60,6 +64,16 @@ export class ClinicalEntryDraftsPurgeService
           `SELECT set_config('app.tenant_id', $1, true)`,
           [id],
         );
+        // Los archivos de los adjuntos de esos borradores: las filas se van en
+        // cascada con el borrador, los archivos hay que borrarlos aparte.
+        const files = (await queryRunner.query(
+          `SELECT a.storage_key
+             FROM public.clinical_entry_attachments a
+             JOIN public.clinical_entries e ON e.id = a.clinical_entry_id
+            WHERE e.status = 'borrador'
+              AND e.draft_updated_at < now() - make_interval(days => $1)`,
+          [DRAFT_TTL_DAYS],
+        )) as { storage_key: string }[];
         // Resultado estructurado: con DELETE el driver de Postgres devuelve
         // otra forma que con SELECT, y `affected` es el recuento fiable.
         const result = (await queryRunner.query(
@@ -71,6 +85,7 @@ export class ClinicalEntryDraftsPurgeService
         )) as { affected?: number };
         await queryRunner.commitTransaction();
         deleted += result.affected ?? 0;
+        await this.storage.deleteMany(files.map((f) => f.storage_key));
       } catch (err) {
         await queryRunner.rollbackTransaction().catch(() => undefined);
         throw err;

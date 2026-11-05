@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PaperClipIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -138,6 +138,15 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                             truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)
                           ) : (
                             isDraft && <span className="text-muted-foreground">Sin motivo todavía</span>
+                          )}
+                          {(entry.attachmentCount ?? 0) > 0 && (
+                            <div
+                              className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground"
+                              title={`${entry.attachmentCount} archivo(s) adjunto(s)`}
+                            >
+                              <PaperClipIcon className="size-3.5" aria-hidden />
+                              {entry.attachmentCount}
+                            </div>
                           )}
                           {/* En escritorio el doctor vive en su propia
                               columna — en móvil, donde esa columna se

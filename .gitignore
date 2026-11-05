@@ -26,3 +26,6 @@ npm-debug.log*
 .idea
 .vercel
 .env*
+
+# adjuntos subidos en local (ATTACHMENTS_DIR por defecto)
+/storage

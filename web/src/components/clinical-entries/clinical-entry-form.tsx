@@ -1,5 +1,6 @@
 "use client";
 
+import { AttachmentsPanel } from "@/components/clinical-entries/attachments-panel";
 import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -35,6 +36,9 @@ interface ClinicalEntryFormProps {
   // autoguardado. Ver motivación en el comentario de más abajo, junto a
   // DRAFT_TTL_MS.
   draftKey?: string;
+  // Paciente al que pertenece la consulta; con él se muestran los archivos
+  // adjuntos (en el alta, en el borrador y al editar). Sin él, no hay adjuntos.
+  attachmentsPatientId?: string;
   // Borrador guardado en el servidor: aparece en la ficha del paciente con la
   // etiqueta "Borrador" para seguir desde cualquier ordenador (visible solo
   // para su autor y los administradores; se borra a los 10 días sin tocarlo).
@@ -142,6 +146,7 @@ export function ClinicalEntryForm({
   submitLabel = "Guardar entrada",
   onSuccess,
   draftKey,
+  attachmentsPatientId,
   serverDraft,
 }: ClinicalEntryFormProps) {
   // Id del borrador en el servidor: el de la página del borrador, o el que crea
@@ -264,6 +269,22 @@ export function ClinicalEntryForm({
     syncRef.current = run;
     return run;
   }, [storageKey]);
+
+  // Un archivo necesita una consulta a la que colgarse: en un alta sin borrador
+  // todavía se crea ahora (aunque no haya nada escrito) y queda como el borrador
+  // que luego firma "Guardar entrada".
+  const ensureDraftId = useCallback(async (): Promise<string | null> => {
+    if (draftIdRef.current) return draftIdRef.current;
+    const sd = serverDraftRef.current;
+    if (!sd) return null;
+    if (syncRef.current) await syncRef.current;
+    if (draftIdRef.current) return draftIdRef.current;
+    const res = await sd.save(null, { ...valuesRef.current });
+    if (!res.id) return null;
+    draftIdRef.current = res.id;
+    setServerSavedAt(res.savedAt ?? new Date().toISOString());
+    return res.id;
+  }, []);
 
   function applyDraft(draft: ClinicalEntryDraft) {
     setValues((v) => ({ ...v, ...draft.fields }));
@@ -530,6 +551,14 @@ export function ClinicalEntryForm({
             {state.error}
           </p>
         )
+      )}
+      {attachmentsPatientId && (serverDraft || initialValues?.id) && (
+        <AttachmentsPanel
+          patientId={attachmentsPatientId}
+          entryId={serverDraft ? (serverDraft.draftId ?? null) : (initialValues?.id ?? null)}
+          ensureEntryId={serverDraft ? ensureDraftId : undefined}
+          canManage
+        />
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending} className="w-fit">

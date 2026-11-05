@@ -54,6 +54,18 @@ export interface ClinicalEntry {
   status: "borrador" | "firmada";
   // Cuándo se borrará el borrador si nadie lo toca; null si está firmada.
   draftExpiresAt: string | null;
+  // Archivos adjuntos (PDF e imágenes). Solo viene en el listado de la ficha.
+  attachmentCount?: number;
+  createdAt: string;
+}
+
+export interface ClinicalEntryAttachment {
+  id: string;
+  clinicalEntryId: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedByUserId: string;
   createdAt: string;
 }
 

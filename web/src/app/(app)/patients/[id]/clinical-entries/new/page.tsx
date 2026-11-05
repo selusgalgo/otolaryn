@@ -38,6 +38,7 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
       <ClinicalEntryForm
         action={boundAction}
         draftKey={`clinical-entry-draft:new:${id}`}
+        attachmentsPatientId={id}
         serverDraft={{
           save: saveClinicalEntryDraftAction.bind(null, id),
           finalize: finalizeClinicalEntryDraftAction.bind(null, id),

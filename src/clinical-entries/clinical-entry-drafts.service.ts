@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AttachmentStorage } from '../attachments/attachment-storage.service';
 import { PatientsService } from '../patients/patients.service';
 import { sanitizeRichText } from '../shared/rich-text.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { toVisitDate } from './clinical-entries.service';
+import { ClinicalEntryAttachmentsService } from './clinical-entry-attachments.service';
 import { draftCutoff, withDraftExpiry } from './clinical-entry-draft.util';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { SaveClinicalEntryDraftDto } from './dto/save-clinical-entry-draft.dto';
@@ -28,6 +30,8 @@ export class ClinicalEntryDraftsService {
   constructor(
     private readonly tenancyContext: TenancyContext,
     private readonly patients: PatientsService,
+    private readonly attachments: ClinicalEntryAttachmentsService,
+    private readonly storage: AttachmentStorage,
   ) {}
 
   private get repo() {
@@ -82,8 +86,11 @@ export class ClinicalEntryDraftsService {
         'Solo el autor o un administrador pueden descartar este borrador',
       );
     }
-    // Borrado real, no soft delete: un borrador no es historia clínica.
+    // Borrado real, no soft delete: un borrador no es historia clínica. Sus
+    // adjuntos se van en cascada de la BD; los archivos de disco, después.
+    const keys = await this.attachments.storageKeysFor([id]);
     await this.repo.delete(id);
+    await this.storage.deleteMany(keys);
   }
 
   private async findLiveDraft(id: string): Promise<ClinicalEntry> {
