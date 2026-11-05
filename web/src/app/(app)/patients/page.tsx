@@ -99,7 +99,7 @@ export default async function PatientsPage({
               id="search"
               name="search"
               defaultValue={search}
-              placeholder="Nombre, apellidos o documento..."
+              placeholder="Nombre, documento o teléfono..."
               className="pl-8"
             />
           </div>

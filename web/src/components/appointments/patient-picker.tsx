@@ -10,6 +10,13 @@ import type { Patient } from "@/lib/types";
 
 type Mode = "existing" | "new";
 
+// Documento y teléfono(s) en una línea bajo el nombre: el teléfono es lo que
+// permite distinguir a dos pacientes con nombres parecidos al elegir uno.
+function patientContactLine(p: Pick<Patient, "documentId" | "phone" | "phone2">): string {
+  const phones = [p.phone, p.phone2].filter(Boolean).join(" / ");
+  return [formatDocumentId(p.documentId), phones && `Tel. ${phones}`].filter(Boolean).join(" · ");
+}
+
 // Embedded inside the "Nueva cita" form on /appointments/new: a toggle
 // between picking an already-registered patient (search-as-you-type) and
 // filling in a brand new one inline — for people calling to book their
@@ -70,7 +77,10 @@ export function PatientPicker() {
           {selected ? (
             <div className="flex items-center justify-between rounded-md border p-2 text-sm">
               <span>
-                {selected.firstName} {selected.lastName} · {formatDocumentId(selected.documentId)}
+                <span className="font-medium">
+                  {selected.firstName} {selected.lastName}
+                </span>
+                <span className="block text-xs text-muted-foreground">{patientContactLine(selected)}</span>
               </span>
               <Button
                 type="button"
@@ -86,7 +96,7 @@ export function PatientPicker() {
             </div>
           ) : (
             <>
-              <Label htmlFor="patientSearch">Buscar paciente (nombre o documento)</Label>
+              <Label htmlFor="patientSearch">Buscar paciente (nombre, documento o teléfono)</Label>
               <Input
                 id="patientSearch"
                 value={query}
@@ -107,7 +117,10 @@ export function PatientPicker() {
                           setResults([]);
                         }}
                       >
-                        {p.firstName} {p.lastName} · {formatDocumentId(p.documentId)}
+                        <span className="block font-medium">
+                          {p.firstName} {p.lastName}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">{patientContactLine(p)}</span>
                       </button>
                     </li>
                   ))}

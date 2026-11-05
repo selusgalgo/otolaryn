@@ -58,7 +58,7 @@ export class PatientsService {
   }
 
   // Splits the query into words and requires each one to match *somewhere*
-  // (name, documento, or Nº de historia) rather than treating the whole
+  // (name, documento, Nº de historia, or teléfono) rather than treating the whole
   // string as one substring against a single field — "Hector Sanchez"
   // otherwise matches neither "HECTOR" alone nor "SANCHEZ CARDONA" alone,
   // even though it's plainly this patient's name split across two fields.
@@ -75,7 +75,28 @@ export class PatientsService {
             .where(`p.firstName ILIKE :${param}`, { [param]: `%${term}%` })
             .orWhere(`p.lastName ILIKE :${param}`, { [param]: `%${term}%` })
             .orWhere(`p.documentId ILIKE :${param}`, { [param]: `%${term}%` })
-            .orWhere(`p.legacyId ILIKE :${param}`, { [param]: `%${term}%` });
+            .orWhere(`p.legacyId ILIKE :${param}`, { [param]: `%${term}%` })
+            .orWhere(`p.phone ILIKE :${param}`, { [param]: `%${term}%` })
+            .orWhere(`p.phone2 ILIKE :${param}`, { [param]: `%${term}%` });
+          // Teléfono por dígitos: se escribe como "600-123-456" y se guarda
+          // como "+34 600 123 456"; comparando solo los dígitos los dos
+          // formatos se encuentran. Solo para términos que parecen un teléfono
+          // (sin letras, 4 o más dígitos): un documento como "IMP-XLSX-001" o
+          // un Nº de historia corto contienen dígitos sueltos que, si no, se
+          // colarían en teléfonos de otros pacientes.
+          const digits = term.replace(/\D/g, '');
+          if (digits.length >= 4 && /^[+\d\s().-]+$/.test(term)) {
+            const digitsParam = `${param}Digits`;
+            sub
+              .orWhere(
+                `regexp_replace(p.phone, '[^0-9]', '', 'g') LIKE :${digitsParam}`,
+                { [digitsParam]: `%${digits}%` },
+              )
+              .orWhere(
+                `regexp_replace(COALESCE(p.phone2, ''), '[^0-9]', '', 'g') LIKE :${digitsParam}`,
+                { [digitsParam]: `%${digits}%` },
+              );
+          }
         }),
       );
     });

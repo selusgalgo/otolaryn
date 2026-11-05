@@ -643,6 +643,58 @@ describe('Patients CRUD', () => {
     }
   });
 
+  // El selector de pacientes de la agenda busca por teléfono para distinguir
+  // nombres parecidos: se escribe con espacios, guiones o sin prefijo y se
+  // guarda como "+34…", así que tienen que encontrarse igual.
+  it('searches by phone, whatever way it is typed (spaces, dashes, no country prefix) and also phone2', async () => {
+    const created = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        ...samplePatient('phone-search-target'),
+        firstName: 'Telefonia',
+        lastName: 'Prueba',
+        phone: '+34 655 123 987',
+        phone2: '911 222 333',
+      });
+    expect(created.status).toBe(201);
+    const id = (created.body as PatientResponse).id;
+
+    for (const search of [
+      '655123987',
+      '655 123 987',
+      '655-123-987',
+      '+34655123987',
+      '123987',
+      '911222333',
+      '911 222',
+    ]) {
+      const res = await request(server)
+        .get(`/patients?search=${encodeURIComponent(search)}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      expect(res.status).toBe(200);
+      expect((res.body as PaginatedPatients).data.map((p) => p.id)).toContain(
+        id,
+      );
+    }
+
+    // Un teléfono que no es el suyo no lo encuentra, ni mezclado con su nombre.
+    const none = await request(server)
+      .get(`/patients?search=${encodeURIComponent('Telefonia 600000999')}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(
+      (none.body as PaginatedPatients).data.map((p) => p.id),
+    ).not.toContain(id);
+
+    // Nombre + teléfono juntos sí (cada palabra puede casar en un campo distinto).
+    const both = await request(server)
+      .get(`/patients?search=${encodeURIComponent('Telefonia 655123')}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect((both.body as PaginatedPatients).data.map((p) => p.id)).toContain(
+      id,
+    );
+  });
+
   // Real-world failure this covers: searching "Hector Sanchez" found
   // nothing, because the old query matched the whole string against one
   // field at a time — "Hector Sanchez" isn't a substring of either
