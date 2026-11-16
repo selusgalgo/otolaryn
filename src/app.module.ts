@@ -13,6 +13,7 @@ import { InsuranceModule } from './insurance/insurance.module';
 import { PatientsModule } from './patients/patients.module';
 import { PdfModule } from './pdf/pdf.module';
 import { PlatformModule } from './platform/platform.module';
+import { SepaModule } from './sepa/sepa.module';
 import { SettingsModule } from './settings/settings.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { UsersModule } from './users/users.module';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     AntecedentesModule,
     InsuranceModule,
     PdfModule,
+    SepaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

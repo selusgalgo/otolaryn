@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
+import { FileDropzone } from "@/components/patients/file-dropzone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,11 +29,11 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
   const [state, formAction, pending] = useActionState(action, initialState);
   const [logoPreview, setLogoPreview] = useState<string | null>(initialProfile.logo);
   const [removeLogo, setRemoveLogo] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Bumped by "Quitar" to remount the dropzone empty — its <input> is what
+  // the form submits as `logo`, and a file input can't be cleared from here.
+  const [dropzoneKey, setDropzoneKey] = useState(0);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handleFileSelected(file: File) {
     setRemoveLogo(false);
     const reader = new FileReader();
     reader.onload = () => setLogoPreview(reader.result as string);
@@ -42,7 +43,7 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
   function handleRemoveLogo() {
     setLogoPreview(null);
     setRemoveLogo(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setDropzoneKey((key) => key + 1);
   }
 
   return (
@@ -106,17 +107,20 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
             className="h-16 w-auto rounded border bg-white object-contain p-1"
           />
         )}
-        <div className="flex items-center gap-2">
-          <Input
-            id="logo"
-            name="logo"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            disabled={pending}
-            className="max-w-xs"
-          />
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <FileDropzone
+              key={dropzoneKey}
+              id="logo"
+              name="logo"
+              accept="image/png,image/jpeg,image/webp"
+              required={false}
+              disabled={pending}
+              fileLabel="el logotipo"
+              compact
+              onFileSelected={handleFileSelected}
+            />
+          </div>
           {logoPreview && (
             <Button type="button" variant="outline" onClick={handleRemoveLogo} disabled={pending}>
               Quitar

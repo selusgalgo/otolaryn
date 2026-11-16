@@ -19,9 +19,25 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     <div className="min-h-screen bg-surface">
       <header className="flex items-center justify-between bg-nav px-4 py-3">
         <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
-          <span className="text-sm font-medium text-nav-foreground/70">Panel Eiduo</span>
+          <Link href="/platform">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
+            <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
+          </Link>
+          <span className="hidden text-sm font-medium text-nav-foreground/70 sm:inline">Panel Eiduo</span>
+          <nav className="ml-2 flex items-center gap-1 text-sm">
+            <Link
+              href="/platform"
+              className="rounded-lg px-2 py-1 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
+            >
+              Clínicas
+            </Link>
+            <Link
+              href="/platform/billing"
+              className="rounded-lg px-2 py-1 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
+            >
+              Facturación
+            </Link>
+          </nav>
         </div>
         <div className="flex items-center gap-1">
           <Link
@@ -42,7 +58,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-[1080px] px-4 py-6">{children}</main>
       <SessionGuard />
     </div>
   );

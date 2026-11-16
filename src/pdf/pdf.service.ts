@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import pdfMake from 'pdfmake';
 import type { TDocumentDefinitions, TFontDictionary } from 'pdfmake/interfaces';
 
@@ -60,9 +62,53 @@ function defaultFooter(): TDocumentDefinitions['footer'] {
   };
 }
 
+// Inter — Mederi's own typeface, used by the branded documents (SEPA
+// mandate), unlike the clinic-facing PDFs above, which stay on Helvetica.
+// Shipped as static TTFs in pdf/assets/fonts (copied to dist by nest-cli's
+// "assets" setting) and handed to pdfmake through its virtual file system,
+// so the local-access policy below stays as strict as it is. SemiBold
+// doubles as "bold": Inter Bold reads too heavy at document sizes.
+export const INTER_FONT = 'Inter';
+const INTER_FILES = {
+  regular: 'Inter-Regular.ttf',
+  semibold: 'Inter-SemiBold.ttf',
+};
+const logger = new Logger('PdfService');
+
+// pdfmake's Node build exposes its virtual file system at runtime, but
+// @types/pdfmake doesn't declare it.
+const pdfVirtualFs = (
+  pdfMake as unknown as {
+    virtualfs: { writeFileSync(name: string, data: Buffer): void };
+  }
+).virtualfs;
+
+function registerInter(): void {
+  const dir = join(__dirname, 'assets', 'fonts');
+  try {
+    for (const file of Object.values(INTER_FILES)) {
+      pdfVirtualFs.writeFileSync(file, readFileSync(join(dir, file)));
+    }
+  } catch (err) {
+    // Only the documents that ask for Inter fail without it — patient
+    // PDFs keep working, which matters more than a missing brand font.
+    logger.error(`Inter font files missing in ${dir}: ${String(err)}`);
+    return;
+  }
+  pdfMake.addFonts({
+    [INTER_FONT]: {
+      normal: INTER_FILES.regular,
+      bold: INTER_FILES.semibold,
+      italics: INTER_FILES.regular,
+      bolditalics: INTER_FILES.semibold,
+    },
+  });
+}
+
 function ensurePdfMakeConfigured(): void {
   if (fontsRegistered) return;
   pdfMake.addFonts(HELVETICA_FONTS);
+  registerInter();
   // Every docDefinition built in this app comes from our own content
   // builders, which never reference an image by URL or a font/image by
   // local path — denying everything except the Standard14 font names

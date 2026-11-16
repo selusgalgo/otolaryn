@@ -9,9 +9,12 @@ import { User } from '../iam/entities/user.entity';
 import { InsuranceEntity } from '../insurance/entities/insurance-entity.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
+import { SigningCertificate } from '../pdf/entities/signing-certificate.entity';
 import { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
 import { ClinicalEntryAttachment } from '../clinical-entries/entities/clinical-entry-attachment.entity';
 import { ImportJob } from '../import-jobs/entities/import-job.entity';
+import { CreditorProfile } from '../sepa/entities/creditor-profile.entity';
+import { SepaMandate } from '../sepa/entities/sepa-mandate.entity';
 
 @Module({
   imports: [
@@ -39,6 +42,9 @@ import { ImportJob } from '../import-jobs/entities/import-job.entity';
           AntecedenteType,
           PatientAntecedente,
           ImportJob,
+          CreditorProfile,
+          SepaMandate,
+          SigningCertificate,
         ],
         synchronize: false,
         migrationsRun: false,

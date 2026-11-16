@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DocumentTextIcon, PaperClipIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { FileDropzone } from "@/components/patients/file-dropzone";
 import { Button } from "@/components/ui/button";
 import {
   deleteAttachmentAction,
@@ -36,7 +37,6 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
   const [loading, setLoading] = useState(Boolean(entryId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (id: string) => {
     const res = await listAttachmentsAction(id);
@@ -52,14 +52,14 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
     }
   }, [entryId, load]);
 
-  async function onFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function onFiles(files: File[]) {
+    if (files.length === 0) return;
     setError(null);
     setBusy(true);
     try {
       let id = currentId;
       let count = items.length;
-      for (const original of Array.from(files)) {
+      for (const original of files) {
         if (count >= MAX_ATTACHMENTS_PER_ENTRY) {
           setError(`Máximo ${MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta.`);
           break;
@@ -90,7 +90,6 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
       }
     } finally {
       setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -117,34 +116,25 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
           Archivos adjuntos
           {items.length > 0 && <span className="text-muted-foreground">({items.length})</span>}
         </h3>
-        {canManage && (
-          <>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept={ACCEPTED_ATTACHMENT_TYPES}
-              className="hidden"
-              onChange={(e) => void onFiles(e.target.files)}
-              data-testid="attachment-input"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={busy || items.length >= MAX_ATTACHMENTS_PER_ENTRY}
-              onClick={() => inputRef.current?.click()}
-            >
-              {busy ? "Subiendo..." : "Adjuntar archivo"}
-            </Button>
-          </>
-        )}
       </div>
       {canManage && (
-        <p className="text-xs text-muted-foreground">
-          PDF o imágenes (JPG, PNG, WebP), hasta 10 MB y {MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta. Las
-          fotos se reducen automáticamente antes de subirlas.
-        </p>
+        <FileDropzone
+          multiple
+          compact
+          clearAfterSelect
+          accept={ACCEPTED_ATTACHMENT_TYPES}
+          disabled={busy || items.length >= MAX_ATTACHMENTS_PER_ENTRY}
+          statusLabel={
+            busy
+              ? "Subiendo..."
+              : items.length >= MAX_ATTACHMENTS_PER_ENTRY
+                ? `Máximo ${MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta`
+                : undefined
+          }
+          hint={`PDF o imágenes (JPG, PNG, WebP), hasta 10 MB y ${MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta. Las fotos se reducen automáticamente antes de subirlas.`}
+          inputTestId="attachment-input"
+          onFilesSelected={(files) => void onFiles(files)}
+        />
       )}
       {error && (
         <p role="alert" className="text-sm text-destructive">

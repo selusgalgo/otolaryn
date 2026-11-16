@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
 import type {
   AppointmentDefaultsFormState,
@@ -12,6 +13,8 @@ import { scheduleFromFormData } from "@/lib/schedule";
 import type {
   AppUser,
   ClinicProfile,
+  CreditorProfile,
+  SepaMandate,
   Tenant,
   TenantAppointmentDefaults,
   TenantSchedule,
@@ -203,5 +206,148 @@ export async function resetTenantUserPasswordAction(
     return { error: "No se pudo restablecer la contraseña." };
   }
 
+  return { success: true };
+}
+
+// ---- Domiciliación SEPA (Panel Eiduo) ----
+
+export interface SepaFormState {
+  error?: string;
+  success?: boolean;
+}
+
+function text(formData: FormData, name: string): string {
+  return String(formData.get(name) ?? "").trim();
+}
+
+// Decimal comma or point — "49,90" and "49.90" are the same fee.
+function decimal(formData: FormData, name: string): number {
+  return Number(text(formData, name).replace(",", "."));
+}
+
+export async function updateCreditorProfileAction(
+  _prevState: SepaFormState,
+  formData: FormData,
+): Promise<SepaFormState> {
+  try {
+    await apiFetch<CreditorProfile>("/platform/creditor-profile", {
+      method: "PUT",
+      body: {
+        name: text(formData, "name"),
+        taxId: text(formData, "taxId"),
+        address: text(formData, "address"),
+        postalCode: text(formData, "postalCode"),
+        city: text(formData, "city"),
+        province: text(formData, "province"),
+        country: text(formData, "country"),
+        email: text(formData, "email"),
+        phone: text(formData, "phone"),
+        website: text(formData, "website"),
+        sepaCreditorId: text(formData, "sepaCreditorId"),
+      },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudieron guardar los datos de facturación." };
+  }
+
+  revalidatePath("/platform/billing");
+  return { success: true };
+}
+
+// superadmin, any clinic — tenantId bound by the clinic's own SEPA page.
+export async function saveSepaMandateAction(
+  tenantId: string,
+  _prevState: SepaFormState,
+  formData: FormData,
+): Promise<SepaFormState> {
+  try {
+    await apiFetch<SepaMandate>(`/platform/tenants/${tenantId}/sepa-mandate`, {
+      method: "PUT",
+      body: {
+        holderName: text(formData, "holderName"),
+        holderTaxId: text(formData, "holderTaxId"),
+        clinicName: text(formData, "clinicName"),
+        signerName: text(formData, "signerName"),
+        signerPosition: text(formData, "signerPosition"),
+        address: text(formData, "address"),
+        postalCode: text(formData, "postalCode"),
+        city: text(formData, "city"),
+        province: text(formData, "province"),
+        country: text(formData, "country"),
+        email: text(formData, "email"),
+        phone: text(formData, "phone"),
+        iban: text(formData, "iban"),
+        bic: text(formData, "bic"),
+        planName: text(formData, "planName"),
+        monthlyBase: decimal(formData, "monthlyBase"),
+        vatPercent: decimal(formData, "vatPercent"),
+        irpfPercent: decimal(formData, "irpfPercent"),
+        firstChargeDate: text(formData, "firstChargeDate"),
+      },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar la orden SEPA." };
+  }
+
+  revalidatePath(`/platform/${tenantId}`);
+  revalidatePath(`/platform/${tenantId}/sepa`);
+  return { success: true };
+}
+
+export interface SigningLinkResult {
+  error?: string;
+  url?: string;
+  expiresAt?: string;
+}
+
+// The public origin the clinic owner will open the link on — taken from the
+// request the superadmin is making (the reverse proxy's forwarded host), so
+// it's right in production and in local dev without another env var.
+async function publicOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+// Issuing a link revokes the previous one (the API keeps a single active
+// token per mandate), and the token only ever exists in this response — it
+// is stored hashed — so the panel shows the URL right away.
+export async function issueSepaSigningLinkAction(tenantId: string): Promise<SigningLinkResult> {
+  try {
+    const { token, expiresAt } = await apiFetch<{
+      token: string;
+      expiresAt: string;
+    }>(`/platform/tenants/${tenantId}/sepa-mandate/signing-link`, {
+      method: "POST",
+    });
+    revalidatePath(`/platform/${tenantId}/sepa`);
+    return { url: `${await publicOrigin()}/sepa/${token}`, expiresAt };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo generar el enlace." };
+  }
+}
+
+export async function cancelSepaMandateAction(tenantId: string): Promise<SepaFormState> {
+  try {
+    await apiFetch<SepaMandate>(`/platform/tenants/${tenantId}/sepa-mandate/cancel`, { method: "POST" });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo cancelar la orden." };
+  }
+
+  revalidatePath(`/platform/${tenantId}`);
+  revalidatePath(`/platform/${tenantId}/sepa`);
   return { success: true };
 }

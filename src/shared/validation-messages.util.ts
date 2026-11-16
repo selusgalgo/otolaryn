@@ -70,7 +70,19 @@ const PATTERNS: [RegExp, (property: string, ...args: string[]) => string][] = [
   [/^property (.+) should not exist$/, (p) => `no se esperaba el campo "${p}"`],
 ];
 
+// Messages a DTO writes in Spanish itself (a custom validator, or a field
+// whose generic "no tiene el formato esperado" would leave the user
+// guessing — an IBAN, a NIF). Registered through spanishMessage() so they
+// pass through untouched instead of hitting the generic fallback below.
+const SPANISH_MESSAGES = new Set<string>();
+
+export function spanishMessage(message: string): string {
+  SPANISH_MESSAGES.add(message);
+  return message;
+}
+
 function translateOne(message: string): string {
+  if (SPANISH_MESSAGES.has(message)) return message;
   for (const [pattern, translate] of PATTERNS) {
     const match = pattern.exec(message);
     if (match) {
@@ -83,8 +95,10 @@ function translateOne(message: string): string {
   return 'Hay un dato con un formato no válido';
 }
 
+// Deduplicated: several constraints on one field can share a single
+// Spanish message (e.g. @IsNumber + @Min + @Max on an amount).
 export function translateValidationMessages(messages: string[]): string[] {
-  return messages.map(translateOne);
+  return [...new Set(messages.map(translateOne))];
 }
 
 // A shape-only subset of class-validator's ValidationError — avoids

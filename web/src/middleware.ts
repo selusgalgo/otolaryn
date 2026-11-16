@@ -28,6 +28,11 @@ export function middleware(request: NextRequest) {
   // Limpia la cookie y lleva a /login conservando a dónde volver; también
   // es el destino cuando la API rechaza la sesión (layouts, formularios).
   const isSessionExpiredRoute = pathname === "/session/expired";
+  // The SEPA signing link a clinic owner receives (Panel Eiduo → clínica →
+  // Domiciliación SEPA). They have no account, so there is no session to
+  // require: the long random token in the URL is the credential, checked by
+  // the API on every call (see SepaPublicController).
+  const isSepaSigningPage = pathname.startsWith("/sepa/");
   // A Server Action call (e.g. "Guardar" on a form) posts to the same
   // page URL it's on, carrying this header — if the session cookie
   // expired/disappeared mid-task and this redirects like any other
@@ -46,7 +51,7 @@ export function middleware(request: NextRequest) {
   target.searchParams.delete("_rsc");
   const currentPath = target.pathname + target.search;
 
-  if (!hasSession && !isLoginPage && !isDeviceAuthPage && !isSessionExpiredRoute && !isServerAction) {
+  if (!hasSession && !isLoginPage && !isDeviceAuthPage && !isSessionExpiredRoute && !isSepaSigningPage && !isServerAction) {
     const loginUrl = new URL("/login", request.url);
     if (sessionExpired) {
       loginUrl.searchParams.set("reason", "SESSION_EXPIRED");

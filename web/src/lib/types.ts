@@ -202,6 +202,157 @@ export interface ClinicProfile {
   logo: string | null;
 }
 
+// Panel Eiduo → Datos de facturación: who collects Mederi's fees, printed as
+// "Acreedor" on every SEPA mandate (backend: CreditorProfile).
+export interface CreditorProfile {
+  name: string;
+  taxId: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  province: string;
+  country: string;
+  email: string;
+  phone: string;
+  website: string | null;
+  sepaCreditorId: string;
+}
+
+// State of the digital certificate (.p12) the server signs documents with —
+// see PdfSignerService on the backend. Dates arrive as ISO strings.
+// `source`: uploaded from this panel, or set in the server's environment.
+export type CertificateSource = "upload" | "env";
+
+export type CreditorCertificateStatus =
+  | { configured: false }
+  | { configured: true; usable: false; error: string; source: CertificateSource }
+  | {
+      configured: true;
+      usable: true;
+      source: CertificateSource;
+      certificate: {
+        subject: string;
+        subjectSerial: string | null;
+        issuer: string;
+        serialNumber: string;
+        sha256Fingerprint: string;
+        validFrom: string;
+        validTo: string;
+      };
+      daysLeft: number;
+      expiringSoon: boolean;
+      // false = issued to a different NIF than the creditor on the mandates.
+      matchesCreditorTaxId: boolean;
+    };
+
+export type SepaMandateStatus = "pendiente" | "firmada" | "cancelada";
+export type SepaSignatureMethod = "web" | "certificate";
+
+// What the creditor keeps as proof of consent for a signed mandate.
+export interface SepaSignatureEvidence {
+  method: SepaSignatureMethod;
+  signedAt: string;
+  ip: string | null;
+  userAgent: string | null;
+  issuedPdfSha256: string;
+  signedPdfSha256: string;
+  // Certificate that signed the document before it reached the client; null
+  // when none was configured at the time.
+  creditorSeal?: { subject: string; serialNumber: string; sha256Fingerprint: string } | null;
+  typedName?: string;
+  fileName?: string;
+  // Certificate route: the signed file begins with the exact bytes we issued.
+  // false means the signer re-saved the document — worth a manual look.
+  extendsIssuedPdf?: boolean;
+}
+
+// One per clinic — the clinic owner (or their company) is the debtor.
+// reference (MED-0001-2026) is assigned by the API on creation, never sent.
+// The debtor data (holderName … bic) is filled in by the client through the
+// signing link, so it's null until then.
+export interface SepaMandate {
+  id: string;
+  reference: string;
+  status: SepaMandateStatus;
+  holderName: string | null;
+  holderTaxId: string | null;
+  clinicName: string;
+  signerName: string | null;
+  signerPosition: string | null;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  email: string | null;
+  phone: string | null;
+  iban: string | null;
+  bic: string | null;
+  planName: string;
+  monthlyBase: number;
+  vatPercent: number;
+  irpfPercent: number;
+  firstChargeDate: string; // YYYY-MM-DD
+  tokenExpiresAt: string | null;
+  issuedAt: string | null;
+  signedAt: string | null;
+  signatureMethod: SepaSignatureMethod | null;
+  signatureEvidence: SepaSignatureEvidence | null;
+  cancelledAt: string | null;
+  updatedAt: string;
+}
+
+export interface TenantSepaMandate {
+  tenantName: string;
+  clinicDefaults: { clinicName: string; phone: string | null };
+  mandate: SepaMandate | null;
+}
+
+// What the public signing page (/sepa/[token]) receives — see
+// PublicSepaView on the backend.
+export interface PublicSepaView {
+  status: "pendiente" | "firmada";
+  reference: string;
+  clinicName: string;
+  planName: string;
+  firstChargeDate: string;
+  amounts: { baseCents: number; vatCents: number; irpfCents: number; totalCents: number };
+  vatPercent: number;
+  irpfPercent: number;
+  creditor: {
+    name: string;
+    taxId: string;
+    address: string;
+    postalCode: string;
+    city: string;
+    province: string;
+    email: string;
+    phone: string;
+    website: string | null;
+    sepaCreditorId: string;
+  };
+  debtor: {
+    holderName: string | null;
+    holderTaxId: string | null;
+    signerName: string | null;
+    signerPosition: string | null;
+    address: string | null;
+    postalCode: string | null;
+    city: string | null;
+    province: string | null;
+    country: string | null;
+    email: string | null;
+    phone: string | null;
+    iban: string | null;
+    bic: string | null;
+  };
+  readyToSign: boolean;
+  issuedAt: string | null;
+  signedAt: string | null;
+  signatureMethod: SepaSignatureMethod | null;
+  expiresAt: string | null;
+}
+
 // Configuración → Seguridad — see Tenant.deviceLockEnabled/deviceSecretHash.
 // hasCredential never exposes the secret itself, just whether one exists
 // (the raw token is only ever returned once, by generateDeviceCredential).

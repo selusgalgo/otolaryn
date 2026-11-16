@@ -40,6 +40,10 @@ interface ApiFetchOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   skipAuth?: boolean;
+  // Extra request headers — the public signing pages use this to forward the
+  // visitor's address and browser to the API, which only ever sees the Next
+  // server as its caller.
+  headers?: Record<string, string>;
 }
 
 interface NestErrorBody {
@@ -53,7 +57,7 @@ interface NestErrorBody {
 // fetching the NestJS API directly from client components, since the JWT
 // lives in an httpOnly cookie the browser can't read anyway.
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...options.headers };
 
   if (!options.skipAuth) {
     const token = await getSessionToken();
@@ -109,9 +113,10 @@ export async function apiFetchMultipart<T>(
   path: string,
   formData: FormData,
   method: "POST" | "PATCH" = "POST",
+  options: { skipAuth?: boolean; headers?: Record<string, string> } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {};
-  const token = await getSessionToken();
+  const headers: Record<string, string> = { ...options.headers };
+  const token = options.skipAuth ? undefined : await getSessionToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
