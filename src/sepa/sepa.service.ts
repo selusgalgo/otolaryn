@@ -392,6 +392,7 @@ export class SepaService {
         logo: mederiLogoDataUri(),
         signature,
         sealedByCreditor: sealed,
+        sealedAt: sealed ? new Date() : undefined,
       }),
     );
     if (!sealed) return pdf;

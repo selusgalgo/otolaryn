@@ -104,7 +104,8 @@ describe('SepaService.renderForMandate', () => {
     expect(pdf).toBe(RENDERED);
     expect(sign).not.toHaveBeenCalled();
     const [definition] = render.mock.calls[0];
-    expect(printedText(definition)).not.toContain('firmado digitalmente');
+    expect(printedText(definition)).not.toContain('FIRMA DEL ACREEDOR');
+    expect(printedText(definition)).not.toContain('Firmado digitalmente');
   });
 
   it('signs the rendered PDF with the creditor’s certificate and says so on the page', async () => {
@@ -127,9 +128,10 @@ describe('SepaService.renderForMandate', () => {
       }),
     );
     const [definition] = render.mock.calls[0];
-    expect(printedText(definition)).toContain(
-      `firmado digitalmente por ${creditor.name}`,
-    );
+    const text = printedText(definition);
+    expect(text).toContain('FIRMA DEL ACREEDOR');
+    expect(text).toContain(`Firmado digitalmente por ${creditor.name}`);
+    expect(text).toContain(`NIF ${creditor.taxId}`);
   });
 
   it('fails instead of issuing an unsigned PDF when the certificate stops working, without leaking why', async () => {

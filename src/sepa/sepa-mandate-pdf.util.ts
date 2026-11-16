@@ -77,6 +77,8 @@ export interface SepaMandatePdfInput {
   // The document is about to be signed with the creditor's certificate (see
   // PdfSignerService): say so on the page.
   sealedByCreditor?: boolean;
+  // When the creditor's signature was applied (shown in the visible box).
+  sealedAt?: Date;
 }
 
 // A4 width minus 40pt margins each side.
@@ -367,6 +369,59 @@ function signatureBoxContent(stamp: SepaSignatureStamp | undefined): Content[] {
   ];
 }
 
+/** "16 de noviembre de 2026" — the day the document was issued and signed. */
+function formatIssuedDate(date: Date): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
+// The visible counterpart of the creditor's digital signature. The signature
+// itself is invisible and cryptographic (see PdfSignerService) — this box just
+// shows, on the page, who signed and when; the reader's signature panel shows
+// whether it's valid.
+function creditorSignatureBox(
+  creditor: SepaCreditorData,
+  sealedAt: Date | undefined,
+): Content {
+  const when = sealedAt ? ` · ${formatIssuedDate(sealedAt)}` : '';
+  return {
+    table: {
+      widths: ['*'],
+      heights: [44],
+      body: [
+        [
+          {
+            stack: [
+              { text: 'FIRMA DEL ACREEDOR', style: 'label' },
+              {
+                text: `Firmado digitalmente por ${creditor.name}`,
+                bold: true,
+                color: C.primary,
+                fontSize: 9,
+                margin: [0, 3, 0, 1],
+              },
+              {
+                text: `NIF ${creditor.taxId}${when}`,
+                style: 'small',
+              },
+            ],
+          },
+        ],
+      ],
+    },
+    layout: {
+      ...gridLayout,
+      hLineColor: () => C.primary,
+      vLineColor: () => C.primary,
+    },
+    margin: [0, 6, 0, 0],
+  };
+}
+
 function mandatePage(input: SepaMandatePdfInput): Content[] {
   const { creditor: cr, mandate: m, logo } = input;
   const signer =
@@ -381,15 +436,6 @@ function mandatePage(input: SepaMandatePdfInput): Content[] {
       text: 'Esquema básico (CORE) · Servicio Mederi Cloud',
       style: 'subtitle',
     },
-    ...(input.sealedByCreditor
-      ? [
-          {
-            text: `Documento firmado digitalmente por ${cr.name} (NIF ${cr.taxId}). Puede comprobar la firma en el panel de firmas de su lector de PDF.`,
-            style: 'small',
-            margin: [0, -4, 0, 8] as [number, number, number, number],
-          },
-        ]
-      : []),
 
     {
       table: {
@@ -551,6 +597,9 @@ function mandatePage(input: SepaMandatePdfInput): Content[] {
                 },
               ],
             ]),
+            ...(input.sealedByCreditor
+              ? [creditorSignatureBox(cr, input.sealedAt)]
+              : []),
             {
               text: input.signature
                 ? 'Todos los campos son obligatorios salvo el BIC. Orden firmada electrónicamente: conserve una copia como justificante.'

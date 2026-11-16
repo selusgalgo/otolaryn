@@ -124,4 +124,31 @@ describe('buildSepaMandatePdf', () => {
     );
     expect(buffer.toString('latin1').startsWith('%PDF')).toBe(true);
   });
+
+  it('shows a visible creditor signature box, with the issue date, only when sealed', () => {
+    const plain = allText(buildSepaMandatePdf(input).content).join('\n');
+    expect(plain).not.toContain('FIRMA DEL ACREEDOR');
+
+    const sealed = allText(
+      buildSepaMandatePdf({
+        ...input,
+        sealedByCreditor: true,
+        sealedAt: new Date('2026-12-02T09:30:00Z'),
+      }).content,
+    ).join('\n');
+    expect(sealed).toContain('FIRMA DEL ACREEDOR');
+    expect(sealed).toContain('Firmado digitalmente por Acreedor de Prueba');
+    expect(sealed).toContain('NIF 12345678Z · 2 de diciembre de 2026');
+  });
+
+  it('keeps the sealed document on two pages', async () => {
+    const buffer = await new PdfService().render(
+      buildSepaMandatePdf({
+        ...input,
+        sealedByCreditor: true,
+        sealedAt: new Date(),
+      }),
+    );
+    expect(buffer.toString('latin1').match(/\/Type \/Page\b/g)).toHaveLength(2);
+  });
 });
