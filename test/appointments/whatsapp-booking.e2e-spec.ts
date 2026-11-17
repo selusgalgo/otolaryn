@@ -86,6 +86,21 @@ describe('WhatsApp booking isolation and booking', () => {
     expect(list.body).toEqual([
       { id: practitioner, firstName: 'Test', lastName: 'Profesional' },
     ]);
+    const availableDates = await request(server)
+      .get(`${prefix}/dates`)
+      .query({ practitionerId: practitioner })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(availableDates.body).toContain(date);
+    await request(server)
+      .get(`${prefix}/dates`)
+      .query({ practitionerId: otherPractitioner })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+    await request(server)
+      .get(`${prefix}/dates`)
+      .query({ practitionerId: practitioner })
+      .expect(401);
     await request(server)
       .get(`${prefix}/slots`)
       .query({ practitionerId: otherPractitioner, date })
