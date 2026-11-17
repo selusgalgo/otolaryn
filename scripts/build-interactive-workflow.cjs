@@ -43,7 +43,7 @@ sender.parameters = {
 workflow.name = 'Mederi DEMO · Citas WhatsApp interactivas (borrador)';
 workflow.active = false;
 workflow.settings = { ...workflow.settings, saveDataErrorExecution: 'none', saveDataSuccessExecution: 'none', saveManualExecutions: false };
-const result = { name: workflow.name, active: false, nodes: workflow.nodes, connections: workflow.connections, settings: workflow.settings };
+const result = { id: randomUUID().replaceAll('-', '').slice(0, 16), name: workflow.name, active: false, nodes: workflow.nodes, connections: workflow.connections, settings: workflow.settings };
 // The original manual fixture contains the authorised real phone; a new draft
 // starts with an unrelated fictitious phone and cannot accidentally test it.
 process.stdout.write(JSON.stringify(result, null, 2).replaceAll('34695853627', '34600000990'));
