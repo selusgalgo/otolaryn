@@ -127,7 +127,7 @@ function createEngine({backend,allowedPhone,demoPhone,now=()=>Date.now()}) {
 function backendClient(base,bearer) {
   if(base!=='http://127.0.0.1:31091')throw Error('invalid backend');
   return async(path,body,key)=>{
-    const res=await fetch(base+path,{method:body?'POST':'GET',headers:{authorization:'Bearer '+bearer,'content-type':'application/json',...(key?{'idempotency-key':key}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
+    const res=await fetch(base+'/integrations/whatsapp-booking'+path,{method:body?'POST':'GET',headers:{authorization:'Bearer '+bearer,'content-type':'application/json',...(key?{'idempotency-key':key}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
     if(!res.ok){const err=Error('backend rejected');err.status=res.status;throw err;}return res.json();
   };
 }
@@ -166,4 +166,4 @@ if(require.main===module){
   const app=servers({engine,appSecret:readFile('FLOW_APP_SECRET_FILE'),privateKey:readFile('FLOW_PRIVATE_KEY_FILE'),gatewayDigest:readFile('FLOW_GATEWAY_DIGEST_FILE'),allowedClient:process.env.FLOW_ALLOWED_CLIENT});
   app.external.listen(31094,'127.0.0.1');app.internal.listen(31093,'172.18.0.1');
 }
-module.exports={createEngine,servers,decrypt,encrypt};
+module.exports={createEngine,servers,decrypt,encrypt,backendClient};
