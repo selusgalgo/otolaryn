@@ -22,6 +22,13 @@ if address.version != 4 or not (address.is_loopback or address.is_private) or ad
     raise RuntimeError("La pasarela requiere una dirección IPv4 privada concreta")
 if not (1 <= PORT <= 65535 and 1 <= BACKEND_PORT <= 65535):
     raise RuntimeError("Puerto de pasarela o backend no válido")
+allowed_client = os.environ.get("WHATSAPP_GATEWAY_ALLOWED_CLIENT", "")
+if allowed_client:
+    client_address = ipaddress.ip_address(allowed_client)
+    if client_address.version != 4 or client_address.is_unspecified or not client_address.is_private:
+        raise RuntimeError("El cliente autorizado debe ser una dirección IPv4 privada")
+elif not address.is_loopback:
+    raise RuntimeError("Una pasarela de red requiere un cliente autorizado")
 PATHS = frozenset({
     "/integrations/whatsapp-booking/messages",
     "/integrations/whatsapp-booking/delivery/claim",
@@ -40,6 +47,9 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
+        if allowed_client and self.client_address[0] != allowed_client:
+            self.send_error(403)
+            return
         authorization = self.headers.get("Authorization", "")
         bearer = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else ""
         if self.path not in PATHS or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", bearer) or not hmac.compare_digest(
