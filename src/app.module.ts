@@ -17,6 +17,7 @@ import { SepaModule } from './sepa/sepa.module';
 import { SettingsModule } from './settings/settings.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { UsersModule } from './users/users.module';
+import { WhatsappBookingModule } from './whatsapp-booking/whatsapp-booking.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     InsuranceModule,
     PdfModule,
     SepaModule,
+    WhatsappBookingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
