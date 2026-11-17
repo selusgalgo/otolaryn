@@ -176,6 +176,22 @@ describe('WhatsApp booking isolation and booking', () => {
       .expect(400);
   });
 
+  it('prepares Flow delivery idempotently before the delivery claim', async () => {
+    const body = { phone: '+34600000111', messageId: 'flow-notification-test' };
+    const post = (path: string) => request(server).post(`${prefix}/${path}`)
+      .set('Authorization', `Bearer ${token}`).send(body);
+    const first = await post('delivery/prepare-flow').expect(201);
+    expect(first.body).toEqual({ prepared: true, duplicate: false });
+    const second = await post('delivery/prepare-flow').expect(201);
+    expect(second.body).toEqual({ prepared: true, duplicate: true });
+    const claim = await post('delivery/claim').expect(201);
+    expect(claim.body.send).toBe(true);
+    expect((await post('delivery/claim').expect(201)).body.send).toBe(false);
+    await request(server).post(`${prefix}/delivery/prepare-flow`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ phone: '+34699999999', messageId: 'flow-other' }).expect(403);
+  });
+
   it('guides the whole conversation and books only after explicit confirmation', async () => {
     const phone = '+34600998877';
     let sequence = 0;

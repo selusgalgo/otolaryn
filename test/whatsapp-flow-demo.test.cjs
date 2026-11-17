@@ -10,6 +10,7 @@ function fixture(){let bookings=0;const backend=async(path,body,key)=>{
   if(path==='/practitioners')return [{id:professional,firstName:'Ana',lastName:'Ejemplo'}];
   if(path.startsWith('/dates?'))return [day];
   if(path.startsWith('/slots?'))return [{scheduledAt:slot}];
+  if(path==='/delivery/prepare-flow'){assert.equal(body.phone,demo);return {prepared:true};}
   if(path==='/appointments'){bookings++;assert.equal(body.phone,demo);assert.match(key,/^flow:[a-f0-9]{64}$/);return {id:'example-id',status:'scheduled',scheduledAt:slot};}
   throw Error('unknown path');
 };return {engine:createEngine({backend,allowedPhone:phone,demoPhone:demo}),bookings:()=>bookings};}
@@ -49,10 +50,10 @@ test('internal session creation requires both the permitted client and credentia
  const app=servers({engine:fixture().engine,appSecret:'test',privateKey:'test',gatewayDigest:digest,allowedClient:'127.0.0.1'});
  await new Promise(r=>app.internal.listen(0,'127.0.0.1',r));
  try{
-  const url=`http://127.0.0.1:${app.internal.address().port}/start`,body=JSON.stringify({phone});
+  const url=`http://127.0.0.1:${app.internal.address().port}/start`,body=JSON.stringify({phone,messageId:'message-1'});
   assert.equal((await fetch(url,{method:'POST',body,headers:{authorization:'Bearer '+('x'.repeat(48))}})).status,401);
   const headers={authorization:'Bearer '+secret};
-  assert.equal((await fetch(url,{method:'POST',headers,body:JSON.stringify({phone:'+34600000000'})})).status,403);
+  assert.equal((await fetch(url,{method:'POST',headers,body:JSON.stringify({phone:'+34600000000',messageId:'message-1'})})).status,403);
   const response=await fetch(url,{method:'POST',headers,body});assert.equal(response.status,200);
   const {flow_token}=await response.json();assert.match(flow_token,/^[A-Za-z0-9_-]{43}$/);
  }finally{await new Promise(r=>app.internal.close(r));}

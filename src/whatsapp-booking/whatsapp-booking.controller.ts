@@ -57,6 +57,11 @@ export class WhatsappBookingController {
     return this.conversation.process(body);
   }
 
+  @Post('delivery/prepare-flow')
+  prepareFlowDelivery(@Body() body: DeliveryClaimDto) {
+    return this.delivery.prepareFlow(body);
+  }
+
   @Post('delivery/claim')
   claimDelivery(@Body() body: DeliveryClaimDto) {
     return this.delivery.claim(body);

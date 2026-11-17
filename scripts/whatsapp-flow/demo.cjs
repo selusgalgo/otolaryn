@@ -122,7 +122,11 @@ function createEngine({backend,allowedPhone,demoPhone,now=()=>Date.now()}) {
     }
     throw Error('invalid transition');
   }
-  return {start,handle,lookup(token,phone){clean();const s=sessions.get(token);if(!s||!same(phone,s.phone)||!s.booked)return null;return s.booked;}};
+  return {start,handle,async prepare(phone,messageId){
+    if(!same(phone,allowedPhone)||typeof messageId!=='string'||!messageId||messageId.length>256)return false;
+    const result=await backend('/delivery/prepare-flow',{phone:demoPhone,messageId});
+    return result?.prepared===true;
+  },lookup(token,phone){clean();const s=sessions.get(token);if(!s||!same(phone,s.phone)||!s.booked)return null;return s.booked;}};
 }
 function backendClient(base,bearer) {
   if(base!=='http://127.0.0.1:31091')throw Error('invalid backend');
@@ -153,8 +157,13 @@ function servers({engine,appSecret,privateKey,gatewayDigest,allowedClient}) {
     if(req.method!=='POST'||!['/start','/result'].includes(req.url)){res.writeHead(404).end();return;}
     try{
       const body=JSON.parse(await read(req,4096));let result;
-      if(req.url==='/start'){const token=engine.start(body.phone);if(!token){res.writeHead(403).end();return;}result={flow_token:token};}
-      else{result=engine.lookup(body.flow_token,body.phone);if(!result){res.writeHead(404).end();return;}}
+      if(req.url==='/start'){
+        if(!await engine.prepare(body.phone,body.messageId)){res.writeHead(403).end();return;}
+        const token=engine.start(body.phone);if(!token){res.writeHead(403).end();return;}result={flow_token:token};
+      } else {
+        result=engine.lookup(body.flow_token,body.phone);if(!result){res.writeHead(404).end();return;}
+        if(!await engine.prepare(body.phone,body.messageId)){res.writeHead(403).end();return;}
+      }
       res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify(result));
     }catch{res.writeHead(400).end();}
   });
