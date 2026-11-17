@@ -175,10 +175,18 @@ describe('WhatsApp booking isolation and booking', () => {
           .send({ phone, text, messageId })
           .expect(201)
       ).body as MessageReply;
-    expect((await send('CITA')).reply).toContain('elige profesional');
-    expect((await send('1')).reply).toContain('fecha deseada');
-    expect((await send(date)).reply).toContain('Elige un horario');
-    expect((await send('1')).reply).toContain('nombre');
+    const professionalMenu = (await send('CITA')).reply;
+    expect(professionalMenu).toContain('elige profesional');
+    const professional = /^1\. (.+)$/m.exec(professionalMenu)?.[1];
+    expect(professional).toBeDefined();
+    expect((await send('P:1:Profesional anterior')).reply).toContain('profesional mostrado');
+    expect((await send(`P:1:${professional}`)).reply).toContain('fecha deseada');
+    const slotReply = (await send(date)).reply;
+    expect(slotReply).toContain('Elige un horario');
+    const slot = /^1\. (.+)$/m.exec(slotReply)?.[1];
+    expect(slot).toBeDefined();
+    expect((await send('S:01/01/2000, 00:00')).reply).toContain('horarios mostrados');
+    expect((await send(`S:${slot}`)).reply).toContain('nombre');
     await send('Nombre');
     await send('Ficticio');
     expect((await send('1988-02-29')).reply).toContain('¿Confirmas');

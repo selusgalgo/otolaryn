@@ -132,7 +132,15 @@ export class WhatsappConversationService {
           '\nEscribe CANCELAR para salir.';
       }
     } else if (state.step === 'professional') {
-      const index = menuChoice(text, state.professionals?.length ?? 0);
+      const professionals = state.professionals ?? [];
+      const interactive = /^P:(\d{1,2}):(.*)$/s.exec(text);
+      const index = interactive
+        ? professionals.findIndex(
+            (p, i) =>
+              Number(interactive[1]) === i + 1 &&
+              interactive[2] === `${p.firstName} ${p.lastName}`,
+          )
+        : menuChoice(text, professionals.length);
       if (index < 0)
         reply =
           'Indica el número del profesional mostrado, o escribe CANCELAR.';
@@ -175,7 +183,10 @@ export class WhatsappConversationService {
     } else if (state.step === 'slot') {
       const slots = state.slots ?? [];
       const page = state.slotPage ?? 0;
-      const index = menuChoice(text, Math.min(8, slots.length - page * 8));
+      const pageSlots = slots.slice(page * 8, page * 8 + 8);
+      const index = text.startsWith('S:')
+        ? pageSlots.findIndex((slot) => formatSlot(slot.scheduledAt) === text.slice(2))
+        : menuChoice(text, pageSlots.length);
       if (/^fecha$/i.test(text)) {
         state = {
           step: 'date',
