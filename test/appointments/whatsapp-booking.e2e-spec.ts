@@ -219,6 +219,33 @@ describe('WhatsApp booking isolation and booking', () => {
     }
   });
 
+  it('rejects an interactive slot from an earlier page without selecting a different time', async () => {
+    const phone = '+34600000000';
+    let sequence = 0;
+    const send = async (text: string): Promise<MessageReply> =>
+      (
+        await request(server)
+          .post(`${prefix}/messages`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ phone, text, messageId: `interactive-page-${++sequence}` })
+          .expect(201)
+      ).body as MessageReply;
+    await send('CANCELAR');
+    await send('CITA');
+    await send('1');
+    const firstPage = (await send(date)).reply;
+    expect(firstPage).toContain('Escribe MAS');
+    const oldSlot = /^1\. (.+)$/m.exec(firstPage)?.[1];
+    expect(oldSlot).toBeDefined();
+    const secondPage = (await send('MAS')).reply;
+    const currentSlot = /^1\. (.+)$/m.exec(secondPage)?.[1];
+    expect(currentSlot).toBeDefined();
+    expect(currentSlot).not.toBe(oldSlot);
+    expect((await send(`S:${oldSlot}`)).reply).toContain('horarios mostrados');
+    expect((await send(`S:${currentSlot}`)).reply).toContain('nombre');
+    await send('CANCELAR');
+  });
+
   it('handles two people choosing the same slot without leaving an orphan patient', async () => {
     const converse = async (phone: string, prefixId: string, name: string) => {
       let sequence = 0;
