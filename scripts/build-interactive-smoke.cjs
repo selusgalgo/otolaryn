@@ -11,8 +11,12 @@ const mockSender = {
   id: randomUUID(), name: 'Enviar WhatsApp', type: 'n8n-nodes-base.httpRequest', typeVersion: sender.typeVersion,
   position: [1320, 0], parameters: { ...sender.parameters, url: `http://127.0.0.1:31977/${providerPath}` },
 };
-delete mockSender.parameters.authentication;
-delete mockSender.parameters.nodeCredentialType;
+if (process.argv[4] === 'auth') {
+  mockSender.credentials = { whatsAppApi: { id: 'localmockcred001', name: 'Credencial ficticia interactiva' } };
+} else {
+  delete mockSender.parameters.authentication;
+  delete mockSender.parameters.nodeCredentialType;
+}
 const nodes = [
   trigger,
   make('Fixture', `return [{json:{messages:[{type:'interactive',interactive:{type:'list_reply',list_reply:{id:'S:20/11/2026, 10:00'}},from:'34600000990',id:'smoke-1'}]}}];`, 1),
