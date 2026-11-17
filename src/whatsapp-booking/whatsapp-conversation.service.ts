@@ -7,6 +7,12 @@ import { WhatsappBookingService } from './whatsapp-booking.service';
 
 type Professional = { id: string; firstName: string; lastName: string };
 type Slot = { scheduledAt: string; durationMinutes: number };
+type Menu = {
+  kind: 'professionals' | 'slots';
+  options: { id: string; title: string }[];
+  hasMore?: boolean;
+};
+const storedMenuPrefix = 'WA_MENU_V1:';
 interface State {
   step:
     | 'professional'
@@ -55,6 +61,14 @@ const slotMenu = (slots: Slot[], page: number): string =>
     ? '\nEscribe MAS para ver otros horarios.'
     : '') +
   '\nEscribe FECHA para elegir otro día.';
+const slotChoices = (slots: Slot[], page: number, practitionerId: string): Menu => ({
+  kind: 'slots',
+  options: slots.slice(page * 8, page * 8 + 8).map((slot) => ({
+    id: `S:${practitionerId}:${slot.scheduledAt}`,
+    title: formatSlot(slot.scheduledAt),
+  })),
+  hasMore: slots.length > (page + 1) * 8,
+});
 
 @Injectable()
 export class WhatsappConversationService {
@@ -65,7 +79,7 @@ export class WhatsappConversationService {
 
   async process(
     message: InboundMessageDto,
-  ): Promise<{ reply: string; duplicate: boolean }> {
+  ): Promise<{ reply: string; duplicate: boolean; menu?: Menu }> {
     const tenantId = this.context.tenantId;
     const phoneHash = hash(message.phone);
     const messageHash = hash(message.messageId);
@@ -94,6 +108,10 @@ export class WhatsappConversationService {
       ) {
         throw new ConflictException('Identificador de mensaje ya utilizado');
       }
+      if (receipts[0].reply.startsWith(storedMenuPrefix)) {
+        const stored = JSON.parse(receipts[0].reply.slice(storedMenuPrefix.length)) as { reply: string; menu: Menu };
+        return { ...stored, duplicate: true };
+      }
       return { reply: receipts[0].reply, duplicate: true };
     }
     // Expired state is also cleaned here so it cannot be reused between
@@ -113,6 +131,7 @@ export class WhatsappConversationService {
     const text = message.text.trim();
     let state: State | undefined = rows[0]?.state;
     let reply: string;
+    let menu: Menu | undefined;
     if (/^(cancelar|salir)$/i.test(text)) {
       state = undefined;
       reply =
@@ -130,16 +149,15 @@ export class WhatsappConversationService {
             .map((p, i) => `${i + 1}. ${p.firstName} ${p.lastName}`)
             .join('\n') +
           '\nEscribe CANCELAR para salir.';
+        menu = {
+          kind: 'professionals',
+          options: professionals.map((p) => ({ id: `P:${p.id}`, title: `${p.firstName} ${p.lastName}` })),
+        };
       }
     } else if (state.step === 'professional') {
       const professionals = state.professionals ?? [];
-      const interactive = /^P:(\d{1,2}):(.*)$/s.exec(text);
-      const index = interactive
-        ? professionals.findIndex(
-            (p, i) =>
-              Number(interactive[1]) === i + 1 &&
-              interactive[2] === `${p.firstName} ${p.lastName}`,
-          )
+      const index = text.startsWith('P:')
+        ? professionals.findIndex((p) => text === `P:${p.id}`)
         : menuChoice(text, professionals.length);
       if (index < 0)
         reply =
@@ -172,6 +190,7 @@ export class WhatsappConversationService {
           else {
             state = { ...state, step: 'slot', date: text, slots, slotPage: 0 };
             reply = slotMenu(slots, 0);
+            menu = slotChoices(slots, 0, state.practitionerId!);
           }
         } catch (err) {
           if (!(err instanceof HttpException) || err.getStatus() >= 500)
@@ -183,9 +202,10 @@ export class WhatsappConversationService {
     } else if (state.step === 'slot') {
       const slots = state.slots ?? [];
       const page = state.slotPage ?? 0;
+      const practitionerId = state.practitionerId;
       const pageSlots = slots.slice(page * 8, page * 8 + 8);
       const index = text.startsWith('S:')
-        ? pageSlots.findIndex((slot) => formatSlot(slot.scheduledAt) === text.slice(2))
+        ? pageSlots.findIndex((slot) => text === `S:${practitionerId}:${slot.scheduledAt}`)
         : menuChoice(text, pageSlots.length);
       if (/^fecha$/i.test(text)) {
         state = {
@@ -197,6 +217,7 @@ export class WhatsappConversationService {
       } else if (/^m[aá]s$/i.test(text) && slots.length > (page + 1) * 8) {
         state = { ...state, slotPage: page + 1 };
         reply = slotMenu(slots, page + 1);
+        menu = slotChoices(slots, page + 1, state.practitionerId!);
       } else if (index < 0)
         reply =
           'Indica el número de uno de los horarios mostrados, FECHA o CANCELAR.';
@@ -282,8 +303,8 @@ export class WhatsappConversationService {
     }
     await manager.query(
       'INSERT INTO public.whatsapp_booking_receipts (tenant_id, message_hash, phone_hash, content_hash, reply) VALUES ($1, $2, $3, $4, $5)',
-      [tenantId, messageHash, phoneHash, contentHash, reply],
+      [tenantId, messageHash, phoneHash, contentHash, menu ? storedMenuPrefix + JSON.stringify({ reply, menu }) : reply],
     );
-    return { reply, duplicate: false };
+    return { reply, ...(menu ? { menu } : {}), duplicate: false };
   }
 }

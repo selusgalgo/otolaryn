@@ -15,7 +15,7 @@ import { WhatsappBookingPurgeService } from '../../src/whatsapp-booking/whatsapp
 
 const token = 'test_' + 'a'.repeat(48);
 const prefix = '/integrations/whatsapp-booking';
-type MessageReply = { reply: string; duplicate: boolean };
+type MessageReply = { reply: string; duplicate: boolean; menu?: { kind: string; options: { id: string; title: string }[]; hasMore?: boolean } };
 
 describe('WhatsApp booking isolation and booking', () => {
   let app: INestApplication;
@@ -175,18 +175,19 @@ describe('WhatsApp booking isolation and booking', () => {
           .send({ phone, text, messageId })
           .expect(201)
       ).body as MessageReply;
-    const professionalMenu = (await send('CITA')).reply;
-    expect(professionalMenu).toContain('elige profesional');
-    const professional = /^1\. (.+)$/m.exec(professionalMenu)?.[1];
-    expect(professional).toBeDefined();
-    expect((await send('P:1:Profesional anterior')).reply).toContain('profesional mostrado');
-    expect((await send(`P:1:${professional}`)).reply).toContain('fecha deseada');
-    const slotReply = (await send(date)).reply;
-    expect(slotReply).toContain('Elige un horario');
-    const slot = /^1\. (.+)$/m.exec(slotReply)?.[1];
+    const professionalMenu = await send('CITA', 'interactive-prof-menu');
+    expect(professionalMenu.reply).toContain('elige profesional');
+    expect(professionalMenu.menu?.options[0].id).toBe(`P:${practitioner}`);
+    expect((await send('CITA', 'interactive-prof-menu')).menu).toEqual(professionalMenu.menu);
+    expect((await send('P:00000000-0000-4000-8000-000000000000')).reply).toContain('profesional mostrado');
+    expect((await send(`P:${practitioner}`)).reply).toContain('fecha deseada');
+    const slotReply = await send(date);
+    expect(slotReply.reply).toContain('Elige un horario');
+    const slot = slotReply.menu?.options[0].id;
     expect(slot).toBeDefined();
-    expect((await send('S:01/01/2000, 00:00')).reply).toContain('horarios mostrados');
-    expect((await send(`S:${slot}`)).reply).toContain('nombre');
+    const wrongProfessional = slot!.replace(practitioner, '00000000-0000-4000-8000-000000000000');
+    expect((await send(wrongProfessional)).reply).toContain('horarios mostrados');
+    expect((await send(slot!)).reply).toContain('nombre');
     await send('Nombre');
     await send('Ficticio');
     expect((await send('1988-02-29')).reply).toContain('¿Confirmas');
@@ -233,16 +234,16 @@ describe('WhatsApp booking isolation and booking', () => {
     await send('CANCELAR');
     await send('CITA');
     await send('1');
-    const firstPage = (await send(date)).reply;
-    expect(firstPage).toContain('Escribe MAS');
-    const oldSlot = /^1\. (.+)$/m.exec(firstPage)?.[1];
+    const firstPage = await send(date);
+    expect(firstPage.reply).toContain('Escribe MAS');
+    const oldSlot = firstPage.menu?.options[0].id;
     expect(oldSlot).toBeDefined();
-    const secondPage = (await send('MAS')).reply;
-    const currentSlot = /^1\. (.+)$/m.exec(secondPage)?.[1];
+    const secondPage = await send('MAS');
+    const currentSlot = secondPage.menu?.options[0].id;
     expect(currentSlot).toBeDefined();
     expect(currentSlot).not.toBe(oldSlot);
-    expect((await send(`S:${oldSlot}`)).reply).toContain('horarios mostrados');
-    expect((await send(`S:${currentSlot}`)).reply).toContain('nombre');
+    expect((await send(oldSlot!)).reply).toContain('horarios mostrados');
+    expect((await send(currentSlot!)).reply).toContain('nombre');
     await send('CANCELAR');
   });
 

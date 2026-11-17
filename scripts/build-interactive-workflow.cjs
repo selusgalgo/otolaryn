@@ -15,6 +15,7 @@ const node = (name) => {
 };
 const trigger = node('WhatsApp Trigger');
 const normalizer = node('Normalizar mensaje');
+const preparer = node('Preparar respuesta Mederi');
 const validator = node('Validar reclamación');
 const sender = node('Enviar WhatsApp');
 if (sender.type !== 'n8n-nodes-base.whatsApp' || !sender.credentials?.whatsAppApi) throw new Error('Unexpected sender');
@@ -25,8 +26,10 @@ for (const item of workflow.nodes) {
 trigger.disabled = true;
 normalizer.parameters.jsCode = `${inboundText.toString()}\n` +
   `const out=[]; for(const [i,item] of $input.all().entries()){const data=item.json; for(const m of data.messages||[]){const text=inboundText(m); if(!text) continue; const phone=String(m.from||'').replace(/^\\+/,''); if(!/^[1-9][0-9]{7,14}$/.test(phone)||typeof m.id!=='string'||!m.id) throw new Error('Mensaje sin remitente o identificador válido');out.push({json:{text,phone,event_id:m.id,is_test:data.__mederi_test===true},pairedItem:{item:i}});}}return out;`;
+if (!preparer.parameters.jsCode.includes('reply:body.reply,duplicate')) throw new Error('Unexpected response preparer');
+preparer.parameters.jsCode = preparer.parameters.jsCode.replace('reply:body.reply,duplicate', 'reply:body.reply,menu:body.menu,duplicate');
 validator.parameters.jsCode = `const truncate=(value,length)=>Array.from(value).slice(0,length).join('');\n${outbound.toString()}\n` +
-  `return $input.all().flatMap((item,index)=>{if(!item.json.send)return [];const origin=$('Preparar respuesta Mederi').itemMatching(index).json;if(typeof item.json.attempt!=='string')throw new Error('Reclamación sin identificador');return [{json:{...origin,attempt:item.json.attempt,metaPayload:outbound(origin.phone,origin.reply)},pairedItem:{item:index}}];});`;
+  `return $input.all().flatMap((item,index)=>{if(!item.json.send)return [];const origin=$('Preparar respuesta Mederi').itemMatching(index).json;if(typeof item.json.attempt!=='string')throw new Error('Reclamación sin identificador');return [{json:{...origin,attempt:item.json.attempt,metaPayload:outbound(origin.phone,origin.reply,origin.menu)},pairedItem:{item:index}}];});`;
 sender.type = 'n8n-nodes-base.httpRequest';
 sender.typeVersion = 4.2;
 sender.disabled = true;
