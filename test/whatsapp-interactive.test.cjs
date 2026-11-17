@@ -31,3 +31,15 @@ test('falls back to text for unsupported or oversized menus and ignores unrelate
   assert.equal(inboundText({ type: 'interactive', interactive: { type: 'list_reply', list_reply: { id: 'SI' } } }), '');
   assert.equal(inboundText({ type: 'text', text: { body: ' CITA ' } }), 'CITA');
 });
+
+
+test('offers dates and a confirmation bound to the chosen appointment', () => {
+  const day = `D:${practitioner}:2026-11-20`;
+  const dates = outbound(phone, 'Elige una fecha', { kind: 'dates', options: [{ id: day, title: 'vie, 20/11' }], hasMore: true });
+  assert.deepEqual(dates.interactive.action.sections[0].rows.map((row) => row.id), [day, 'MASFECHAS']);
+  assert.equal(inboundText({ type: 'interactive', interactive: { type: 'list_reply', list_reply: { id: day } } }), day);
+  const id = `CONFIRMAR:${practitioner}:2026-11-20T09:00:00.000Z`;
+  const confirm = outbound(phone, '¿Confirmas la cita?', { kind: 'confirm', options: [{ id, title: 'Confirmar cita' }, { id: 'CANCELAR', title: 'Cancelar' }] });
+  assert.equal(confirm.interactive.type, 'button');
+  assert.equal(inboundText({ type: 'interactive', interactive: { type: 'button_reply', button_reply: { id } } }), id);
+});

@@ -115,6 +115,42 @@ export class WhatsappBookingService {
     );
   }
 
+  async availableDates(practitionerId: string): Promise<string[]> {
+    await this.assertPractitioner(practitionerId);
+    const rows = await this.context.manager.query<{ date: string }[]>(
+      `WITH days AS (
+         SELECT (now() AT TIME ZONE 'Europe/Madrid')::date + g.day AS day
+         FROM generate_series(0, 30) AS g(day)
+       ), candidates AS (
+         SELECT d.day, g.local_at, g.local_at AT TIME ZONE 'Europe/Madrid' AS instant,
+                t.default_appointment_duration_minutes AS duration
+         FROM days d
+         JOIN iam.clinic_hours h ON h.tenant_id = $1::uuid
+           AND h.weekday = extract(isodow FROM d.day)::integer - 1
+         JOIN iam.tenants t ON t.id = h.tenant_id
+         CROSS JOIN LATERAL generate_series(
+           d.day + h.start_time,
+           d.day + h.end_time - make_interval(mins => t.default_appointment_duration_minutes),
+           interval '15 minutes'
+         ) g(local_at)
+       )
+       SELECT DISTINCT to_char(c.day, 'YYYY-MM-DD') AS date
+       FROM candidates c
+       WHERE c.instant > now()
+         AND (c.instant AT TIME ZONE 'Europe/Madrid') = c.local_at
+         AND NOT EXISTS (
+           SELECT 1 FROM public.appointments a
+           WHERE a.practitioner_id = $2::uuid AND a.deleted_at IS NULL
+             AND a.status <> 'cancelled'
+             AND appointment_time_range(a.scheduled_at, a.duration_minutes)
+                 && appointment_time_range(c.instant, c.duration)
+         )
+       ORDER BY date`,
+      [this.context.tenantId, practitionerId],
+    );
+    return rows.map((row) => row.date);
+  }
+
   async slots(query: SlotQueryDto) {
     return (await this.candidates(query, false)).map((slot) => ({
       scheduledAt: slot.scheduledAt.toISOString(),

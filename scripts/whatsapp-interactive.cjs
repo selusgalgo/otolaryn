@@ -12,7 +12,7 @@ function inboundText(message) {
     : message.interactive?.type === 'button_reply'
       ? message.interactive.button_reply?.id : undefined;
   if (typeof selection !== 'string' || selection.length > 200) return '';
-  return /^(?:P:[0-9a-f-]{36}|S:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z|MAS|FECHA|CANCELAR)$/i.test(selection)
+  return /^(?:P:[0-9a-f-]{36}|S:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z|D:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}|CONFIRMAR:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z|FECHASANTERIORES|MASFECHAS|MAS|FECHA|CANCELAR)$/i.test(selection)
     ? selection : '';
 }
 
@@ -26,15 +26,27 @@ function outbound(phone, reply, menu) {
   }
   const professionals = menu?.kind === 'professionals';
   const slots = menu?.kind === 'slots';
-  if (!professionals && !slots) return fallback();
-  if (!Array.isArray(menu.options) || !menu.options.length || menu.options.length > (professionals ? 10 : 8)) return fallback();
+  const dates = menu?.kind === 'dates';
+  const confirm = menu?.kind === 'confirm';
+  if (!professionals && !slots && !dates && !confirm) return fallback();
+  if (!Array.isArray(menu.options) || !menu.options.length || menu.options.length > (professionals ? 10 : slots ? 8 : dates ? 8 : 2)) return fallback();
+  if (confirm) {
+    if (menu.options.length !== 2 || !/^CONFIRMAR:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/i.test(menu.options[0]?.id) || menu.options[1]?.id !== 'CANCELAR' || Array.from(reply).length > 1024) return fallback();
+    return { ...base, type: 'interactive', interactive: { type: 'button', body: { text: reply }, action: { buttons: [
+      { type: 'reply', reply: { id: menu.options[0].id, title: 'Confirmar cita' } },
+      { type: 'reply', reply: { id: 'CANCELAR', title: 'Cancelar' } },
+    ] } } };
+  }
   const rows = [];
   for (const option of menu.options) {
     if (typeof option?.id !== 'string' || typeof option.title !== 'string' || !option.title.trim()) return fallback();
     if (professionals && !/^P:[0-9a-f-]{36}$/i.test(option.id)) return fallback();
+    if (dates && !/^D:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}$/i.test(option.id)) return fallback();
     if (slots && !/^S:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/i.test(option.id)) return fallback();
     rows.push({ id: option.id, title: truncate(option.title, 24) });
   }
+  if (dates && menu.hasPrevious === true) rows.push({ id: 'FECHASANTERIORES', title: 'Fechas anteriores' });
+  if (dates && menu.hasMore === true) rows.push({ id: 'MASFECHAS', title: 'Más fechas' });
   if (slots && menu.hasMore === true) rows.push({ id: 'MAS', title: 'Más horarios' });
   if (slots) rows.push({ id: 'FECHA', title: 'Otra fecha' });
   if (rows.length > 10) return fallback();
@@ -43,8 +55,8 @@ function outbound(phone, reply, menu) {
     type: 'interactive',
     interactive: {
       type: 'list',
-      body: { text: professionals ? 'Elige el profesional para tu cita. Puedes escribir CANCELAR para salir.' : 'Elige un horario disponible. Puedes escribir CANCELAR para salir.' },
-      action: { button: professionals ? 'Ver profesionales' : 'Ver horarios', sections: [{ title: professionals ? 'Profesionales' : 'Horarios', rows }] },
+      body: { text: professionals ? 'Elige el profesional para tu cita. Puedes escribir CANCELAR para salir.' : dates ? 'Elige una fecha con horarios disponibles. Puedes escribir CANCELAR para salir.' : 'Elige un horario disponible. Puedes escribir CANCELAR para salir.' },
+      action: { button: professionals ? 'Ver profesionales' : dates ? 'Ver fechas' : 'Ver horarios', sections: [{ title: professionals ? 'Profesionales' : dates ? 'Fechas disponibles' : 'Horarios', rows }] },
     },
   };
 }

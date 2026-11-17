@@ -8,9 +8,10 @@ import { WhatsappBookingService } from './whatsapp-booking.service';
 type Professional = { id: string; firstName: string; lastName: string };
 type Slot = { scheduledAt: string; durationMinutes: number };
 type Menu = {
-  kind: 'professionals' | 'slots';
+  kind: 'professionals' | 'slots' | 'dates' | 'confirm';
   options: { id: string; title: string }[];
   hasMore?: boolean;
+  hasPrevious?: boolean;
 };
 const storedMenuPrefix = 'WA_MENU_V1:';
 interface State {
@@ -26,6 +27,8 @@ interface State {
   practitionerId?: string;
   practitionerName?: string;
   date?: string;
+  dateOptions?: string[];
+  datePage?: number;
   slots?: Slot[];
   slotPage?: number;
   scheduledAt?: string;
@@ -69,6 +72,22 @@ const slotChoices = (slots: Slot[], page: number, practitionerId: string): Menu 
   })),
   hasMore: slots.length > (page + 1) * 8,
 });
+
+const dateChoices = (dates: string[], page: number, practitionerId: string): Menu => ({
+  kind: 'dates',
+  options: dates.slice(page * 8, page * 8 + 8).map((date) => ({
+    id: `D:${practitionerId}:${date}`,
+    title: new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(`${date}T12:00:00Z`)),
+  })),
+  hasMore: dates.length > (page + 1) * 8,
+  hasPrevious: page > 0,
+});
+const dateMenu = (dates: string[], page: number): string =>
+  'Elige una fecha disponible escribiendo su número:\n' +
+  dates.slice(page * 8, page * 8 + 8).map((date, i) => `${i + 1}. ${date}`).join('\n') +
+  (dates.length > (page + 1) * 8 ? '\nEscribe MASFECHAS para ver otras fechas.' : '') +
+  (page > 0 ? '\nEscribe FECHASANTERIORES para retroceder.' : '') +
+  '\nTambién puedes escribir una fecha AAAA-MM-DD o CANCELAR.';
 
 @Injectable()
 export class WhatsappConversationService {
@@ -164,31 +183,49 @@ export class WhatsappConversationService {
           'Indica el número del profesional mostrado, o escribe CANCELAR.';
       else {
         const person = state.professionals![index];
+        const dates = await this.booking.availableDates(person.id);
         state = {
           step: 'date',
           practitionerId: person.id,
           practitionerName: `${person.firstName} ${person.lastName}`,
+          dateOptions: dates,
+          datePage: 0,
         };
-        reply =
-          'Indica la fecha deseada en formato AAAA-MM-DD, dentro de los próximos 30 días.';
+        reply = dates.length ? dateMenu(dates, 0) : 'No hay fechas disponibles en los próximos 30 días. Escribe CANCELAR para salir.';
+        if (dates.length) menu = dateChoices(dates, 0, person.id);
       }
     } else if (state.step === 'date') {
-      if (
-        !/^\d{4}-\d{2}-\d{2}$/.test(text) ||
-        !isDateString(text, { strict: true })
-      ) {
-        reply = 'Indica una fecha válida en formato AAAA-MM-DD.';
+      const dates = state.dateOptions ?? [];
+      const page = state.datePage ?? 0;
+      const pageDates = dates.slice(page * 8, page * 8 + 8);
+      const selected = text.startsWith('D:')
+        ? pageDates.find((date) => text === `D:${state!.practitionerId}:${date}`)
+        : pageDates[menuChoice(text, pageDates.length)];
+      const chosenDate = selected ?? (/^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '');
+      if (/^fechasanteriores$/i.test(text) && page > 0) {
+        state = { ...state, datePage: page - 1 };
+        reply = dateMenu(dates, page - 1);
+        menu = dateChoices(dates, page - 1, state.practitionerId!);
+      } else if (/^masfechas$/i.test(text) && dates.length > (page + 1) * 8) {
+        state = { ...state, datePage: page + 1 };
+        reply = dateMenu(dates, page + 1);
+        menu = dateChoices(dates, page + 1, state.practitionerId!);
+      } else if (!chosenDate || !isDateString(chosenDate, { strict: true })) {
+        reply = 'Elige una de las fechas mostradas o escribe una fecha válida en formato AAAA-MM-DD.';
+        if (pageDates.length) menu = dateChoices(dates, page, state.practitionerId!);
       } else {
         try {
           const slots = await this.booking.slots({
             practitionerId: state.practitionerId!,
-            date: text,
+            date: chosenDate,
           });
-          if (!slots.length)
-            reply =
-              'No hay huecos para ese día. Indica otra fecha en formato AAAA-MM-DD.';
-          else {
-            state = { ...state, step: 'slot', date: text, slots, slotPage: 0 };
+          if (!slots.length) {
+            const refreshed = await this.booking.availableDates(state.practitionerId!);
+            state = { ...state, dateOptions: refreshed, datePage: 0 };
+            reply = refreshed.length ? 'Ese día ya no tiene huecos. ' + dateMenu(refreshed, 0) : 'Ya no hay fechas disponibles. Contacta con recepción.';
+            if (refreshed.length) menu = dateChoices(refreshed, 0, state.practitionerId!);
+          } else {
+            state = { ...state, step: 'slot', date: chosenDate, slots, slotPage: 0 };
             reply = slotMenu(slots, 0);
             menu = slotChoices(slots, 0, state.practitionerId!);
           }
@@ -208,20 +245,24 @@ export class WhatsappConversationService {
         ? pageSlots.findIndex((slot) => text === `S:${practitionerId}:${slot.scheduledAt}`)
         : menuChoice(text, pageSlots.length);
       if (/^fecha$/i.test(text)) {
+        const dates = await this.booking.availableDates(state.practitionerId!);
         state = {
           step: 'date',
           practitionerId: state.practitionerId,
           practitionerName: state.practitionerName,
+          dateOptions: dates,
+          datePage: 0,
         };
-        reply = 'Indica otra fecha en formato AAAA-MM-DD.';
+        reply = dates.length ? dateMenu(dates, 0) : 'No hay fechas disponibles en los próximos 30 días. Escribe CANCELAR para salir.';
+        if (dates.length) menu = dateChoices(dates, 0, state.practitionerId!);
       } else if (/^m[aá]s$/i.test(text) && slots.length > (page + 1) * 8) {
         state = { ...state, slotPage: page + 1 };
         reply = slotMenu(slots, page + 1);
         menu = slotChoices(slots, page + 1, state.practitionerId!);
-      } else if (index < 0)
-        reply =
-          'Indica el número de uno de los horarios mostrados, FECHA o CANCELAR.';
-      else {
+      } else if (index < 0) {
+        reply = 'Indica el número de uno de los horarios mostrados, FECHA o CANCELAR.';
+        if (pageSlots.length) menu = slotChoices(slots, page, state.practitionerId!);
+      } else {
         state = {
           ...state,
           step: 'firstName',
@@ -251,11 +292,19 @@ export class WhatsappConversationService {
       } else {
         state = { ...state, dateOfBirth: text, step: 'confirm' };
         reply = `¿Confirmas la reserva con ${state.practitionerName} para el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
+        menu = { kind: 'confirm', options: [
+          { id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`, title: 'Confirmar cita' },
+          { id: 'CANCELAR', title: 'Cancelar' },
+        ] };
       }
     } else {
-      if (!/^(si|sí)$/i.test(text))
-        reply = 'Responde SI para reservar o CANCELAR para salir.';
-      else {
+      if (!/^(si|sí)$/i.test(text) && text !== `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`) {
+        reply = `¿Confirmas la reserva con ${state.practitionerName} para el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
+        menu = { kind: 'confirm', options: [
+          { id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`, title: 'Confirmar cita' },
+          { id: 'CANCELAR', title: 'Cancelar' },
+        ] };
+      } else {
         // An overlap is a database error; roll back to a savepoint before
         // recording the human-readable response in the surrounding transaction.
         await manager.query('SAVEPOINT whatsapp_booking_attempt');
