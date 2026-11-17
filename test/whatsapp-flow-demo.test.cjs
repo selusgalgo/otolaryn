@@ -3,7 +3,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {createEngine,servers,backendClient}=require('../scripts/whatsapp-flow/demo.cjs');
-const phone='+34695853627', demo='+34600000991', professional='00000000-0000-4000-8000-000000000001';
+const phone='+34600000111', demo='+34600000991', professional='00000000-0000-4000-8000-000000000001';
 const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()+3*86400000));
 const slot=`${day}T09:00:00.000Z`;
 function fixture(){let bookings=0;const backend=async(path,body,key)=>{
