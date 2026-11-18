@@ -18,7 +18,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
-export type SafeUser = Omit<User, 'passwordHash'>;
+export type SafeUser = Omit<User, 'passwordHash' | 'agendaView'>;
 
 // iam.users carries no RLS (see User entity comment) — every query here
 // must filter by tenant_id explicitly, the same way login itself does.

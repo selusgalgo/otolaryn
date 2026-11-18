@@ -16,6 +16,7 @@ export type StaffFunction = 'profesional' | 'recepcion';
 // Cómo se antepone el nombre de un médico en pantalla. Solo se usa para
 // quien ejerce como médico; 'Dr.' por defecto (ver UserHonorific migration).
 export type Honorific = 'Dr.' | 'Dra.';
+export type AgendaView = 'day' | 'week' | 'month';
 
 // Deliberately NOT row-level-secured: login must look up a user by email
 // before any tenant context exists, so this table can't depend on
@@ -76,6 +77,9 @@ export class User {
   // admin deliberately flips this.
   @Column({ name: 'agenda_access', default: true })
   agendaAccess: boolean;
+
+  @Column({ name: 'agenda_view', type: 'text', default: 'month' })
+  agendaView: AgendaView;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

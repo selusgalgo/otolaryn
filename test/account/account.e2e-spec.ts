@@ -114,6 +114,18 @@ describe('Account (mi cuenta)', () => {
     expect((res.body as ProfileResponse).role).toBe('superadmin');
   });
 
+  it('saves the agenda view only for the signed-in user and rejects invalid values', async () => {
+    const profile = () => request(server).get('/account').set('Authorization', `Bearer ${tokenA}`);
+    expect((await profile()).body.agendaView).toBe('month');
+    await request(server).patch('/account/agenda-view').set('Authorization', `Bearer ${tokenA}`).send({ agendaView: 'week' }).expect(204);
+    expect((await profile()).body.agendaView).toBe('week');
+    const other = await request(server).get('/account').set('Authorization', `Bearer ${secondToken}`).expect(200);
+    expect(other.body.agendaView).toBe('month');
+    await request(server).patch('/account/agenda-view').set('Authorization', `Bearer ${tokenA}`).send({ agendaView: 'year' }).expect(400);
+    expect((await profile()).body.agendaView).toBe('week');
+    await request(server).patch('/account/agenda-view').send({ agendaView: 'day' }).expect(401);
+  });
+
   it('updates name and sets a username, which then works to log in', async () => {
     const username = `aurora-admin-${Date.now()}`;
     const update = await request(server)

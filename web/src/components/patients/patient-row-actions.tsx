@@ -72,6 +72,7 @@ export function PatientRowActions({
                   icon: <ArchiveBoxIcon />,
                   onSelect: () => setArchiveOpen(true),
                   destructive: true,
+                  overflowOnly: true,
                 },
               ]
             : []),

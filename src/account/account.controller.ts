@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { AccountService } from './account.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateAgendaViewDto } from './dto/update-agenda-view.dto';
 
 // No RolesGuard, no TenantContextInterceptor — every authenticated role,
 // including superadmin (no tenant), manages their own account here.
@@ -41,5 +42,14 @@ export class AccountController {
     @Body() dto: UpdatePasswordDto,
   ): Promise<void> {
     await this.account.updatePassword(user.userId, dto);
+  }
+
+  @Patch('agenda-view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async updateAgendaView(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateAgendaViewDto,
+  ): Promise<void> {
+    await this.account.updateAgendaView(user.userId, dto.agendaView);
   }
 }

@@ -90,6 +90,7 @@ function AppointmentEventCard({
   showProfessional = true,
   fill = false,
   weekCard = false,
+  shortCard = false,
 }: {
   appointment: PeriodAppointment;
   compact?: boolean;
@@ -97,6 +98,7 @@ function AppointmentEventCard({
   showProfessional?: boolean;
   fill?: boolean;
   weekCard?: boolean;
+  shortCard?: boolean;
 }) {
   const professional = appointment.practitionerName
     ? (appointment.practitionerHonorific
@@ -108,9 +110,11 @@ function AppointmentEventCard({
     return (
       <Link href={'/appointments/' + appointment.id} aria-label={'Ver cita de ' + appointment.patientName + ' a las ' + formatTime(appointment.scheduledAt) + ', ' + APPOINTMENT_STATUS_LABELS[appointment.status] + ', ' + appointment.durationMinutes + ' minutos'}
         title={appointment.patientName + ' · ' + formatTime(appointment.scheduledAt) + ' · ' + APPOINTMENT_STATUS_LABELS[appointment.status] + ' · ' + appointment.durationMinutes + ' min'}
-        className={cn('block h-full overflow-hidden rounded-md border px-2 py-1 text-xs leading-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', STATUS_CARD_STYLES[appointment.status])}>
+        className={cn('block h-full overflow-hidden rounded-md border px-2 text-xs leading-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', shortCard ? 'flex items-center py-0' : 'py-1', !weekCard && appointment.status === 'scheduled' && 'pr-16', STATUS_CARD_STYLES[appointment.status])}>
+        <div className="min-w-0">
         <div className="flex gap-1 font-medium"><span className="shrink-0 tabular-nums">{formatTime(appointment.scheduledAt)}</span><span className="truncate">{appointment.patientName}</span></div>
-        <div className="truncate text-muted-foreground">{weekCard ? (professional ?? 'Sin profesional') : APPOINTMENT_STATUS_LABELS[appointment.status] + ' · ' + appointment.durationMinutes + ' min'}</div>
+        {!shortCard && <div className="truncate text-muted-foreground">{weekCard ? (professional ?? 'Sin profesional') : APPOINTMENT_STATUS_LABELS[appointment.status] + ' · ' + appointment.durationMinutes + ' min'}</div>}
+        </div>
       </Link>
     );
   }
@@ -273,13 +277,16 @@ export function AppointmentPeriodView({
   const ends = [...slots.map((slot) => toMinutes(slot.endTime)), ...dailyAppointments.map((a) => clinicMinutesOfDay(a.scheduledAt) + a.durationMinutes)];
   const startMinute = Math.floor(Math.min(...starts, 540) / 60) * 60;
   const endMinute = Math.ceil(Math.max(...ends, 1020) / 60) * 60;
-  const pixelsPerMinute = 2;
+  // Keep short appointments legible without changing their actual duration or
+  // breaking the shared time axis between professionals.
+  const shortDuration = Math.min(15, ...dailyAppointments.map((a) => Math.max(5, a.durationMinutes)));
+  const pixelsPerMinute = shortDuration < 15 ? 32 / shortDuration : 2;
   const sortedColumns = Array.from(columns.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label, 'es'));
   const canMoveTo = (appointment: PeriodAppointment, minute: number, items: PeriodAppointment[]) =>
     minute >= 0 && minute < 1440 && slots.some((slot) => minute >= toMinutes(slot.startTime) && minute + appointment.durationMinutes <= toMinutes(slot.endTime)) &&
     !items.some((other) => other.id !== appointment.id && other.status !== 'cancelled' && clinicMinutesOfDay(other.scheduledAt) < minute + appointment.durationMinutes && clinicMinutesOfDay(other.scheduledAt) + other.durationMinutes > minute);
   const dragMinute = (event: React.DragEvent<HTMLElement>, offset: number) =>
-    Math.round((startMinute + (event.clientY - event.currentTarget.getBoundingClientRect().top - offset) / pixelsPerMinute) / 15) * 15;
+    Math.round((startMinute + (event.clientY - event.currentTarget.getBoundingClientRect().top - offset) / pixelsPerMinute) / 5) * 5;
   const minuteLabel = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
 
   function dayHref(dayKey: string): string {
@@ -392,9 +399,9 @@ export function AppointmentPeriodView({
                           if (time !== formatTime(drag.appointment.scheduledAt)) saveTime(drag.appointment, time, drag.appointment.durationMinutes, false);
                         }}>
                         {slots.map((slot, i) => <div key={i} className="absolute inset-x-0 bg-background" style={{ top: (toMinutes(slot.startTime) - startMinute) * pixelsPerMinute, height: (toMinutes(slot.endTime) - toMinutes(slot.startTime)) * pixelsPerMinute }} />)}
-                        {dragging?.practitionerId === key && Array.from({ length: Math.ceil((endMinute - startMinute) / 15) }, (_, i) => {
-                          const minute = startMinute + i * 15;
-                          return canMoveTo(dragging, minute, column.appointments) ? <div key={i} aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-10 border-t border-emerald-300/60 bg-emerald-200/60" style={{ top: i * 15 * pixelsPerMinute, height: 15 * pixelsPerMinute }} /> : null;
+                        {dragging?.practitionerId === key && Array.from({ length: Math.ceil((endMinute - startMinute) / 5) }, (_, i) => {
+                          const minute = startMinute + i * 5;
+                          return canMoveTo(dragging, minute, column.appointments) ? <div key={i} aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-10 border-t border-emerald-300/40 bg-emerald-200/60" style={{ top: i * 5 * pixelsPerMinute, height: 5 * pixelsPerMinute }} /> : null;
                         })}
                         {dragging?.practitionerId === key && dragPreview && dragPreview.minute >= startMinute && dragPreview.minute < endMinute && <div aria-hidden="true" className={cn('pointer-events-none absolute inset-x-1 z-30 overflow-visible rounded-md border-2 px-2 py-1 text-xs font-semibold shadow-sm', dragPreview.valid ? 'border-emerald-600 bg-emerald-100/95 text-emerald-950' : 'border-red-500 bg-red-100/95 text-red-950')} style={{ top: (dragPreview.minute - startMinute) * pixelsPerMinute, height: Math.max(dragging.durationMinutes * pixelsPerMinute, 32) }}>
                           {minuteLabel(dragPreview.minute)} · {dragPreview.valid ? 'Soltar aquí' : 'Horario no disponible'}
@@ -407,8 +414,8 @@ export function AppointmentPeriodView({
                           return canBook ? <button key={i} type="button" aria-label={`Nueva cita con ${column.label} a las ${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}`} onClick={() => openSlotBooking(time, key)} className="absolute inset-x-0 border-t border-border/60 hover:bg-primary/10 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" style={{ top: i * 30 * pixelsPerMinute, height: 30 * pixelsPerMinute }} /> : <div key={i} className="pointer-events-none absolute inset-x-0 border-t border-border/60" style={{ top: i * 30 * pixelsPerMinute }} />;
                         })}
                         {placed.map(({ appointment, start, lane }) => <div key={appointment.id} className={cn('group absolute px-1 pb-1', moved?.appointment.id === appointment.id && 'z-30')} style={{ top: (start - startMinute) * pixelsPerMinute, left: `${lane * 100 / lanes}%`, width: `${100 / lanes}%`, height: appointment.durationMinutes * pixelsPerMinute }}>
-                          <AppointmentEventCard appointment={appointment} showProfessional={false} fill />
-                          {appointment.status === 'scheduled' && <div className="absolute right-2 top-1 flex items-center gap-1 rounded bg-background/95 p-0.5 shadow-sm">
+                          <AppointmentEventCard appointment={appointment} showProfessional={false} shortCard={appointment.durationMinutes * pixelsPerMinute < 44} fill />
+                          {appointment.status === 'scheduled' && <div className="absolute bottom-1 right-2 top-0 flex items-center rounded bg-background/95 opacity-0 shadow-sm group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                             <span draggable={!pending} onDragStart={(event) => { dragRef.current = { appointment, offset: event.clientY - event.currentTarget.parentElement!.parentElement!.getBoundingClientRect().top }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', appointment.id); setDragging(appointment); }} onDragEnd={() => { dragRef.current = null; setDragging(null); setDragPreview(null); }} className="hidden cursor-grab select-none px-1 text-xs text-muted-foreground sm:inline" title="Arrastrar para cambiar la hora" aria-hidden="true">⠿</span>
                             <button type="button" disabled={pending} onClick={() => openEdit(appointment)} aria-label={`Editar hora de ${appointment.patientName}`} className="rounded p-1 text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><PencilIcon className="size-4" /></button>
                           </div>}
@@ -454,7 +461,8 @@ export function AppointmentPeriodView({
               const weekSlots = visibleDays.flatMap((day) => schedule.days.find((entry) => entry.weekday === weekdayIndex(day))?.slots ?? []);
               const first = Math.floor(Math.min(540, ...weekSlots.map((slot) => toMinutes(slot.startTime)), ...appointments.map((a) => clinicMinutesOfDay(a.scheduledAt))) / 60) * 60;
               const last = Math.ceil(Math.max(1020, ...weekSlots.map((slot) => toMinutes(slot.endTime)), ...appointments.map((a) => clinicMinutesOfDay(a.scheduledAt) + a.durationMinutes)) / 60) * 60;
-              const weekScale = 2;
+              const weekShortest = Math.min(15, ...appointments.map((a) => Math.max(5, a.durationMinutes)));
+              const weekScale = weekShortest < 15 ? 32 / weekShortest : 2;
               const grid = '64px repeat(7, minmax(170px, 1fr))';
               return <div className="overflow-x-auto rounded-xl border"><div style={{ minWidth: '1254px' }}>
                 <div className="grid border-b bg-muted/30" style={{ gridTemplateColumns: grid }}>
@@ -482,7 +490,7 @@ export function AppointmentPeriodView({
                       {daySlots.map((slot, i) => <div key={i} className="absolute inset-x-0 bg-background" style={{ top: (toMinutes(slot.startTime) - first) * weekScale, height: (toMinutes(slot.endTime) - toMinutes(slot.startTime)) * weekScale }} />)}
                       {Array.from({ length: (last - first) / 30 }, (_, i) => <div key={i} className="pointer-events-none absolute inset-x-0 border-t border-border/60" style={{ top: i * 30 * weekScale }} />)}
                       {groups.map((group) => <div key={group.appointments[0].id} className="absolute inset-x-0 px-0.5 pb-0.5 focus-within:z-20 has-[details[open]]:z-20" style={{ top: (group.start - first) * weekScale, height: (group.end - group.start) * weekScale }}>
-                        {group.appointments.length === 1 ? <AppointmentEventCard appointment={group.appointments[0]} fill weekCard /> : (
+                        {group.appointments.length === 1 ? <AppointmentEventCard appointment={group.appointments[0]} fill weekCard shortCard={(group.end - group.start) * weekScale < 44} /> : (
                           <details className="relative h-full">
                             <summary className="flex h-full cursor-pointer list-none flex-col overflow-hidden rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs leading-4 text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${group.appointments.length} citas coincidentes a partir de las ${String(Math.floor(group.start / 60)).padStart(2, '0')}:${String(group.start % 60).padStart(2, '0')}. Mostrar citas`}>
                               <span className="font-semibold">{String(Math.floor(group.start / 60)).padStart(2, '0')}:{String(group.start % 60).padStart(2, '0')} · {group.appointments.length} citas</span>
