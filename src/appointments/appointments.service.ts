@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
@@ -155,7 +156,53 @@ export class AppointmentsService {
     patientId: string,
     dto: CreateAppointmentDto,
     user: CurrentUserPayload,
+    idempotencyKey?: string,
   ): Promise<Appointment> {
+    let keyHash: string | undefined;
+    let requestHash: string | undefined;
+    if (idempotencyKey !== undefined) {
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(idempotencyKey)) {
+        throw new BadRequestException('Clave de idempotencia no válida');
+      }
+      const hash = (value: string) =>
+        createHash('sha256').update(value).digest('hex');
+      keyHash = hash(idempotencyKey);
+      requestHash = hash(
+        JSON.stringify({
+          patientId,
+          userId: user.userId,
+          scheduledAt: new Date(dto.scheduledAt).toISOString(),
+          durationMinutes: dto.durationMinutes ?? null,
+          practitionerId: dto.practitionerId ?? null,
+          notes: dto.notes ?? null,
+        }),
+      );
+      // Serialize retries inside the tenant transaction, including concurrent
+      // requests and soft-deleted appointments. The unique index is a backstop.
+      await this.tenancyContext.manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`appointment:${this.tenancyContext.tenantId}:${keyHash}`],
+      );
+      const previous = await this.repo
+        .createQueryBuilder('a')
+        .withDeleted()
+        .addSelect(['a.idempotencyKeyHash', 'a.idempotencyRequestHash'])
+        .where('a.idempotencyKeyHash = :keyHash', { keyHash })
+        .getOne();
+      if (previous) {
+        if (
+          previous.idempotencyRequestHash !== requestHash ||
+          previous.deletedAt
+        ) {
+          throw new ConflictException(
+            'La clave de idempotencia ya se ha utilizado',
+          );
+        }
+        delete (previous as Partial<Appointment>).idempotencyKeyHash;
+        delete (previous as Partial<Appointment>).idempotencyRequestHash;
+        return previous;
+      }
+    }
     // Existence check only — deliberately unrestricted by "own patients"
     // even for a profesional: booking someone's first appointment is
     // exactly the act that establishes that link, so requiring it upfront
@@ -193,10 +240,15 @@ export class AppointmentsService {
       durationMinutes,
       status: 'scheduled',
       notes: dto.notes ?? null,
+      idempotencyKeyHash: keyHash ?? null,
+      idempotencyRequestHash: requestHash ?? null,
     });
 
     try {
-      return await this.repo.save(appointment);
+      const saved = await this.repo.save(appointment);
+      delete (saved as Partial<Appointment>).idempotencyKeyHash;
+      delete (saved as Partial<Appointment>).idempotencyRequestHash;
+      return saved;
     } catch (err) {
       throw this.mapWriteError(err);
     }

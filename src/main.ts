@@ -27,6 +27,8 @@ async function bootstrap() {
         ),
     }),
   );
-  await app.listen(process.env.PORT ?? 3000);
+  const listenHost = process.env.MEDERI_LISTEN_HOST;
+  if (listenHost) await app.listen(process.env.PORT ?? 3000, listenHost);
+  else await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();

@@ -1,0 +1,170 @@
+{
+  "id": "WAMEDERIMIXEDSTRUCT",
+  "name": "Mederi prueba lote mixto con estado HTTP",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e0da0000-0000-4000-8000-000000000001",
+      "name": "Inicio",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{__mederi_test:true,messages:['34600000990','34600000888'].map((from,i)=>({id:'mixed-'+Date.now()+'-'+i,from,type:'text',text:{body:'CANCELAR'}}))}}];"
+      },
+      "id": "e0da0000-0000-4000-8000-000000000002",
+      "name": "Entrega ficticia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[]; for(const [i,item] of $input.all().entries()){const data=item.json; for(const m of data.messages||[]){if(m.type!=='text'||typeof m.text?.body!=='string'||!m.text.body.trim()) continue; const phone=String(m.from||'').replace(/^\\+/, ''); if(!/^[1-9][0-9]{7,14}$/.test(phone)||typeof m.id!=='string'||!m.id) throw new Error('Mensaje sin remitente o identificador válido'); out.push({json:{text:m.text.body.trim(),phone,event_id:m.id,is_test:data.__mederi_test===true},pairedItem:{item:i}});}} return out;"
+      },
+      "id": "e0da0000-0000-4000-8000-000000000003",
+      "name": "Normalizar mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mederi-whatsapp-local-api:3000/integrations/whatsapp-booking/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.MEDERI_TEST_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({messageId: $json.event_id, phone: '+' + $json.phone, text: $json.text}) }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "e0da0000-0000-4000-8000-000000000004",
+      "name": "Mederi conversación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[];for(const [index,item] of $input.all().entries()) {const status=item.json.statusCode; if(status===403 && item.json.body?.code==='SENDER_NOT_ALLOWED') continue; if(status!==201) throw new Error('Error al contactar con Mederi');const body=item.json.body; if(typeof body?.reply!=='string'||!body.reply.trim()) throw new Error('Mederi no ha devuelto respuesta'); const incoming=$('Normalizar mensaje').itemMatching(index).json;out.push({json:{phone:incoming.phone,is_test:incoming.is_test,reply:body.reply,duplicate:body.duplicate===true},pairedItem:{item:index}});}return out;"
+      },
+      "id": "e0da0000-0000-4000-8000-000000000005",
+      "name": "Preparar respuesta Mederi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items=$input.all(); if(items.length!==1 || items[0].json.phone!=='34600000990' || !items[0].json.reply.includes('cancelado')) throw new Error('Lote mixto incorrecto'); return items;"
+      },
+      "id": "e0da0000-0000-4000-8000-000000000006",
+      "name": "Verificar lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Inicio": {
+      "main": [
+        [
+          {
+            "node": "Entrega ficticia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrega ficticia": {
+      "main": [
+        [
+          {
+            "node": "Normalizar mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar mensaje": {
+      "main": [
+        [
+          {
+            "node": "Mederi conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mederi conversación": {
+      "main": [
+        [
+          {
+            "node": "Preparar respuesta Mederi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar respuesta Mederi": {
+      "main": [
+        [
+          {
+            "node": "Verificar lote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  }
+}

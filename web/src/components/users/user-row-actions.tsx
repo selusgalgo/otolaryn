@@ -2,25 +2,17 @@
 
 import { useState, useTransition } from "react";
 import {
-  EllipsisVerticalIcon,
   NoSymbolIcon,
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { DeactivateUserDialog } from "@/components/users/deactivate-user-dialog";
 import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import type { UserFormState } from "@/lib/actions/users";
 import { userDisplayName } from "@/lib/doctor-name";
+import { RowActions } from "@/components/ui/row-actions";
 import type { AppUser } from "@/lib/types";
 
 interface UserRowActionsProps {
@@ -57,54 +49,44 @@ export function UserRowActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Acciones para ${userDisplayName(user)}`}
-          >
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <PencilIcon data-icon="inline-start" />
-            Editar
-          </DropdownMenuItem>
-          {setActiveAction &&
-            (user.active ? (
-              <DropdownMenuItem onSelect={() => setDeactivateOpen(true)}>
-                <NoSymbolIcon data-icon="inline-start" />
-                Desactivar
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                disabled={reactivating}
-                onSelect={() =>
-                  startReactivating(async () => {
-                    await setActiveAction(true);
-                  })
-                }
-              >
-                <CheckCircleIcon data-icon="inline-start" />
-                Reactivar
-              </DropdownMenuItem>
-            ))}
-          {deleteAction && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-                onSelect={() => setDeleteOpen(true)}
-              >
-                <TrashIcon data-icon="inline-start" />
-                Eliminar
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActions
+        overflowLabel={`Más acciones para ${userDisplayName(user)}`}
+        actions={[
+          { id: "edit", label: `Editar a ${userDisplayName(user)}`, icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
+          ...(setActiveAction
+            ? [
+                user.active
+                  ? {
+                      id: "deactivate",
+                      label: `Desactivar a ${userDisplayName(user)}`,
+                      icon: <NoSymbolIcon />,
+                      onSelect: () => setDeactivateOpen(true),
+                    }
+                  : {
+                      id: "reactivate",
+                      label: `Reactivar a ${userDisplayName(user)}`,
+                      icon: <CheckCircleIcon />,
+                      onSelect: () =>
+                        startReactivating(async () => {
+                          await setActiveAction(true);
+                        }),
+                      disabled: reactivating,
+                    },
+              ]
+            : []),
+          ...(deleteAction
+            ? [
+                {
+                  id: "delete",
+                  label: `Eliminar a ${userDisplayName(user)}`,
+                  icon: <TrashIcon />,
+                  onSelect: () => setDeleteOpen(true),
+                  destructive: true,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <EditUserDialog
         user={user}

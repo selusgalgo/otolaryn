@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { EllipsisVerticalIcon, PencilIcon, TrashIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, TrashIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,14 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
+import { RowActions } from "@/components/ui/row-actions";
 import {
   cancelAppointmentAction,
   deleteAppointmentAction,
@@ -47,41 +41,34 @@ export function AppointmentRowActions({ appointment, practitioners, canDelete }:
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Acciones para esta cita">
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <PencilIcon data-icon="inline-start" />
-            Editar
-          </DropdownMenuItem>
-          {/* A cita ya cancelada no tiene nada más que cancelar. */}
-          {appointment.status !== "cancelled" && (
-            <DropdownMenuItem
-              className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-              onSelect={() => setCancelOpen(true)}
-            >
-              <XCircleIcon data-icon="inline-start" />
-              Cancelar cita
-            </DropdownMenuItem>
-          )}
-          {canDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-                onSelect={() => setDeleteOpen(true)}
-              >
-                <TrashIcon data-icon="inline-start" />
-                Eliminar cita
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActions
+        overflowLabel="Más acciones para esta cita"
+        actions={[
+          { id: "edit", label: "Editar cita", icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
+          ...(appointment.status !== "cancelled"
+            ? [
+                {
+                  id: "cancel",
+                  label: "Cancelar cita",
+                  icon: <XCircleIcon />,
+                  onSelect: () => setCancelOpen(true),
+                  destructive: true,
+                },
+              ]
+            : []),
+          ...(canDelete
+            ? [
+                {
+                  id: "delete",
+                  label: "Eliminar cita",
+                  icon: <TrashIcon />,
+                  onSelect: () => setDeleteOpen(true),
+                  destructive: true,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">

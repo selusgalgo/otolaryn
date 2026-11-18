@@ -26,7 +26,7 @@ export default async function PlatformPage() {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Creada</TableHead>
-              <TableHead />
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

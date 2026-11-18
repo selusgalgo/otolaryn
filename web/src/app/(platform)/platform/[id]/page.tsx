@@ -164,7 +164,7 @@ export default async function TenantOverviewPage({
                     <TableRow>
                       <TableHead>Nombre</TableHead>
                       <TableHead>Rol</TableHead>
-                      <TableHead />
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -217,7 +217,7 @@ export function PatientsTable({
                   sortDir={sortDir}
                 />
               </TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

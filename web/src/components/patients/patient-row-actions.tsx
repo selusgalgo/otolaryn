@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import {
   ArchiveBoxIcon,
-  EllipsisVerticalIcon,
   EyeIcon,
   PencilIcon,
 } from "@heroicons/react/24/outline";
@@ -17,14 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { PatientForm } from "@/components/patients/patient-form";
+import { RowActions } from "@/components/ui/row-actions";
 import { archivePatientAction, updatePatientAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { Patient } from "@/lib/types";
@@ -67,37 +59,24 @@ export function PatientRowActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={`Acciones para ${fullName}`}>
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href={`/patients/${patient.id}`}>
-              <EyeIcon data-icon="inline-start" />
-              Ver
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <PencilIcon data-icon="inline-start" />
-            Editar
-          </DropdownMenuItem>
-          {canArchive && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-                onSelect={() => setArchiveOpen(true)}
-              >
-                <ArchiveBoxIcon data-icon="inline-start" />
-                Archivar
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActions
+        overflowLabel={`Más acciones para ${fullName}`}
+        actions={[
+          { id: "view", label: `Ver a ${fullName}`, icon: <EyeIcon />, href: `/patients/${patient.id}` },
+          { id: "edit", label: `Editar a ${fullName}`, icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
+          ...(canArchive
+            ? [
+                {
+                  id: "archive",
+                  label: `Archivar a ${fullName}`,
+                  icon: <ArchiveBoxIcon />,
+                  onSelect: () => setArchiveOpen(true),
+                  destructive: true,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">

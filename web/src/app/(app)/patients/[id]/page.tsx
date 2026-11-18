@@ -108,7 +108,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                     <TableHead>Fecha</TableHead>
                     <TableHead>Motivo</TableHead>
                     <TableHead className="hidden md:table-cell">Doctor</TableHead>
-                    <TableHead className="w-20" />
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

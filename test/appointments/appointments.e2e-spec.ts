@@ -129,6 +129,42 @@ describe('Agenda (appointments)', () => {
     expect(body.status).toBe('scheduled');
   });
 
+  it('replays concurrent booking requests once and rejects reuse with different data', async () => {
+    const payload = slot('2028-01-10T09:00:00.000Z', 30, practitionerA);
+    const book = (body: typeof payload) =>
+      request(server)
+        .post(`/patients/${tenantA.patientId}/appointments`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .set('Idempotency-Key', 'whatsapp-test-message-1')
+        .send(body);
+    const [first, retry] = await Promise.all([book(payload), book(payload)]);
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(201);
+    expect((first.body as AppointmentResponse).id).toBe(
+      (retry.body as AppointmentResponse).id,
+    );
+    expect(first.body).not.toHaveProperty('idempotencyKeyHash');
+    expect(retry.body).not.toHaveProperty('idempotencyRequestHash');
+    const changed = await book({ ...payload, durationMinutes: 45 });
+    expect(changed.status).toBe(409);
+
+    const otherTenant = await request(server)
+      .post(`/patients/${tenantB.patientId}/appointments`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .set('Idempotency-Key', 'whatsapp-test-message-1')
+      .send(slot('2028-01-10T09:00:00.000Z', 30, decodeSub(tokenB)));
+    expect(otherTenant.status).toBe(201);
+    expect((otherTenant.body as AppointmentResponse).id).not.toBe(
+      (first.body as AppointmentResponse).id,
+    );
+
+    await request(server)
+      .delete(`/appointments/${(first.body as AppointmentResponse).id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(204);
+    expect((await book(payload)).status).toBe(409);
+  });
+
   it('rejects creating an appointment with no practitionerId (admin/recepcion must pick one)', async () => {
     const res = await request(server)
       .post(`/patients/${tenantA.patientId}/appointments`)

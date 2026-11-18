@@ -41,7 +41,7 @@ export default async function UsersPage() {
               <TableHead>Nombre</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Rol</TableHead>
-              <TableHead />
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

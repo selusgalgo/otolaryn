@@ -35,6 +35,23 @@ export class Appointment {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  // Hashes are internal integration metadata, never returned in API payloads.
+  @Column({
+    name: 'idempotency_key_hash',
+    type: 'text',
+    nullable: true,
+    select: false,
+  })
+  idempotencyKeyHash: string | null;
+
+  @Column({
+    name: 'idempotency_request_hash',
+    type: 'text',
+    nullable: true,
+    select: false,
+  })
+  idempotencyRequestHash: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

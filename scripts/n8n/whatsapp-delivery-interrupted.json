@@ -1,0 +1,197 @@
+{
+  "id": "WAMEDERIDELIVERYCRASH",
+  "name": "Mederi entrega ficticia interrupcion",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1d00000-0000-4000-8000-000000000001",
+      "name": "Inicio",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{messageId:'delivery-simulation-20261117-interrupted',phone:'+34600000998',text:'CANCELAR'}}];"
+      },
+      "id": "a1d00000-0000-4000-8000-000000000002",
+      "name": "Entrada ficticia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mederi-whatsapp-local-api:3000/integrations/whatsapp-booking/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.MEDERI_TEST_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "a1d00000-0000-4000-8000-000000000003",
+      "name": "Conversación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mederi-whatsapp-local-api:3000/integrations/whatsapp-booking/delivery/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.MEDERI_TEST_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({messageId: $('Entrada ficticia').item.json.messageId,phone: $('Entrada ficticia').item.json.phone}) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "a1d00000-0000-4000-8000-000000000004",
+      "name": "Reclamar respuesta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.send) return []; throw new Error('Interrupción simulada después de reclamar');"
+      },
+      "id": "a1d00000-0000-4000-8000-000000000005",
+      "name": "Proveedor simulado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mederi-whatsapp-local-api:3000/integrations/whatsapp-booking/delivery/result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.MEDERI_TEST_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({messageId: $('Entrada ficticia').item.json.messageId,phone: $('Entrada ficticia').item.json.phone,attempt:$json.attempt,result:$json.result}) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "a1d00000-0000-4000-8000-000000000006",
+      "name": "Guardar resultado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Inicio": {
+      "main": [
+        [
+          {
+            "node": "Entrada ficticia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrada ficticia": {
+      "main": [
+        [
+          {
+            "node": "Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversación": {
+      "main": [
+        [
+          {
+            "node": "Reclamar respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reclamar respuesta": {
+      "main": [
+        [
+          {
+            "node": "Proveedor simulado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proveedor simulado": {
+      "main": [
+        [
+          {
+            "node": "Guardar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
+  },
+  "active": false
+}

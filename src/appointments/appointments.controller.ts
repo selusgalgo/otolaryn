@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -42,8 +43,9 @@ export class AppointmentsController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('patientId', ParseUUIDPipe) patientId: string,
     @Body() dto: CreateAppointmentDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.appointments.create(patientId, dto, user);
+    return this.appointments.create(patientId, dto, user, idempotencyKey);
   }
 
   @Get('appointments')

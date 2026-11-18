@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { EllipsisVerticalIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,20 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActions } from "@/components/ui/row-actions";
 import { deleteClinicalEntryAction, discardClinicalEntryDraftAction } from "@/lib/actions/clinical-entries";
 
-// El botón de tres puntos se mantiene en todas las filas (sitio para
-// futuras acciones), pero "Eliminar" solo hace algo para admin — para
-// cualquier otro rol el menú se abre vacío en vez de desaparecer el
-// control entero, así la fila no "salta" de ancho según el rol. Mismo
-// patrón "el diálogo vive fuera del DropdownMenuContent" que
-// AppointmentRowActions, para que siga abierto tras cerrarse el menú.
+// La acción disponible aparece como icono directo; el diálogo permanece
+// fuera de RowActions para conservar su estado al activar la acción.
+// "Eliminar" solo hace algo para admin — para cualquier otro rol la fila
+// conserva el espacio reservado y no muestra un botón vacío.
 export function ClinicalEntryRowActions({
   patientId,
   entryId,
@@ -46,33 +39,23 @@ export function ClinicalEntryRowActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Más acciones para esta consulta">
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {isDraft && canDiscard && (
-            <DropdownMenuItem
-              className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-              onSelect={() => setDeleteOpen(true)}
-            >
-              <TrashIcon data-icon="inline-start" />
-              Descartar borrador
-            </DropdownMenuItem>
-          )}
-          {!isDraft && canDelete && (
-            <DropdownMenuItem
-              className="text-destructive data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
-              onSelect={() => setDeleteOpen(true)}
-            >
-              <TrashIcon data-icon="inline-start" />
-              Eliminar
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActions
+        overflowLabel="Más acciones para esta consulta"
+        reserveSpaceWhenEmpty
+        actions={
+          (isDraft && canDiscard) || (!isDraft && canDelete)
+            ? [
+                {
+                  id: isDraft ? "discard" : "delete",
+                  label: isDraft ? "Descartar borrador" : "Eliminar consulta",
+                  icon: <TrashIcon />,
+                  onSelect: () => setDeleteOpen(true),
+                  destructive: true,
+                },
+              ]
+            : []
+        }
+      />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
