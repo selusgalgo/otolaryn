@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 export default function SepaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-surface">
-      <header className="border-b bg-background px-4 py-3">
-        <div className="mx-auto flex max-w-[1080px] items-center">
+      <header className="border-b bg-background py-3">
+        <div className="mx-auto flex max-w-[1080px] items-center px-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-          <img src="/logo.svg" alt="Mederi" className="h-12 w-auto" />
+          <img src="/logo-horizontal.svg" alt="Mederi" className="h-10 w-auto" />
         </div>
       </header>
       <main className="mx-auto max-w-[1080px] px-4 py-6">{children}</main>

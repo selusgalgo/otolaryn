@@ -19,13 +19,15 @@ export const MEDERI_COLORS = {
 
 let logoDataUri: string | null = null;
 
-// web/public/logo.svg rendered to PNG once (its "Mederi" lettering is live
-// text in Bw Gradual, a font the server doesn't have, so the SVG itself
-// can't be drawn faithfully here). Read lazily and cached; passed to
-// pdfmake as a data: URI, which bypasses PdfService's local-file policy.
+// The horizontal logo (symbol + "Mederi", ~3:1) in brand blue — the same
+// drawing as web/public/logo-horizontal.svg, rendered to PNG once because
+// pdfmake can't draw SVG. Read lazily and cached; passed to pdfmake as a
+// data: URI, which bypasses PdfService's local-file policy.
 export function mederiLogoDataUri(): string {
   if (!logoDataUri) {
-    const png = readFileSync(join(__dirname, 'assets', 'mederi-logo.png'));
+    const png = readFileSync(
+      join(__dirname, 'assets', 'mederi-logo-horizontal.png'),
+    );
     logoDataUri = `data:image/png;base64,${png.toString('base64')}`;
   }
   return logoDataUri;

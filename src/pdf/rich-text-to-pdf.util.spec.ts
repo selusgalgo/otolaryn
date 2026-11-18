@@ -10,7 +10,12 @@ function flattenText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.map(flattenText).join('');
   if (typeof content === 'object') {
-    const obj = content as { text?: unknown; stack?: unknown; ul?: unknown; ol?: unknown };
+    const obj = content as {
+      text?: unknown;
+      stack?: unknown;
+      ul?: unknown;
+      ol?: unknown;
+    };
     return [
       flattenText(obj.text),
       flattenText(obj.stack),
@@ -29,7 +34,9 @@ describe('richTextToPdfContent', () => {
   });
 
   it('renders a normal Tiptap-authored <p> paragraph', () => {
-    const content = richTextToPdfContent('<p>Dolor de oído desde hace 3 días.</p>');
+    const content = richTextToPdfContent(
+      '<p>Dolor de oído desde hace 3 días.</p>',
+    );
     expect(flattenText(content)).toContain('Dolor de oído desde hace 3 días.');
   });
 
@@ -38,7 +45,8 @@ describe('richTextToPdfContent', () => {
   // <p> — valid HTML a browser renders fine, but the PDF mapper used to
   // only look at top-level block tags, so this produced an empty PDF.
   it('renders legacy-imported content: bare text joined by <br>, no <p> wrapper', () => {
-    const legacy = 'MOTIVO CONSULTA<br>Revisión de oído derecho<br>Sin antecedentes';
+    const legacy =
+      'MOTIVO CONSULTA<br>Revisión de oído derecho<br>Sin antecedentes';
     const content = richTextToPdfContent(legacy);
     const text = flattenText(content);
     expect(text).toContain('MOTIVO CONSULTA');
@@ -47,7 +55,8 @@ describe('richTextToPdfContent', () => {
   });
 
   it('renders a mix of a real <p> block and trailing bare legacy text', () => {
-    const mixed = '<p>Nota añadida en la app.</p>Texto suelto importado<br>del histórico';
+    const mixed =
+      '<p>Nota añadida en la app.</p>Texto suelto importado<br>del histórico';
     const content = richTextToPdfContent(mixed);
     const text = flattenText(content);
     expect(text).toContain('Nota añadida en la app.');
@@ -66,7 +75,9 @@ describe('richTextToPdfContent', () => {
   });
 
   it('preserves bold/italic formatting on real inline text', () => {
-    const content = richTextToPdfContent('<p><strong>Importante:</strong> revisar en 2 semanas.</p>');
+    const content = richTextToPdfContent(
+      '<p><strong>Importante:</strong> revisar en 2 semanas.</p>',
+    );
     const inline = (content[0] as { text: ContentText[] }).text;
     const bold = inline.find((t) => t.text === 'Importante:');
     expect(bold?.bold).toBe(true);

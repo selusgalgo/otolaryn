@@ -227,7 +227,9 @@ function letterhead(
   return {
     ...(newPage ? { pageBreak: 'before' as const } : {}),
     columns: [
-      { width: 50, image: logo, fit: [50, 52] },
+      // Horizontal logo (~3:1): 112pt wide is ~37pt tall, about the height of
+      // the creditor's address block beside it.
+      { width: 112, image: logo, fit: [112, 38] },
       {
         width: '*',
         alignment: 'right',
