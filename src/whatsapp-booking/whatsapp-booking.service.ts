@@ -114,7 +114,7 @@ export class WhatsappBookingService {
       )
       .getMany();
     let exact = patients.filter((p) =>
-      [p.phone, p.phone2 ?? ''].some(
+      [p.phone ?? '', p.phone2 ?? ''].some(
         (value) => canonicalPhone(value) === canonicalPhone(phone),
       ),
     );
@@ -470,7 +470,7 @@ export class WhatsappBookingService {
     const sharedDemo = demoPhones.some((value) => /^\+34600000\d{3}$/.test(value) && value === dto.phone);
     const exact = matches.filter(
       (p) =>
-        [p.phone, p.phone2 ?? ''].some(
+        [p.phone ?? '', p.phone2 ?? ''].some(
           (value) => canonicalPhone(value) === phone,
         ) &&
         normalizedName(p.firstName) === normalizedName(firstName) &&
@@ -485,7 +485,7 @@ export class WhatsappBookingService {
     } else if (!sharedDemo && matches.length) {
       if (
         matches.length !== 1 ||
-        ![matches[0].phone, matches[0].phone2 ?? ''].some(
+        ![matches[0].phone ?? '', matches[0].phone2 ?? ''].some(
           (p) => canonicalPhone(p) === phone,
         ) ||
         normalizedName(matches[0].firstName) !== normalizedName(firstName) ||

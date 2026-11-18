@@ -26,11 +26,14 @@ export class Patient {
   @Column({ name: 'document_id', type: 'text', nullable: true })
   documentId: string | null;
 
-  @Column({ name: 'date_of_birth', type: 'date' })
-  dateOfBirth: string;
+  // Nullable desde PatientBirthDatePhoneOptional1737700000000: una fila
+  // importada de un fichero legado puede venir sin fecha o sin teléfono. El
+  // alta manual los sigue exigiendo (CreatePatientDto).
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  dateOfBirth: string | null;
 
-  @Column()
-  phone: string;
+  @Column({ type: 'text', nullable: true })
+  phone: string | null;
 
   @Column({ name: 'phone2', type: 'text', nullable: true })
   phone2: string | null;

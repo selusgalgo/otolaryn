@@ -99,7 +99,9 @@ export function PatientForm({
               name="dateOfBirth"
               type="date"
               defaultValue={initialValues?.dateOfBirth?.slice(0, 10)}
-              required
+              // Alta: obligatoria. Edición: solo si el paciente ya la tiene,
+              // para poder editar uno importado sin fecha sin inventarla.
+              required={!initialValues || !!initialValues.dateOfBirth}
               disabled={pending}
             />
           </div>
@@ -150,7 +152,13 @@ export function PatientForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Teléfono</Label>
-            <Input id="phone" name="phone" defaultValue={initialValues?.phone} required disabled={pending} />
+            <Input
+              id="phone"
+              name="phone"
+              defaultValue={initialValues?.phone ?? ""}
+              required={!initialValues || !!initialValues.phone}
+              disabled={pending}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone2">Teléfono 2</Label>

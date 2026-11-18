@@ -24,7 +24,10 @@ export function cn(...inputs: ClassValue[]) {
 // locale. A datetime (created_at, an appointment's scheduled_at) is a
 // different concern and keeps using toLocaleString with dateStyle/timeStyle
 // wherever that's already done — this is only for a bare "date" column.
-export function formatDateOnly(iso: string): string {
+export function formatDateOnly(iso: string | null | undefined): string {
+  // Sin fecha (p. ej. paciente importado de un legado que no la traía): "-",
+  // igual que formatDocumentId con un documento ausente.
+  if (!iso) return "-";
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return iso;
   const [, year, month, day] = match;
@@ -40,7 +43,8 @@ const SHORT_MONTHS_ES = [
 // reason — going through `new Date(iso)` first risks a timezone-driven
 // off-by-one on a date-only value. "18 sept 2026" style, used where that
 // reads better than the plain DD/MM/AAAA above (e.g. the patients table).
-export function formatDateShort(iso: string): string {
+export function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return "-";
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return iso;
   const [, year, month, day] = match;

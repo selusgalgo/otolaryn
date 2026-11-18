@@ -51,12 +51,14 @@ const INSURANCE_NAME_LABEL = 'Aseguradora';
 // CreatePatientDto itself now (plenty of real patients have none on file),
 // so a row without one, or without a mapped column at all, just leaves it
 // empty instead of inventing a value.
-const REQUIRED_FIELDS: (keyof CreatePatientDto)[] = [
-  'firstName',
-  'lastName',
-  'dateOfBirth',
-  'phone',
-];
+//
+// Same for dateOfBirth and phone: a real legacy file has many patients
+// with neither on file, and that row must import with them empty (NULL),
+// not be skipped — see ImportPatientDto. That also means a file with no
+// Fecha de nacimiento / Teléfono column at all is accepted. Only the
+// patient's name is still required: without it the row can't be found or
+// booked.
+const REQUIRED_FIELDS: (keyof CreatePatientDto)[] = ['firstName', 'lastName'];
 
 export interface ExportedFile {
   buffer: Buffer;
@@ -188,6 +190,13 @@ export function suggestMapping(
     const actual = byNormalized.get(normalizeHeader(label));
     if (actual) mapping[field] = actual;
   }
+  // A legacy file's own second-phone column is usually called MOVIL.
+  if (!mapping.phone2) {
+    const mobile = ['movil', 'telefono movil', 'telefono 2'].find((name) =>
+      byNormalized.has(name),
+    );
+    if (mobile) mapping.phone2 = byNormalized.get(mobile);
+  }
   const insuranceHeader = byNormalized.get(
     normalizeHeader(INSURANCE_NAME_LABEL),
   );
@@ -288,17 +297,26 @@ function extractDocumentIdFromProfession(profession: string): {
 
 // A real legacy TELEFONO cell sometimes carries two numbers in one value
 // ("645575702/955761278", "954 25 19 95 / 636 06 89 86") instead of a
-// second column — split on "/" only (the one separator actually seen in
-// the source data; a phone number never contains a "/" itself, so this
-// never mis-splits a genuine single number). Three parts or more, or a
-// single part, isn't this shape — left untouched rather than guessed at.
-function splitPhone(text: string): { phone: string; phone2?: string } {
+// second column. Separators that can never be part of a genuine single
+// number are split on: "/", ",", ";", "|", a line break, or the word "y".
+// Failing that, a cell of only digits and spaces that adds up to exactly
+// two 9-digit numbers ("645575702 955761278", "954 25 19 95 636 06 89 86")
+// is split in half. "-" is deliberately NOT a separator ("955-76-12-78" is
+// one number). Three parts or more, or a single part, isn't this shape —
+// left untouched rather than guessed at.
+export function splitPhone(text: string): { phone: string; phone2?: string } {
   const parts = text
-    .split('/')
+    .split(/[/,;|\n\r]|\s+y\s+/i)
     .map((part) => part.trim())
     .filter(Boolean);
   if (parts.length === 2) {
     return { phone: parts[0], phone2: parts[1] };
+  }
+  if (parts.length === 1 && /^[\d\s]+$/.test(text)) {
+    const digits = text.replace(/\s+/g, '');
+    if (digits.length === 18) {
+      return { phone: digits.slice(0, 9), phone2: digits.slice(9) };
+    }
   }
   return { phone: text };
 }

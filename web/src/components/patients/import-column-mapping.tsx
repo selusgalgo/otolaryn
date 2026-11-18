@@ -10,8 +10,11 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "firstName", label: "Nombre", required: true },
   { field: "lastName", label: "Apellidos", required: true },
   { field: "documentId", label: "Documento", required: false },
-  { field: "dateOfBirth", label: "Fecha de nacimiento", required: true },
-  { field: "phone", label: "Teléfono", required: true },
+  // No obligatorios: un fichero legado real trae pacientes sin fecha o sin
+  // teléfono, y esas filas se importan con el dato vacío en vez de omitirse.
+  // Solo el nombre sigue siendo imprescindible.
+  { field: "dateOfBirth", label: "Fecha de nacimiento", required: false },
+  { field: "phone", label: "Teléfono", required: false },
   // No obligatorio: si el fichero solo trae un Teléfono con dos números
   // metidos en la misma celda ("645575702/955761278"), el importador ya
   // los separa solo — este campo es únicamente para un fichero que además

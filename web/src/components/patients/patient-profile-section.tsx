@@ -181,7 +181,10 @@ export function PatientProfileSection({
                     name="dateOfBirth"
                     type="date"
                     defaultValue={patient.dateOfBirth?.slice(0, 10)}
-                    required
+                    // Obligatorio solo si el paciente ya la tiene: así no se
+                    // puede borrar, pero un paciente importado sin fecha se
+                    // puede editar sin tener que inventarla.
+                    required={!!patient.dateOfBirth}
                     disabled={pending}
                   />
                 </div>
@@ -189,7 +192,13 @@ export function PatientProfileSection({
                   <Label htmlFor="phone" className="text-xs text-muted-foreground">
                     Teléfono
                   </Label>
-                  <Input id="phone" name="phone" defaultValue={patient.phone} required disabled={pending} />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    defaultValue={patient.phone ?? ""}
+                    required={!!patient.phone}
+                    disabled={pending}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="phone2" className="text-xs text-muted-foreground">
@@ -336,7 +345,7 @@ export function PatientProfileSection({
               </div>
               <div>
                 <div className="text-muted-foreground">Teléfono</div>
-                <div>{patient.phone}</div>
+                <div>{patient.phone || "-"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Teléfono 2</div>

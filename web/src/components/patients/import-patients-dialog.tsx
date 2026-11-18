@@ -21,13 +21,10 @@ const ACCEPT =
 
 // documentId excluded on purpose — see the matching REQUIRED_FIELDS
 // comment in patients-csv.util.ts: Documento is optional on the patient
-// itself, a row with no mapped column just imports without one.
-const REQUIRED_FIELDS: (keyof ColumnMapping)[] = [
-  "firstName",
-  "lastName",
-  "dateOfBirth",
-  "phone",
-];
+// itself, a row with no mapped column just imports without one. Same for
+// dateOfBirth and phone: a legacy file with patients lacking either must
+// import them with the field empty — only the name is indispensable.
+const REQUIRED_FIELDS: (keyof ColumnMapping)[] = ["firstName", "lastName"];
 
 function isMappingComplete(mapping: ColumnMapping): boolean {
   return REQUIRED_FIELDS.every((field) => !!mapping[field]);

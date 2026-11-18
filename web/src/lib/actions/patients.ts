@@ -29,8 +29,12 @@ function patientPayloadFromFormData(formData: FormData) {
     // this is just to avoid a needless request.
     firstName: String(formData.get("firstName") ?? "").trim(),
     lastName: String(formData.get("lastName") ?? "").trim(),
-    dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
-    phone: String(formData.get("phone") ?? "").trim(),
+    // undefined (no ""), para que quede fuera del JSON: en una edición
+    // significa "no tocar" — un paciente importado sin fecha o sin teléfono
+    // se puede editar sin inventarlos. En un alta el backend sigue
+    // rechazando su falta (CreatePatientDto los exige).
+    dateOfBirth: String(formData.get("dateOfBirth") ?? "") || undefined,
+    phone: String(formData.get("phone") ?? "").trim() || undefined,
     // Documento (and every other optional field below) sends an explicit
     // null when blank, not just an omitted key — updatePatientAction uses
     // this same payload for PATCH, and omitting the key there means

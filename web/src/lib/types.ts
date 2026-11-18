@@ -5,8 +5,10 @@ export interface Patient {
   firstName: string;
   lastName: string;
   documentId: string | null;
-  dateOfBirth: string;
-  phone: string;
+  // null en un paciente importado de un fichero legado que no traía fecha o
+  // teléfono. El alta manual los sigue exigiendo.
+  dateOfBirth: string | null;
+  phone: string | null;
   phone2: string | null;
   email: string | null;
   address: string | null;

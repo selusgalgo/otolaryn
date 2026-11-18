@@ -265,7 +265,7 @@ export function PatientsTable({
                   </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDocumentId(patient.documentId)}</TableCell>
-                <TableCell className="text-muted-foreground">{patient.phone}</TableCell>
+                <TableCell className="text-muted-foreground">{patient.phone || "-"}</TableCell>
                 {showOrigin && (
                   <TableCell className="text-muted-foreground">
                     {{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}

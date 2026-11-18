@@ -21,6 +21,7 @@ import {
 } from '../shared/rich-text.util';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
+import { ImportPatientDto } from './dto/import-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { Patient } from './entities/patient.entity';
 import type { ImportRow, UpdateRow } from './patients-csv.util';
@@ -121,7 +122,10 @@ export class PatientsService {
     if (sortBy === 'name') {
       qb.orderBy('p.firstName', direction).addOrderBy('p.lastName', direction);
     } else if (sortBy === 'dateOfBirth') {
-      qb.orderBy('p.dateOfBirth', direction);
+      // Los pacientes sin fecha (importados de un legado) van siempre al
+      // final, ascendente o descendente — por defecto Postgres los pondría
+      // los primeros al ordenar de más joven a más mayor.
+      qb.orderBy('p.dateOfBirth', direction, 'NULLS LAST');
     } else {
       qb.orderBy('p.createdAt', 'DESC');
     }
@@ -204,8 +208,11 @@ export class PatientsService {
     return this.repo.findOne({ where: { legacyId } });
   }
 
+  // ImportPatientDto solo lo usa el importador: es CreatePatientDto con
+  // fecha de nacimiento y teléfono opcionales (quedan NULL si el fichero no
+  // los trae). El alta manual sigue entrando con CreatePatientDto.
   async create(
-    dto: CreatePatientDto,
+    dto: CreatePatientDto | ImportPatientDto,
     creationSource: 'manual' | 'import' | 'whatsapp' = 'manual',
   ): Promise<Patient> {
     // Número de historia (24/09/2026, a petición del usuario): antes solo
@@ -317,7 +324,14 @@ export class PatientsService {
       }
     }
 
-    const dto = plainToInstance(CreatePatientDto, {
+    // Nombre y apellidos vacíos a la vez: el paciente no se podría buscar
+    // ni citar, así que la fila se omite — pero con un motivo que diga
+    // exactamente eso, no la lista de restricciones de class-validator.
+    if (!fields.firstName?.trim() && !fields.lastName?.trim()) {
+      return { created: false, reason: 'Nombre y apellidos vacíos' };
+    }
+
+    const dto = plainToInstance(ImportPatientDto, {
       ...fields,
       // A legacy file's Notas cell is plain text, not the HTML the Notas
       // editor produces — converted here (newlines -> <br>) so create()'s

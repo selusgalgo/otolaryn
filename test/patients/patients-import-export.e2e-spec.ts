@@ -21,7 +21,8 @@ interface PatientResponse {
   lastName: string;
   documentId: string | null;
   profession: string | null;
-  phone: string;
+  dateOfBirth: string | null;
+  phone: string | null;
   phone2: string | null;
   address: string | null;
   city: string | null;
@@ -541,6 +542,189 @@ describe('Patients — export/import CSV/XLSX', () => {
     expect(patients[0].documentId).toBeNull();
   });
 
+  // Un fichero legado real trae pacientes sin fecha de nacimiento o sin
+  // teléfono: esa fila se importa con el dato vacío (NULL), no se omite.
+  it('imports rows with an empty Fecha de nacimiento / Teléfono cell, leaving them null', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'VacioFecha',
+        lastName: 'Uno',
+        documentId: 'EMP-001',
+        dateOfBirth: '',
+      }),
+      csvRow({
+        firstName: 'VacioTel',
+        lastName: 'Dos',
+        documentId: 'EMP-002',
+        phone: '',
+      }),
+      csvRow({
+        firstName: 'VacioAmbos',
+        lastName: 'Tres',
+        documentId: 'EMP-003',
+        dateOfBirth: '',
+        phone: '',
+      }),
+    ].join('\n');
+
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.body.created).toBe(3);
+    expect(res.body.skipped).toHaveLength(0);
+
+    const byName = async (name: string) => {
+      const list = await request(server)
+        .get(`/patients?search=${name}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      return (list.body as PaginatedPatients).data[0];
+    };
+    const sinFecha = await byName('VacioFecha');
+    expect(sinFecha.dateOfBirth).toBeNull();
+    expect(sinFecha.phone).toBe('+34600000000');
+    const sinTel = await byName('VacioTel');
+    expect(sinTel.phone).toBeNull();
+    expect(sinTel.dateOfBirth).toBe('1990-01-01');
+    const sinAmbos = await byName('VacioAmbos');
+    expect(sinAmbos.dateOfBirth).toBeNull();
+    expect(sinAmbos.phone).toBeNull();
+  });
+
+  it('imports a file with no Fecha de nacimiento nor Teléfono column at all', async () => {
+    const csv = ['Nombre,Apellidos', 'SinColumnas,Uno'].join('\n');
+
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.body.created).toBe(1);
+    expect(res.body.skipped).toHaveLength(0);
+
+    const list = await request(server)
+      .get('/patients?search=SinColumnas')
+      .set('Authorization', `Bearer ${tokenA}`);
+    const [patient] = (list.body as PaginatedPatients).data;
+    expect(patient.dateOfBirth).toBeNull();
+    expect(patient.phone).toBeNull();
+  });
+
+  // Nombre sigue siendo obligatorio: sin él no se puede buscar ni citar.
+  // El motivo debe decirlo claro, no ser la lista de restricciones de
+  // class-validator.
+  it('skips a row with both Nombre and Apellidos empty, with a clear reason', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'ConNombre',
+        lastName: 'Valido',
+        documentId: 'EMP-010',
+      }),
+      csvRow({ firstName: '', lastName: '', documentId: 'EMP-011' }),
+    ].join('\n');
+
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.body.created).toBe(1);
+    expect(res.body.skipped).toHaveLength(1);
+    expect(res.body.skipped[0].row).toBe(2);
+    expect(res.body.skipped[0].reason).toBe('Nombre y apellidos vacíos');
+  });
+
+  // Que admita vacíos no relaja los datos que SÍ vienen informados: un
+  // teléfono de más de 30 caracteres sigue siendo un error de esa fila.
+  it('still skips a row whose informed phone is invalid', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'TelLargo',
+        lastName: 'Malo',
+        documentId: 'EMP-020',
+        phone: '1'.repeat(31),
+      }),
+    ].join('\n');
+
+    const res = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.body.created).toBe(0);
+    expect(res.body.skipped).toHaveLength(1);
+    expect(res.body.skipped[0].reason).toContain('phone');
+  });
+
+  // Solo la importación admite vacíos: el alta a mano sigue exigiendo
+  // fecha de nacimiento y teléfono.
+  it('manual POST /patients still requires dateOfBirth and phone', async () => {
+    const res = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ firstName: 'Manual', lastName: 'SinDatos' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('sorts patients by dateOfBirth with the ones without a date always last', async () => {
+    const csv = [
+      CSV_HEADER,
+      csvRow({
+        firstName: 'OrdSin',
+        lastName: 'Fecha',
+        documentId: 'EMP-030',
+        dateOfBirth: '',
+      }),
+      csvRow({
+        firstName: 'OrdVieja',
+        lastName: 'Fecha',
+        documentId: 'EMP-031',
+        dateOfBirth: '1950-01-01',
+      }),
+      csvRow({
+        firstName: 'OrdJoven',
+        lastName: 'Fecha',
+        documentId: 'EMP-032',
+        dateOfBirth: '2010-01-01',
+      }),
+    ].join('\n');
+    const imported = await runImport(
+      server,
+      tokenA,
+      Buffer.from(csv, 'utf-8'),
+      'pacientes.csv',
+    );
+    expect(imported.body.created).toBe(3);
+
+    for (const sortDir of ['asc', 'desc'] as const) {
+      const list = await request(server)
+        .get(`/patients?search=Ord&sortBy=dateOfBirth&sortDir=${sortDir}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      const names = (list.body as PaginatedPatients).data.map(
+        (p) => p.firstName,
+      );
+      expect(names).toHaveLength(3);
+      expect(names[2]).toBe('OrdSin');
+    }
+  });
+
   it('extracts a NIF/NIE embedded in Profesión as documentId when no Documento column exists', async () => {
     const csv = [
       'Nombre,Apellidos,Fecha de nacimiento,Teléfono,Profesión',
@@ -610,7 +794,11 @@ describe('Patients — export/import CSV/XLSX', () => {
   });
 
   it('rejects a CSV missing a required column', async () => {
-    const csv = 'Nombre,Apellidos\nIncompleto,Fila';
+    // Apellidos sigue siendo obligatorio. Fecha de nacimiento y Teléfono ya
+    // no lo son (ver el test "imports a file with no Fecha de nacimiento
+    // nor Teléfono column"), así que aquí falta una de las que sí.
+    const csv =
+      'Nombre,Fecha de nacimiento,Teléfono\nIncompleto,1990-01-01,+34600000000';
 
     const res = await request(server)
       .post('/patients/import')
