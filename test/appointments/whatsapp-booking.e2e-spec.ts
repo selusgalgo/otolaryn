@@ -15,7 +15,15 @@ import { WhatsappBookingPurgeService } from '../../src/whatsapp-booking/whatsapp
 
 const token = 'test_' + 'a'.repeat(48);
 const prefix = '/integrations/whatsapp-booking';
-type MessageReply = { reply: string; duplicate: boolean; menu?: { kind: string; options: { id: string; title: string }[]; hasMore?: boolean } };
+type MessageReply = {
+  reply: string;
+  duplicate: boolean;
+  menu?: {
+    kind: string;
+    options: { id: string; title: string }[];
+    hasMore?: boolean;
+  };
+};
 
 describe('WhatsApp booking isolation and booking', () => {
   let app: INestApplication;
@@ -178,8 +186,11 @@ describe('WhatsApp booking isolation and booking', () => {
 
   it('prepares Flow delivery idempotently before the delivery claim', async () => {
     const body = { phone: '+34600000111', messageId: 'flow-notification-test' };
-    const post = (path: string) => request(server).post(`${prefix}/${path}`)
-      .set('Authorization', `Bearer ${token}`).send(body);
+    const post = (path: string) =>
+      request(server)
+        .post(`${prefix}/${path}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
     const first = await post('delivery/prepare-flow').expect(201);
     expect(first.body).toEqual({ prepared: true, duplicate: false });
     const second = await post('delivery/prepare-flow').expect(201);
@@ -187,9 +198,11 @@ describe('WhatsApp booking isolation and booking', () => {
     const claim = await post('delivery/claim').expect(201);
     expect(claim.body.send).toBe(true);
     expect((await post('delivery/claim').expect(201)).body.send).toBe(false);
-    await request(server).post(`${prefix}/delivery/prepare-flow`)
+    await request(server)
+      .post(`${prefix}/delivery/prepare-flow`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ phone: '+34699999999', messageId: 'flow-other' }).expect(403);
+      .send({ phone: '+34699999999', messageId: 'flow-other' })
+      .expect(403);
   });
 
   it('guides the whole conversation and books only after explicit confirmation', async () => {
@@ -207,29 +220,62 @@ describe('WhatsApp booking isolation and booking', () => {
           .expect(201)
       ).body as MessageReply;
     const professionalMenu = await send('CITA', 'interactive-prof-menu');
-    expect(professionalMenu.reply).toContain('elige profesional');
+    expect(professionalMenu.reply).toContain('Elige el profesional');
     expect(professionalMenu.menu?.options[0].id).toBe(`P:${practitioner}`);
-    expect((await send('CITA', 'interactive-prof-menu')).menu).toEqual(professionalMenu.menu);
-    expect((await send('P:00000000-0000-4000-8000-000000000000')).reply).toContain('profesional mostrado');
+    expect((await send('CITA', 'interactive-prof-menu')).menu).toEqual(
+      professionalMenu.menu,
+    );
+    expect((await send('quiero una cita')).menu).toEqual(professionalMenu.menu);
+    expect(
+      (await send('P:00000000-0000-4000-8000-000000000000')).reply,
+    ).toContain('No he podido identificarlo');
     const dates = await send(`P:${practitioner}`);
     expect(dates.menu?.kind).toBe('dates');
     const dateId = `D:${practitioner}:${date}`;
     expect(dates.menu?.options.map((option) => option.id)).toContain(dateId);
-    expect((await send(dateId.replace(practitioner, '00000000-0000-4000-8000-000000000000'))).reply).toContain('fechas mostradas');
-    const slotReply = await send(dateId);
+    expect(
+      (
+        await send(
+          dateId.replace(practitioner, '00000000-0000-4000-8000-000000000000'),
+        )
+      ).reply,
+    ).toContain('Elige una de las fechas');
+    const naturalDateText = date.split('-').reverse().join('/');
+    const slotReply = await send(naturalDateText);
     expect(slotReply.reply).toContain('Elige un horario');
     const slot = slotReply.menu?.options[0].id;
     expect(slot).toBeDefined();
-    const wrongProfessional = slot!.replace(practitioner, '00000000-0000-4000-8000-000000000000');
-    expect((await send(wrongProfessional)).reply).toContain('horarios mostrados');
-    expect((await send(slot!)).reply).toContain('nombre');
+    const wrongProfessional = slot!.replace(
+      practitioner,
+      '00000000-0000-4000-8000-000000000000',
+    );
+    expect((await send(wrongProfessional)).reply).toContain(
+      'horarios de la lista',
+    );
+    const scheduledAt = slot!.slice(`S:${practitioner}:`.length);
+    const time = new Intl.DateTimeFormat('es-ES', {
+      timeZone: 'Europe/Madrid',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date(scheduledAt));
+    expect((await send(`a las ${time}`)).reply).toContain('nombre');
     await send('Nombre');
     await send('Ficticio');
-    const confirmation = await send('1988-02-29');
-    expect(confirmation.reply).toContain('¿Confirmas');
+    const confirmation = await send('29/02/1988');
+    expect(confirmation.reply).toContain('¿Te viene bien');
     expect(confirmation.menu?.kind).toBe('confirm');
     const confirmId = confirmation.menu!.options[0].id;
-    expect((await send(confirmId.replace(practitioner, '00000000-0000-4000-8000-000000000000'))).reply).toContain('Responde SI');
+    expect(
+      (
+        await send(
+          confirmId.replace(
+            practitioner,
+            '00000000-0000-4000-8000-000000000000',
+          ),
+        )
+      ).reply,
+    ).toContain('Responde SI');
     expect((await send('tal vez')).reply).toContain('Responde SI');
     const [a, b] = await Promise.all([
       send(confirmId, 'confirmation-message'),
@@ -274,14 +320,14 @@ describe('WhatsApp booking isolation and booking', () => {
     await send('CITA');
     await send('1');
     const firstPage = await send(date);
-    expect(firstPage.reply).toContain('Escribe MAS');
+    expect(firstPage.reply).toContain('Más horarios');
     const oldSlot = firstPage.menu?.options[0].id;
     expect(oldSlot).toBeDefined();
     const secondPage = await send('MAS');
     const currentSlot = secondPage.menu?.options[0].id;
     expect(currentSlot).toBeDefined();
     expect(currentSlot).not.toBe(oldSlot);
-    expect((await send(oldSlot!)).reply).toContain('horarios mostrados');
+    expect((await send(oldSlot!)).reply).toContain('No he encontrado esa hora');
     expect((await send(currentSlot!)).reply).toContain('nombre');
     await send('CANCELAR');
   });
@@ -319,7 +365,7 @@ describe('WhatsApp booking isolation and booking', () => {
     ).toHaveLength(1);
     expect(
       [one.reply, two.reply].filter((s: string) =>
-        s.includes('No se ha podido confirmar'),
+        s.includes('no he podido confirmar'),
       ),
     ).toHaveLength(1);
     const client = await owner.connect();
@@ -385,7 +431,9 @@ describe('WhatsApp booking isolation and booking', () => {
         .send({ phone, text, messageId })
         .expect(201);
     const started = await send('CITA', 'expiry-start');
-    expect((started.body as MessageReply).reply).toContain('elige profesional');
+    expect((started.body as MessageReply).reply).toContain(
+      'Elige el profesional',
+    );
     const client = await owner.connect();
     try {
       await client.query('BEGIN');
@@ -409,7 +457,7 @@ describe('WhatsApp booking isolation and booking', () => {
     }
     const afterExpiry = await send('1', 'expiry-next');
     expect((afterExpiry.body as MessageReply).reply).toContain(
-      'elige profesional',
+      'Elige el profesional',
     );
     await send('CANCELAR', 'expiry-cancel');
   });
