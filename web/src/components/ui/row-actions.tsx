@@ -19,6 +19,7 @@ export interface RowAction {
   onSelect?: () => void;
   disabled?: boolean;
   destructive?: boolean;
+  overflowOnly?: boolean;
 }
 
 export function RowActions({
@@ -30,8 +31,10 @@ export function RowActions({
   overflowLabel?: string;
   reserveSpaceWhenEmpty?: boolean;
 }) {
-  const visibleActions = actions.slice(0, 3);
-  const overflowActions = actions.slice(3);
+  const eligibleActions = actions.filter((action) => !action.overflowOnly);
+  const visibleActions = eligibleActions.slice(0, 3);
+  const visibleIds = new Set(visibleActions.map((action) => action.id));
+  const overflowActions = actions.filter((action) => !visibleIds.has(action.id));
 
   return (
     <div className="flex items-center justify-end gap-1">

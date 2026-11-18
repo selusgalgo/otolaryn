@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { QueryFailedError, Repository } from 'typeorm';
-import { User } from '../iam/entities/user.entity';
+import { User, type AgendaView } from '../iam/entities/user.entity';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -19,6 +19,7 @@ export interface AccountProfile {
   username: string | null;
   email: string;
   role: string;
+  agendaView: AgendaView;
 }
 
 // "My own account" — deliberately not tenant-scoped (works identically for
@@ -72,6 +73,11 @@ export class AccountService {
     }
   }
 
+  async updateAgendaView(userId: string, agendaView: AgendaView): Promise<void> {
+    const result = await this.users.update({ id: userId }, { agendaView });
+    if (!result.affected) throw new NotFoundException('Usuario no encontrado');
+  }
+
   async updatePassword(userId: string, dto: UpdatePasswordDto): Promise<void> {
     const user = await this.findSelf(userId);
 
@@ -97,5 +103,6 @@ function toProfile(user: User): AccountProfile {
     username: user.username,
     email: user.email,
     role: user.role,
+    agendaView: user.agendaView,
   };
 }

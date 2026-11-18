@@ -16,6 +16,7 @@ import {
   type PeriodAppointment,
 } from '@/components/appointments/appointment-period-view';
 import { AppointmentRowActions } from '@/components/appointments/appointment-row-actions';
+import { AgendaViewSwitch } from '@/components/appointments/agenda-view-switch';
 import { AppointmentStatusBadge } from '@/components/appointments/appointment-status-badge';
 import { NewAppointmentDialog } from '@/components/appointments/new-appointment-dialog';
 import { OccupancyCalendar } from '@/components/appointments/occupancy-calendar';
@@ -37,7 +38,7 @@ import type {
   Patient,
   Schedule,
 } from '@/lib/types';
-import { cn, formatDocumentId, splitName } from '@/lib/utils';
+import { formatDocumentId, splitName } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 const PERIOD_PAGE_SIZE = 100;
@@ -209,6 +210,7 @@ export default async function AppointmentsPage({
   if (me.role === 'profesional' && !me.agendaAccess) {
     redirect('/dashboard');
   }
+  const profile = await apiFetch<{ agendaView: AgendaView }>('/account');
 
   const params = await searchParams;
   const todayKey = clinicDateInputValue(new Date().toISOString());
@@ -221,7 +223,7 @@ export default async function AppointmentsPage({
       : undefined;
   const view: AgendaView =
     validView ??
-    (fromParam && toParam ? (fromParam === toParam ? 'day' : 'month') : 'day');
+    (fromParam && toParam ? (fromParam === toParam ? 'day' : 'month') : profile.agendaView ?? 'month');
   const anchorKey = dateParam ?? fromParam ?? todayKey;
   const period = rangeForView(view, anchorKey);
   const { from, to } = period;
@@ -359,30 +361,7 @@ export default async function AppointmentsPage({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-2">
-        <nav
-          aria-label="Vista de agenda"
-          className="flex items-center gap-1 rounded-full bg-muted p-1"
-        >
-          {(['day', 'week', 'month'] as const).map((targetView) => (
-            <Link
-              key={targetView}
-              href={periodHref(targetView, tabAnchorKey)}
-              aria-current={view === targetView ? 'page' : undefined}
-              className={cn(
-                'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
-                view === targetView
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {targetView === 'day'
-                ? 'Día'
-                : targetView === 'week'
-                  ? 'Semana'
-                  : 'Mes'}
-            </Link>
-          ))}
-        </nav>
+        <AgendaViewSwitch view={view} hrefs={{ day: periodHref('day', tabAnchorKey), week: periodHref('week', tabAnchorKey), month: periodHref('month', tabAnchorKey) }} />
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon-sm" asChild>
