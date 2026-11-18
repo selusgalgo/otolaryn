@@ -35,6 +35,38 @@ export class WhatsappDeliveryService {
     );
   }
 
+  // Flow messages are created by the encrypted Flow endpoint rather than
+  // the chat conversation state machine. Register their delivery receipt
+  // before claiming so retries remain idempotent without changing a session.
+  async prepareFlow(body: DeliveryClaimDto) {
+    const tenantId = this.context.tenantId;
+    const messageHash = hash(body.messageId);
+    const phoneHash = hash(body.phone);
+    const contentHash = hash(`flow-notification\n${body.phone}`);
+    await this.context.manager.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`wa-message:${tenantId}:${messageHash}`],
+    );
+    const rows = await this.context.manager.query<
+      { phone_hash: string; content_hash: string }[]
+    >(
+      'SELECT phone_hash, content_hash FROM public.whatsapp_booking_receipts WHERE message_hash = $1',
+      [messageHash],
+    );
+    if (rows.length) {
+      if (rows[0].phone_hash !== phoneHash || rows[0].content_hash !== contentHash)
+        throw new ConflictException('Identificador de mensaje ya utilizado');
+      return { prepared: true, duplicate: true };
+    }
+    await this.context.manager.query(
+      `INSERT INTO public.whatsapp_booking_receipts
+       (tenant_id, message_hash, phone_hash, content_hash, reply)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tenantId, messageHash, phoneHash, contentHash, 'FLOW_NOTIFICATION'],
+    );
+    return { prepared: true, duplicate: false };
+  }
+
   private async receipt(body: DeliveryClaimDto) {
     const rows = await this.context.manager.query<
       {

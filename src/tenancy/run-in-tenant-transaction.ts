@@ -14,6 +14,7 @@ export async function runInTenantTransaction(
   tenancyContext: TenancyContext,
   tenantId: string,
   next: CallHandler,
+  options: { whatsappTenantConnection?: boolean } = {},
 ): Promise<unknown> {
   const queryRunner = dataSource.createQueryRunner();
   try {
@@ -32,7 +33,7 @@ export async function runInTenantTransaction(
     ]);
 
     const result = await tenancyContext.run<Promise<unknown>>(
-      { queryRunner, tenantId },
+      { queryRunner, tenantId, ...options },
       () => firstValueFrom(next.handle()),
     );
 

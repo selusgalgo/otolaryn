@@ -25,6 +25,16 @@ export interface TenantFormState {
   success?: boolean;
 }
 
+export async function updateTenantWhatsappPlatformAction(tenantId: string, _prev: TenantFormState, formData: FormData): Promise<TenantFormState> {
+  try {
+    await apiFetch(`/platform/tenants/${tenantId}/whatsapp-booking`, { method: "PATCH", body: { platformEnabled: formData.get("platformEnabled") === "on" } });
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : "No se pudo guardar la habilitación." };
+  }
+  revalidatePath(`/platform/${tenantId}/settings`);
+  return { success: true };
+}
+
 export async function createTenantAction(
   _prevState: TenantFormState,
   formData: FormData,

@@ -1,4 +1,5 @@
 export interface Patient {
+  creationSource?: "unknown" | "manual" | "import" | "whatsapp";
   id: string;
   tenantId: string;
   firstName: string;
@@ -25,6 +26,28 @@ export interface Patient {
   firstConsultationDate: string | null;
   createdAt: string;
   deletedAt: string | null;
+}
+
+export interface WhatsappBookingSettings {
+  platformEnabled: boolean;
+  clinicEnabled: boolean;
+  askReason: boolean;
+  horizonDays: number;
+  leadMinutes: number;
+  cancellationEnabled: boolean;
+  cancellationNoticeHours: number;
+  features: {
+    welcome: string;
+    receptionPhone: string;
+    receptionHours: string;
+    reschedule: boolean;
+    notifyReception: boolean;
+    reminderHours: number;
+    visitTypes: { id: string; name: string; durationMinutes: number; practitionerIds: string[] }[];
+    restrictHours: boolean;
+    hours: { weekday: number; start: string; end: string }[];
+  };
+  practitionerIds: string[];
 }
 
 export interface ClinicalEntry {

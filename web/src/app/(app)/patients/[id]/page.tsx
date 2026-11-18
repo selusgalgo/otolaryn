@@ -66,6 +66,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   const meId = decodeJwtClaims(await getSessionToken())?.sub;
 
   const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
+  const whatsappEnabled = (await apiFetch<{ enabled: boolean }>('/whatsapp-booking/feature-status')).enabled;
 
 
   return (
@@ -75,6 +76,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
         insuranceOptions={insuranceOptions}
         insuranceName={insuranceName}
         practitionerOptions={practitioners}
+        whatsappEnabled={whatsappEnabled}
       />
 
       {/* Debajo, a ancho completo: Consultas (visible para los tres roles

@@ -12,6 +12,14 @@ const COOKIE_NAME = "otolaryn_session";
 export function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get(COOKIE_NAME)?.value;
   const { pathname } = request.nextUrl;
+  // Optional isolated preview: do not expose public signing/device links or
+  // unrelated app pages through the temporary DEMO host.
+  if (process.env.MEDERI_DEMO_PREVIEW_ONLY === 'true' && !(
+    pathname === '/' || pathname === '/login' || pathname === '/dashboard' ||
+    pathname === '/settings' || pathname.startsWith('/settings/') || pathname.startsWith('/session/')
+  )) {
+    return new NextResponse('No disponible en la vista de prueba', { status: 404 });
+  }
   // Una cookie cuyo JWT ya caducó (la cookie y el JWT duran lo mismo, pero
   // no tienen por qué morir a la vez: otro JWT_EXPIRES_IN, reloj desfasado...)
   // se trata como "sin sesión" y se borra. Antes, /login con esa cookie

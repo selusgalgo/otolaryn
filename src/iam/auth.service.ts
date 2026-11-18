@@ -71,6 +71,10 @@ export class AuthService {
     if (!user || !passwordMatches) {
       throw new UnauthorizedException('Credenciales no válidas');
     }
+    const demoOnlyTenant = this.config.get<string>('MEDERI_DEMO_ONLY_TENANT_ID');
+    if (demoOnlyTenant && user.tenantId !== demoOnlyTenant) {
+      throw new UnauthorizedException('Credenciales no válidas');
+    }
 
     // Checked only after confirming the password is actually correct —
     // same timing-safety intent as the dummy-hash verify above, applied

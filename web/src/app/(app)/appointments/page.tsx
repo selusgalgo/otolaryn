@@ -202,6 +202,10 @@ export default async function AppointmentsPage({
   }>;
 }) {
   const me = await getCurrentUser();
+  const whatsappEnabled = (await apiFetch<{ enabled: boolean }>('/whatsapp-booking/feature-status')).enabled;
+  const whatsapp = whatsappEnabled && (me.role === 'admin' || me.role === 'recepcion')
+    ? await apiFetch<{ count: number }>('/whatsapp-booking/activity/unread')
+    : null;
   if (me.role === 'profesional' && !me.agendaAccess) {
     redirect('/dashboard');
   }
@@ -343,7 +347,12 @@ export default async function AppointmentsPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Agenda</h1>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Agenda</h1>
+          {whatsapp && <Link href="/appointments/whatsapp" className="text-sm font-medium underline">
+            Actividad de WhatsApp{whatsapp.count > 0 ? ` · ${whatsapp.count} sin leer` : ''}
+          </Link>}
+        </div>
         {view === 'month' && (
           <NewAppointmentDialog practitioners={practitioners} />
         )}

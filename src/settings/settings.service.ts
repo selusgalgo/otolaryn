@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
@@ -8,6 +12,8 @@ import { Tenant } from '../iam/entities/tenant.entity';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
+import { defaultWhatsappFeatures } from './dto/whatsapp-features.dto';
 import {
   assertNoOverlap,
   DaySchedule,
@@ -65,6 +71,112 @@ export class SettingsService {
     @InjectRepository(Tenant)
     private readonly tenants: Repository<Tenant>,
   ) {}
+
+  async getWhatsappSettings(tenantId: string) {
+    await this.findTenant(tenantId);
+    const rows = await this.tenants.manager.query(
+      `SELECT platform_enabled AS "platformEnabled", clinic_enabled AS "clinicEnabled",
+              ask_reason AS "askReason", horizon_days AS "horizonDays", lead_minutes AS "leadMinutes",
+              practitioner_ids AS "practitionerIds", cancellation_enabled AS "cancellationEnabled",
+              cancellation_notice_hours AS "cancellationNoticeHours", features
+       FROM iam.whatsapp_booking_settings WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    const settings = rows[0] ?? {
+      platformEnabled: false,
+      clinicEnabled: false,
+      askReason: true,
+      horizonDays: 30,
+      leadMinutes: 0,
+      cancellationEnabled: true,
+      cancellationNoticeHours: 0,
+      practitionerIds: [],
+    };
+    return {
+      ...settings,
+      features: { ...defaultWhatsappFeatures, ...settings.features },
+    };
+  }
+
+  async updateWhatsappSettings(
+    tenantId: string,
+    dto: UpdateWhatsappSettingsDto,
+  ) {
+    await this.findTenant(tenantId);
+    const rows = await this.tenants.manager.query(
+      `SELECT id FROM iam.users WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND active = true AND (role = 'profesional' OR (role = 'admin' AND staff_function = 'profesional'))`,
+      [tenantId, dto.practitionerIds],
+    );
+    if (rows.length !== dto.practitionerIds.length)
+      throw new BadRequestException(
+        'Selecciona profesionales activos de esta clínica',
+      );
+    if (dto.features) {
+      const { hours, visitTypes } = dto.features;
+      const ordered = [...hours].sort(
+        (a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start),
+      );
+      if (
+        ordered.some((range, index) => {
+          const previous = ordered[index - 1];
+          return (
+            range.start >= range.end ||
+            (previous?.weekday === range.weekday && previous.end > range.start)
+          );
+        })
+      )
+        throw new BadRequestException(
+          'Revisa las franjas de WhatsApp: el fin debe ser posterior al inicio y no pueden solaparse',
+        );
+      if (
+        visitTypes.some((type) =>
+          type.practitionerIds.some((id) => !dto.practitionerIds.includes(id)),
+        )
+      )
+        throw new BadRequestException(
+          'Cada tipo de cita debe usar profesionales habilitados para WhatsApp',
+        );
+      if (
+        dto.features.receptionPhone &&
+        !/^\+?[0-9][0-9 ()-]{5,39}$/.test(dto.features.receptionPhone)
+      )
+        throw new BadRequestException('Indica un teléfono de recepción válido');
+    }
+    await this.tenants.manager.query(
+      `INSERT INTO iam.whatsapp_booking_settings AS current_settings
+         (tenant_id, clinic_enabled, ask_reason, horizon_days, lead_minutes, practitioner_ids,
+          cancellation_enabled, cancellation_notice_hours, features)
+       VALUES ($1,$2,$3,$4,$5,$6::uuid[],COALESCE($7::boolean,true),COALESCE($8::integer,0),COALESCE($9::jsonb,'{}'))
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         clinic_enabled = EXCLUDED.clinic_enabled, ask_reason = EXCLUDED.ask_reason,
+         horizon_days = EXCLUDED.horizon_days, lead_minutes = EXCLUDED.lead_minutes,
+         practitioner_ids = EXCLUDED.practitioner_ids,
+         cancellation_enabled = COALESCE($7::boolean,current_settings.cancellation_enabled),
+         cancellation_notice_hours = COALESCE($8::integer,current_settings.cancellation_notice_hours),
+         features = COALESCE($9::jsonb,current_settings.features)`,
+      [
+        tenantId,
+        dto.clinicEnabled,
+        dto.askReason,
+        dto.horizonDays,
+        dto.leadMinutes,
+        dto.practitionerIds,
+        dto.cancellationEnabled,
+        dto.cancellationNoticeHours,
+        dto.features ? JSON.stringify(dto.features) : null,
+      ],
+    );
+    return this.getWhatsappSettings(tenantId);
+  }
+
+  async updateWhatsappPlatform(tenantId: string, enabled: boolean) {
+    await this.findTenant(tenantId);
+    await this.tenants.manager.query(
+      `INSERT INTO iam.whatsapp_booking_settings (tenant_id, platform_enabled) VALUES ($1, $2) ON CONFLICT (tenant_id) DO UPDATE SET platform_enabled = EXCLUDED.platform_enabled`,
+      [tenantId, enabled],
+    );
+    return this.getWhatsappSettings(tenantId);
+  }
 
   async getSchedule(tenantId: string): Promise<Schedule> {
     const rows = await this.clinicHours.find({ where: { tenantId } });

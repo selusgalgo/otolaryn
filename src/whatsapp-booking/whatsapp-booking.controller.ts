@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -36,6 +37,11 @@ export class WhatsappBookingController {
     return this.booking.practitioners();
   }
 
+  @Get('dates')
+  dates(@Query('practitionerId', ParseUUIDPipe) practitionerId: string) {
+    return this.booking.availableDates(practitionerId);
+  }
+
   @Get('slots')
   slots(@Query() query: SlotQueryDto) {
     return this.booking.slots(query);
@@ -49,6 +55,11 @@ export class WhatsappBookingController {
   @Post('messages')
   message(@Body() body: InboundMessageDto) {
     return this.conversation.process(body);
+  }
+
+  @Post('delivery/prepare-flow')
+  prepareFlowDelivery(@Body() body: DeliveryClaimDto) {
+    return this.delivery.prepareFlow(body);
   }
 
   @Post('delivery/claim')

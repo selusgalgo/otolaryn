@@ -21,6 +21,7 @@ import { logoFileToDataUri, MAX_LOGO_UPLOAD_BYTES } from './clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
 import { SettingsService } from './settings.service';
 
 // Own clinic only — superadmin manages any clinic's schedule/appointment
@@ -30,6 +31,21 @@ import { SettingsService } from './settings.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
+
+  @Get('whatsapp-booking')
+  @Roles('admin')
+  getWhatsappSettings(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.getWhatsappSettings(user.tenantId as string);
+  }
+
+  @Patch('whatsapp-booking')
+  @Roles('admin')
+  updateWhatsappSettings(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateWhatsappSettingsDto,
+  ) {
+    return this.settings.updateWhatsappSettings(user.tenantId as string, dto);
+  }
 
   // Read access is for every tenant role, not just admin: the Agenda page's
   // occupancy calendar needs the clinic's hours for profesional/recepcion

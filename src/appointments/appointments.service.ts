@@ -157,6 +157,8 @@ export class AppointmentsService {
     dto: CreateAppointmentDto,
     user: CurrentUserPayload,
     idempotencyKey?: string,
+    bookingSource: 'manual' | 'whatsapp' = 'manual',
+    whatsapp?: { visitTypeId?: string; reminderPhone?: string },
   ): Promise<Appointment> {
     let keyHash: string | undefined;
     let requestHash: string | undefined;
@@ -175,6 +177,7 @@ export class AppointmentsService {
           durationMinutes: dto.durationMinutes ?? null,
           practitionerId: dto.practitionerId ?? null,
           notes: dto.notes ?? null,
+          ...(whatsapp ? { whatsapp } : {}),
         }),
       );
       // Serialize retries inside the tenant transaction, including concurrent
@@ -240,6 +243,7 @@ export class AppointmentsService {
       durationMinutes,
       status: 'scheduled',
       notes: dto.notes ?? null,
+      bookingSource,
       idempotencyKeyHash: keyHash ?? null,
       idempotencyRequestHash: requestHash ?? null,
     });

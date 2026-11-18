@@ -2,6 +2,7 @@ import {
   BuildingOffice2Icon,
   CalendarDaysIcon,
   ClipboardDocumentListIcon,
+  ChatBubbleLeftRightIcon,
   ClockIcon,
   LockClosedIcon,
   ShieldCheckIcon,
@@ -35,6 +36,12 @@ export const SETTINGS_SECTIONS: {
     title: "Citas",
     description: "Duración con la que se precarga una cita nueva.",
     icon: CalendarDaysIcon,
+  },
+  {
+    id: "whatsapp-booking",
+    title: "WhatsApp",
+    description: "Disponibilidad y opciones de reserva por WhatsApp.",
+    icon: ChatBubbleLeftRightIcon,
   },
   {
     id: "antecedentes",

@@ -5,6 +5,7 @@ import { EntityManager, QueryRunner } from 'typeorm';
 interface TenantStore {
   queryRunner: QueryRunner;
   tenantId: string;
+  whatsappTenantConnection?: boolean;
 }
 
 // Every repository call made during a tenant-scoped request must go through
@@ -39,5 +40,9 @@ export class TenancyContext {
       );
     }
     return store.tenantId;
+  }
+
+  get whatsappTenantConnection(): boolean {
+    return this.als.getStore()?.whatsappTenantConnection === true;
   }
 }

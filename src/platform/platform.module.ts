@@ -5,6 +5,7 @@ import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { PatientsModule } from '../patients/patients.module';
 import { TenancyModule } from '../tenancy/tenancy.module';
+import { SettingsModule } from '../settings/settings.module';
 import { PlatformController } from './platform.controller';
 import { PlatformService } from './platform.service';
 
@@ -16,6 +17,7 @@ import { PlatformService } from './platform.service';
     // it gets pointed at the chosen clinic instead of the caller's own.
     PatientsModule,
     TenancyModule,
+    SettingsModule,
   ],
   controllers: [PlatformController],
   providers: [PlatformService],

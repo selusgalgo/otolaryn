@@ -31,6 +31,7 @@ type SortDirection = "asc" | "desc";
 
 interface PatientsTableProps {
   patients: Patient[];
+  showOrigin: boolean;
   emptyMessage: string;
   // recepcion can't archive (see the comment where this table is called) —
   // hides both the bulk "Dar de baja" path and the row menu's "Archivar",
@@ -88,6 +89,7 @@ function SortableHeader({
 // against a different set of rows.
 export function PatientsTable({
   patients,
+  showOrigin,
   emptyMessage,
   canArchive,
   insuranceOptions,
@@ -208,6 +210,7 @@ export function PatientsTable({
               </TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
+              {showOrigin && <TableHead>Origen del alta</TableHead>}
               <TableHead>
                 <SortableHeader
                   label="Fecha de nacimiento"
@@ -223,7 +226,7 @@ export function PatientsTable({
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canArchive ? 6 : 5} className="text-center text-muted-foreground">
+                <TableCell colSpan={(canArchive ? 6 : 5) + (showOrigin ? 1 : 0)} className="text-center text-muted-foreground">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -263,6 +266,11 @@ export function PatientsTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{formatDocumentId(patient.documentId)}</TableCell>
                 <TableCell className="text-muted-foreground">{patient.phone}</TableCell>
+                {showOrigin && (
+                  <TableCell className="text-muted-foreground">
+                    {{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">{formatDateShort(patient.dateOfBirth)}</TableCell>
                 <TableCell>
                   <PatientRowActions

@@ -21,6 +21,7 @@ interface PatientProfileSectionProps {
   insuranceOptions?: InsuranceOption[];
   insuranceName?: string;
   practitionerOptions?: PractitionerOption[] | null;
+  whatsappEnabled?: boolean;
 }
 
 const initialState: PatientFormState = {};
@@ -35,6 +36,7 @@ export function PatientProfileSection({
   insuranceOptions,
   insuranceName,
   practitionerOptions,
+  whatsappEnabled = false,
 }: PatientProfileSectionProps) {
   const [editing, setEditing] = useState(false);
   // formatDocumentId returns "-" for a missing/placeholder document — blank
@@ -299,6 +301,10 @@ export function PatientProfileSection({
                 )}
               </div>
               <div className="space-y-2 text-sm">
+                {(whatsappEnabled || patient.creationSource !== "whatsapp") && <div>
+                  <div className="text-xs text-muted-foreground">Origen del alta</div>
+                  <div>{{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}</div>
+                </div>}
                 <div>{documentDisplay === "-" ? "" : documentDisplay}</div>
                 <div>
                   {patient.dateOfBirth && (

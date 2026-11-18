@@ -25,6 +25,8 @@ import {
 } from '../settings/clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
+import { UpdateWhatsappPlatformDto } from '../settings/dto/update-whatsapp-settings.dto';
+import { SettingsService } from '../settings/settings.service';
 import { RouteTenantContextInterceptor } from '../tenancy/route-tenant-context.interceptor';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { ResetPasswordDto } from '../users/dto/reset-password.dto';
@@ -42,7 +44,21 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly patients: PatientsService,
+    private readonly settings: SettingsService,
   ) {}
+
+  @Get(':id/whatsapp-booking')
+  getWhatsappSettings(@Param('id', ParseUUIDPipe) id: string) {
+    return this.settings.getWhatsappSettings(id);
+  }
+
+  @Patch(':id/whatsapp-booking')
+  updateWhatsappPlatform(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateWhatsappPlatformDto,
+  ) {
+    return this.settings.updateWhatsappPlatform(id, dto.platformEnabled);
+  }
 
   @Get()
   findAll() {

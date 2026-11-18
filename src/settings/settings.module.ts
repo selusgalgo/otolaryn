@@ -9,5 +9,6 @@ import { SettingsService } from './settings.service';
   imports: [TypeOrmModule.forFeature([ClinicHour, Tenant])],
   controllers: [SettingsController],
   providers: [SettingsService],
+  exports: [SettingsService],
 })
 export class SettingsModule {}
