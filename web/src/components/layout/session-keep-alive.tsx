@@ -90,34 +90,45 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
 
   if (!ended && !nearingEnd) return null;
 
-  return (
-    <div
-      role="status"
-      className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-lg border border-destructive/30 bg-background px-4 py-3 text-sm shadow-lg md:bottom-6"
-    >
-      {ended ? (
-        <>
-          <p className="font-medium">Tu sesión ha caducado.</p>
-          <p className="mt-1 text-muted-foreground">
+  if (ended) {
+    // Sesión caducada: modal centrado con fondo atenuado, para que no pase
+    // desapercibido ni se siga trabajando sobre una sesión que ya no vale.
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="session-expired-title"
+          className="w-full max-w-md rounded-lg border bg-background p-6 text-sm shadow-lg"
+        >
+          <p id="session-expired-title" className="text-base font-medium">
+            Tu sesión ha caducado.
+          </p>
+          <p className="mt-2 text-muted-foreground">
             Lo que estés escribiendo en una consulta queda guardado como borrador en este dispositivo.
           </p>
           <a
-            className="mt-2 inline-block font-medium text-primary underline"
+            className="mt-4 inline-block font-medium text-primary underline"
             href={`/session/expired?reason=SESSION_EXPIRED&redirect=${encodeURIComponent(
               typeof window === "undefined" ? "/" : window.location.pathname + window.location.search,
             )}`}
           >
             Iniciar sesión de nuevo
           </a>
-        </>
-      ) : (
-        <>
-          <p className="font-medium">Por seguridad, tu sesión terminará a las {formatTime(endsAt!)}.</p>
-          <p className="mt-1 text-muted-foreground">
-            Guarda lo que estés escribiendo. Los borradores de consulta se conservan al volver a entrar.
-          </p>
-        </>
-      )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-lg border border-destructive/30 bg-background px-4 py-3 text-sm shadow-lg md:bottom-6"
+    >
+      <p className="font-medium">Por seguridad, tu sesión terminará a las {formatTime(endsAt!)}.</p>
+      <p className="mt-1 text-muted-foreground">
+        Guarda lo que estés escribiendo. Los borradores de consulta se conservan al volver a entrar.
+      </p>
     </div>
   );
 }
