@@ -43,6 +43,18 @@ export class ClinicalEntry {
   @Column({ name: 'follow_up_notes', type: 'text', nullable: true })
   followUpNotes: string | null;
 
+  // Campos de la plantilla de cirugía (ConsultationTemplates1738200000000).
+  // evolution/report son rich text, igual que examinationFindings/treatment;
+  // report es además lo que imprime el PDF de Informe.
+  @Column({ type: 'text', nullable: true })
+  evolution: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  report: string | null;
+
+  @Column({ name: 'referring_doctor', type: 'text', nullable: true })
+  referringDoctor: string | null;
+
   // A patient's insurer can change between visits — this is the entry's
   // own ENTIDAD from the legacy consultas.xls, independent of whichever
   // insurer is currently set on the patient record.

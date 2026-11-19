@@ -4,6 +4,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { ConsultationTemplate } from '../../clinical-entries/consultation-template';
 
 @Entity({ schema: 'iam', name: 'tenants' })
 export class Tenant {
@@ -23,6 +24,12 @@ export class Tenant {
   // per-clinic default, not a replacement for that bound.
   @Column({ name: 'default_appointment_duration_minutes', type: 'smallint' })
   defaultAppointmentDurationMinutes: number;
+
+  // Qué campos ve la clínica en sus consultas — ver
+  // clinical-entries/consultation-template.ts. Solo lo cambia superadmin
+  // (PlatformController); el resto de roles lo leen (SettingsController).
+  @Column({ name: 'consultation_template', type: 'text', default: 'orl' })
+  consultationTemplate: ConsultationTemplate;
 
   // Clinic identity shown on exported PDFs (ficha de paciente, tratamiento)
   // — see PdfController/patient-record-pdf.util.ts. All optional: a clinic

@@ -6,12 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ClinicalEntryForm } from "@/components/clinical-entries/clinical-entry-form";
 import { updateClinicalEntryAction } from "@/lib/actions/clinical-entries";
+import type { ConsultationTemplate } from "@/lib/consultation-template";
 import type { ClinicalEntry } from "@/lib/types";
 
 // admin y profesional (el backend ya 403 a recepcion — ver
 // ClinicalEntriesController) — a diferencia de Eliminar, que sigue siendo
 // solo admin.
-export function EditClinicalEntryDialog({ entry }: { entry: ClinicalEntry }) {
+export function EditClinicalEntryDialog({
+  entry,
+  template,
+  referringDoctorSuggestions,
+}: {
+  entry: ClinicalEntry;
+  template?: ConsultationTemplate;
+  referringDoctorSuggestions?: string[];
+}) {
   const [open, setOpen] = useState(false);
   const boundAction = updateClinicalEntryAction.bind(null, entry.patientId, entry.id);
 
@@ -28,6 +37,8 @@ export function EditClinicalEntryDialog({ entry }: { entry: ClinicalEntry }) {
           <DialogTitle>Editar consulta</DialogTitle>
         </DialogHeader>
         <ClinicalEntryForm
+          template={template}
+          referringDoctorSuggestions={referringDoctorSuggestions}
           action={boundAction}
           initialValues={entry}
           submitLabel="Guardar cambios"

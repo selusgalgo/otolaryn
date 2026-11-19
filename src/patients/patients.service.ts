@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -23,7 +24,15 @@ import { TenancyContext } from '../tenancy/tenancy-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { ImportPatientDto } from './dto/import-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
-import { Patient } from './entities/patient.entity';
+import { type HolderRelationship, Patient } from './entities/patient.entity';
+
+export interface HolderSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentId: string | null;
+  legacyId: string | null;
+}
 import type { ImportRow, UpdateRow } from './patients-csv.util';
 import type {
   PatientSortBy,
@@ -175,10 +184,13 @@ export class PatientsService {
   // than the override unconditionally winning — once a real consulta is
   // recorded with an even earlier date, that becomes the answer again on
   // its own, no one has to remember to clear the override.
-  async findOneWithFirstConsultationDate(
-    id: string,
-  ): Promise<Patient & { firstConsultationDate: string | null }> {
+  async findOneWithFirstConsultationDate(id: string): Promise<
+    Patient & {
+      firstConsultationDate: string | null;
+    } & Awaited<ReturnType<PatientsService['findHolderLinks']>>
+  > {
     const patient = await this.findOne(id);
+    const links = await this.findHolderLinks(patient);
     const row = await this.tenancyContext.manager
       .getRepository(ClinicalEntry)
       .createQueryBuilder('ce')
@@ -196,7 +208,7 @@ export class PatientsService {
           ? computed
           : override
         : (computed ?? override);
-    return { ...patient, firstConsultationDate };
+    return { ...patient, firstConsultationDate, ...links };
   }
 
   // Used by the Consultas importer to resolve NUMHISTORIA -> patient,
@@ -224,6 +236,7 @@ export class PatientsService {
     // NUMHISTORIA) se respeta tal cual; si no, se asigna el siguiente de la
     // secuencia del tenant — cubre tanto el alta normal como una fila
     // importada sin NUMHISTORIA en el legado.
+    await this.assertHolder(null, dto);
     const legacyId = dto.legacyId ?? (await this.assignNextPatientNumber());
     const patient = this.repo.create({
       ...dto,
@@ -413,13 +426,104 @@ export class PatientsService {
         .filter((t) => t.category === 'personal')
         .map((t) => [t.name.trim().toLowerCase(), t.id]),
     );
+    // Same per-batch aseguradora cache as continueBulkImportJob.
+    const insuranceCache = new Map<string, string>();
     return this.importJobs.advance<UpdateRow>(
       jobId,
       'patients-update',
       batchSize,
       (row, rowNumber) =>
-        this.updateRow(row, rowNumber, typeById, personalIdByName),
+        this.updateRow(
+          row,
+          rowNumber,
+          typeById,
+          personalIdByName,
+          insuranceCache,
+        ),
     );
+  }
+
+  // Overwrites the patient's plain fields with the row's non-empty cells
+  // (see the update-mode comment in patients-csv.util). Returns whether
+  // anything actually changed, or the reason the row can't be applied —
+  // validation and a clashing documentId are per-row skips, never a failure
+  // of the whole job. Antecedentes/notes/Primera consulta stay with the
+  // code in updateRow.
+  private async applyPatientFields(
+    patient: Patient,
+    row: UpdateRow,
+    insuranceCache: Map<string, string>,
+  ): Promise<{ changed: boolean; note?: string } | { reason: string }> {
+    const incoming: Partial<Record<string, string>> = { ...row.fields };
+
+    // Resolved (and created if new) before validation, outside the
+    // SAVEPOINT — same reasoning as importRow.
+    if (row.insuranceEntityName) {
+      const cacheKey = row.insuranceEntityName.trim().toLowerCase();
+      let insuranceEntityId = insuranceCache.get(cacheKey);
+      if (!insuranceEntityId) {
+        insuranceEntityId = await this.insurance.findOrCreateByName(
+          row.insuranceEntityName,
+        );
+        insuranceCache.set(cacheKey, insuranceEntityId);
+      }
+      incoming.insuranceEntityId = insuranceEntityId;
+    }
+    if (Object.keys(incoming).length === 0) return { changed: false };
+
+    // Same validation a PATCH /patients/:id goes through.
+    const dto = plainToInstance(UpdatePatientDto, incoming);
+    const errors = await validate(dto, { skipMissingProperties: true });
+    if (errors.length > 0) {
+      return {
+        reason: errors
+          .flatMap((e) => Object.values(e.constraints ?? {}))
+          .join('; '),
+      };
+    }
+
+    const current = patient as unknown as Record<string, string | null>;
+    const changes: Record<string, string> = {};
+    for (const [key, value] of Object.entries(dto as Record<string, string>)) {
+      if (value !== undefined && current[key] !== value) changes[key] = value;
+    }
+    if (Object.keys(changes).length === 0) return { changed: false };
+
+    const previousDocumentId = patient.documentId;
+    this.repo.merge(patient, changes);
+    const save = async (): Promise<ConflictException | null> => {
+      await this.repo.query('SAVEPOINT row_update');
+      try {
+        await this.repo.save(patient);
+        await this.repo.query('RELEASE SAVEPOINT row_update');
+        return null;
+      } catch (err) {
+        await this.repo.query('ROLLBACK TO SAVEPOINT row_update');
+        const mapped = this.mapWriteError(err);
+        if (mapped instanceof ConflictException) return mapped;
+        throw err;
+      }
+    };
+
+    const conflict = await save();
+    if (!conflict) return { changed: true };
+
+    // One clashing field must not throw away the rest of the row. The only
+    // unique value this can touch is the documentId (the legacy file really
+    // does repeat a DNI across different historias — family members, or
+    // duplicate patients), so: leave the document as it was, apply every
+    // other field, and report the document as a note on the row.
+    delete changes.documentId;
+    if (!('documentId' in dto) || Object.keys(changes).length === 0) {
+      return { reason: conflict.message };
+    }
+    patient.documentId = previousDocumentId;
+    const retry = await save();
+    if (retry) return { reason: retry.message };
+    return {
+      changed: true,
+      note: `${conflict.message} ("${dto.documentId}"): se actualizó el resto de la ficha, pero no el documento`,
+    };
   }
 
   private async updateRow(
@@ -427,6 +531,7 @@ export class PatientsService {
     rowNumber: number,
     typeById: Map<string, AntecedenteType>,
     personalIdByName: Map<string, string>,
+    insuranceCache: Map<string, string>,
   ): Promise<RowOutcome> {
     if (!row.legacyId) {
       return { created: false, reason: 'Falta el nº de historia' };
@@ -442,6 +547,17 @@ export class PatientsService {
     }
 
     let touched = false;
+
+    const fieldsResult = await this.applyPatientFields(
+      patient,
+      row,
+      insuranceCache,
+    );
+    if ('reason' in fieldsResult) {
+      return { created: false, reason: fieldsResult.reason };
+    }
+    if (fieldsResult.changed) touched = true;
+    const note = fieldsResult.note;
 
     if (
       row.firstConsultationOverride &&
@@ -520,14 +636,17 @@ export class PatientsService {
       return {
         created: false,
         reason:
-          'Nada que actualizar en esta fila (sin Primera consulta, Historia clínica ni antecedentes marcados)',
+          'Nada que actualizar en esta fila (los datos del fichero ya coinciden con los del paciente, o no traen nada nuevo)',
       };
     }
-    return { created: true };
+    // `note` = actualizada, pero con una incidencia que el usuario debe ver
+    // (ImportJobsService.advance la anota sin quitarle la cuenta).
+    return note ? { created: true, reason: note } : { created: true };
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {
     const patient = await this.findOne(id);
+    await this.assertHolder(patient, dto);
     this.repo.merge(patient, {
       ...dto,
       ...(dto.notes ? { notes: sanitizeRichText(dto.notes) } : {}),
@@ -537,6 +656,102 @@ export class PatientsService {
     } catch (err) {
       throw this.mapWriteError(err);
     }
+  }
+
+  // Familiar a cargo (titular + parentesco). Reglas que la BD no puede
+  // comprobar sola: el titular existe en esta clínica (RLS) y no es él
+  // mismo; nada de cadenas — el titular no puede ser a su vez familiar a
+  // cargo, y quien ya tiene familiares a cargo no puede pasar a serlo de
+  // otro —; y parentesco obligatorio si hay titular. Quitar el titular
+  // quita también el parentesco. Normaliza `dto` en el sitio.
+  private async assertHolder(
+    patient: Patient | null,
+    dto: Pick<CreatePatientDto, 'holderPatientId' | 'holderRelationship'>,
+  ): Promise<void> {
+    if (
+      dto.holderPatientId === undefined &&
+      dto.holderRelationship === undefined
+    ) {
+      return;
+    }
+    const holderId =
+      dto.holderPatientId !== undefined
+        ? dto.holderPatientId
+        : (patient?.holderPatientId ?? null);
+    const relationship =
+      dto.holderRelationship !== undefined
+        ? dto.holderRelationship
+        : (patient?.holderRelationship ?? null);
+
+    if (!holderId) {
+      dto.holderPatientId = null;
+      dto.holderRelationship = null;
+      return;
+    }
+    if (!relationship) {
+      throw new BadRequestException('Indica el parentesco con el titular');
+    }
+    if (patient && holderId === patient.id) {
+      throw new BadRequestException(
+        'Un paciente no puede ser su propio titular',
+      );
+    }
+    const holder = await this.repo.findOne({ where: { id: holderId } });
+    if (!holder) {
+      throw new BadRequestException(
+        'El titular elegido no existe en esta clínica',
+      );
+    }
+    if (holder.holderPatientId) {
+      throw new BadRequestException(
+        `${holder.firstName} ${holder.lastName} es a su vez familiar a cargo de otro paciente: elige como titular a su titular`,
+      );
+    }
+    if (patient) {
+      const dependents = await this.repo.count({
+        where: { holderPatientId: patient.id },
+      });
+      if (dependents > 0) {
+        throw new BadRequestException(
+          'Este paciente tiene familiares a cargo, así que no puede ser a su vez familiar a cargo de otro',
+        );
+      }
+    }
+    dto.holderPatientId = holderId;
+    dto.holderRelationship = relationship;
+  }
+
+  // Titular y familiares a cargo para mostrarlos en la ficha / PDF. Un
+  // titular dado de baja (soft delete) no aparece: findOne ya lo excluye.
+  async findHolderLinks(patient: Patient): Promise<{
+    holder: HolderSummary | null;
+    dependents: (HolderSummary & {
+      holderRelationship: HolderRelationship | null;
+    })[];
+  }> {
+    const summary = (p: Patient): HolderSummary => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      documentId: p.documentId,
+      legacyId: p.legacyId,
+    });
+    const [holder, dependents] = await Promise.all([
+      patient.holderPatientId
+        ? this.repo.findOne({ where: { id: patient.holderPatientId } })
+        : null,
+      this.repo.find({
+        where: { holderPatientId: patient.id },
+        order: { lastName: 'ASC', firstName: 'ASC' },
+      }),
+    ]);
+    return {
+      holder: holder ? summary(holder) : null,
+      dependents: dependents.map((d) => ({
+        ...summary(d),
+        holderRelationship: d.holderRelationship,
+      })),
+    };
   }
 
   async softDelete(id: string): Promise<void> {

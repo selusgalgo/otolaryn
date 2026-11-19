@@ -8,7 +8,7 @@ import {
   stripAccents,
 } from '../shared/spreadsheet-import.util';
 import { CreatePatientDto } from './dto/create-patient.dto';
-import { Patient } from './entities/patient.entity';
+import { Patient, type PatientGender } from './entities/patient.entity';
 
 export { isSupportedImportFile };
 
@@ -29,6 +29,7 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'lastName', label: 'Apellidos' },
   { field: 'documentId', label: 'Documento' },
   { field: 'dateOfBirth', label: 'Fecha de nacimiento' },
+  { field: 'gender', label: 'Género' },
   { field: 'phone', label: 'Teléfono' },
   { field: 'phone2', label: 'Teléfono 2' },
   { field: 'email', label: 'Email' },
@@ -38,6 +39,7 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'postalCode', label: 'C.P.' },
   { field: 'notes', label: 'Notas' },
   { field: 'profession', label: 'Profesión' },
+  { field: 'insuranceNumber', label: 'Nº de seguro privado' },
   { field: 'legacyId', label: 'Nº de historia' },
   { field: 'firstConsultationOverride', label: 'Primera consulta' },
 ];
@@ -78,6 +80,34 @@ function isoToDayFirst(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+// Stored lowercase ('hombre'/'mujer', what the DB CHECK allows) — exported
+// capitalized for people reading the file; parseGender reads both back.
+const GENDER_EXPORT_LABEL: Record<PatientGender, string> = {
+  hombre: 'Hombre',
+  mujer: 'Mujer',
+};
+
+// A legacy file writes gender in many ways: "H"/"M" (hombre/mujer — the
+// usual Spanish pair, so a lone "M" is mujer, not "masculino"), but also
+// "V" (varón), "F" (femenino), "Masculino", "Femenino"... Anything not on
+// this list is left empty (sin indicar) rather than guessed, and never
+// makes the row fail.
+const GENDER_ALIASES: Record<string, PatientGender> = {
+  h: 'hombre',
+  hombre: 'hombre',
+  v: 'hombre',
+  varon: 'hombre',
+  masculino: 'hombre',
+  m: 'mujer',
+  mujer: 'mujer',
+  f: 'mujer',
+  femenino: 'mujer',
+};
+
+export function parseGender(text: string): PatientGender | undefined {
+  return GENDER_ALIASES[normalizeHeader(text).replace(/\.$/, '')];
+}
+
 // A CSV cell starting with one of these is evaluated as a formula by
 // Excel/LibreOffice when the export is opened — and these fields are free
 // text any role that creates patients can write. The leading apostrophe
@@ -98,7 +128,12 @@ export function buildPatientsExport(
     for (const { field, label } of COLUMNS) {
       const value = p[field as keyof Patient];
       const raw = value == null ? '' : String(value);
-      const text = field === 'dateOfBirth' && raw ? isoToDayFirst(raw) : raw;
+      const text =
+        field === 'dateOfBirth' && raw
+          ? isoToDayFirst(raw)
+          : field === 'gender' && raw
+            ? GENDER_EXPORT_LABEL[raw as PatientGender]
+            : raw;
       row[label] = format === 'csv' ? neutralizeCsvFormula(text) : text;
     }
     return row;
@@ -169,6 +204,34 @@ export interface ParsePatientsFileResult {
   missingColumns: string[];
 }
 
+// Usual names, in files from other systems, for columns whose export label
+// ("Teléfono 2", "Género", "Nº de seguro privado") they won't have. Shared by
+// the create wizard (suggestMapping) and the update wizard
+// (suggestUpdateMapping) so both suggest the same thing. Only fills a field
+// the exact-label pass left empty.
+function applyHeaderAliases(
+  mapping: Partial<Record<keyof CreatePatientDto, string>>,
+  byNormalized: Map<string, string>,
+): void {
+  const alias = (field: keyof CreatePatientDto, names: string[]) => {
+    if (mapping[field]) return;
+    const header = names.find((name) => byNormalized.has(name));
+    if (header) mapping[field] = byNormalized.get(header);
+  };
+  // A legacy file's own second-phone column is usually called MOVIL.
+  alias('phone2', ['movil', 'telefono movil', 'telefono 2']);
+  alias('gender', ['sexo', 'genero']);
+  alias('insuranceNumber', [
+    'poliza',
+    'n poliza',
+    'nº poliza',
+    'numero de poliza',
+    'tarjeta sanitaria',
+    'n tarjeta',
+    'nº tarjeta',
+  ]);
+}
+
 // Best-guess mapping from the file's own headers to our fields — matched
 // case/accent-insensitively against the label a fresh export would use.
 // This is only ever a *suggestion*: a file from another system (e.g. the
@@ -190,13 +253,7 @@ export function suggestMapping(
     const actual = byNormalized.get(normalizeHeader(label));
     if (actual) mapping[field] = actual;
   }
-  // A legacy file's own second-phone column is usually called MOVIL.
-  if (!mapping.phone2) {
-    const mobile = ['movil', 'telefono movil', 'telefono 2'].find((name) =>
-      byNormalized.has(name),
-    );
-    if (mobile) mapping.phone2 = byNormalized.get(mobile);
-  }
+  applyHeaderAliases(mapping, byNormalized);
   const insuranceHeader = byNormalized.get(
     normalizeHeader(INSURANCE_NAME_LABEL),
   );
@@ -466,6 +523,13 @@ export function parsePatientsFile(
           ? cellToDate(rawValue)
           : cellToText(rawValue);
       if (!text) continue;
+      if (field === 'gender') {
+        // Unrecognized value -> left empty instead of failing the row on
+        // the DTO's IsIn (see GENDER_ALIASES).
+        const gender = parseGender(text);
+        if (gender) row.gender = gender;
+        continue;
+      }
       if (field === 'phone') {
         // An explicit Teléfono 2 column (processed later in this same
         // loop, COLUMNS lists it right after phone) overwrites this if the
@@ -538,32 +602,60 @@ export function parsePatientsFile(
 }
 
 // ---------------------------------------------------------------------
-// Update mode: deliberately a separate, much narrower wizard from the one
-// above — this one only ever matches an *existing* patient by Nº de
-// historia and touches exactly the fields it has columns for
-// (firstConsultationOverride, notes/Historia clínica, antecedentes), never
-// the rest of the patient record. It exists for re-importing a corrected
-// legacy export (Primera consulta dates fixed, antecedentes familiares
-// added, historias clínicas de texto corregidas) onto patients already
-// created by the regular importer above, without risking clobbering
-// anything else that's been edited by hand since.
+// Update mode: deliberately a separate wizard from the one above — this one
+// only ever matches an *existing* patient by Nº de historia and touches
+// exactly the fields it has a column mapped for, never anything else on the
+// record. It exists for re-importing a corrected/extended export onto
+// patients already created by the regular importer above.
+//
+// What the file says wins: a non-empty cell OVERWRITES the stored value
+// (decided with the user — "sobrescribir siempre"). An empty cell never
+// clears anything: a gap in the file must not wipe a value someone typed in
+// by hand.
 // ---------------------------------------------------------------------
 
 const UPDATE_LEGACY_ID_LABEL = 'Nº de historia';
 const UPDATE_FIRST_CONSULTATION_LABEL = 'Primera consulta';
 const UPDATE_NOTES_LABEL = 'Historia clínica';
 
-export interface UpdateFieldMapping {
+// Plain patient fields the update wizard can overwrite. Not offered: names
+// (an existing patient's identity isn't changed by a re-import), legacyId
+// (it's the match key) and notes/firstConsultationOverride (own mappings
+// above, with their own handling).
+export const UPDATE_PATIENT_FIELDS = [
+  'documentId',
+  'dateOfBirth',
+  'gender',
+  'phone',
+  'phone2',
+  'email',
+  'address',
+  'city',
+  'province',
+  'postalCode',
+  'profession',
+  'insuranceNumber',
+] as const satisfies readonly (keyof CreatePatientDto)[];
+export type UpdatePatientField = (typeof UPDATE_PATIENT_FIELDS)[number];
+
+export type UpdateFieldMapping = {
   legacyId?: string;
   firstConsultationOverride?: string;
   notes?: string;
+  // The file's aseguradora *name*, resolved (get-or-create) to
+  // insuranceEntityId in PatientsService.updateRow, same as the create wizard.
+  insuranceEntityName?: string;
   antecedentes?: Record<string, string>;
-}
+} & Partial<Record<UpdatePatientField, string>>;
 
 export interface UpdateRow {
   legacyId: string;
   firstConsultationOverride?: string;
   notes?: string;
+  insuranceEntityName?: string;
+  // Only the plain fields whose cell was non-empty (already normalized:
+  // ISO dates, gender as hombre/mujer, phone split in two).
+  fields?: Partial<Record<UpdatePatientField, string>>;
   antecedentes?: { antecedenteTypeId: string; detalle: string | null }[];
 }
 
@@ -609,6 +701,10 @@ function suggestAntecedenteMapping(
   return Object.keys(antecedentes).length > 0 ? antecedentes : undefined;
 }
 
+function isUpdatePatientField(field: string): field is UpdatePatientField {
+  return (UPDATE_PATIENT_FIELDS as readonly string[]).includes(field);
+}
+
 export function suggestUpdateMapping(
   headers: string[],
   antecedenteTypes: AntecedenteTypeOption[] = [],
@@ -627,6 +723,16 @@ export function suggestUpdateMapping(
   }
   const notesHeader = byNormalized.get(normalizeHeader(UPDATE_NOTES_LABEL));
   if (notesHeader) mapping.notes = notesHeader;
+  for (const { field, label } of COLUMNS) {
+    if (!isUpdatePatientField(field)) continue;
+    const actual = byNormalized.get(normalizeHeader(label));
+    if (actual) mapping[field] = actual;
+  }
+  applyHeaderAliases(mapping, byNormalized);
+  const insuranceHeader = byNormalized.get(
+    normalizeHeader(INSURANCE_NAME_LABEL),
+  );
+  if (insuranceHeader) mapping.insuranceEntityName = insuranceHeader;
   const antecedentes = suggestAntecedenteMapping(
     byNormalized,
     antecedenteTypes,
@@ -651,6 +757,39 @@ export function previewPatientsUpdateFile(
     sampleRows,
     suggestedMapping: suggestUpdateMapping(headers, antecedenteTypes),
   };
+}
+
+// The plain patient fields of one file row, normalized the same way the
+// create wizard does it (parsePatientsFile): dates to ISO, gender to
+// hombre/mujer (an unrecognized value is dropped, never fails the row), and
+// a Teléfono cell with two numbers split in two — an explicit Teléfono 2
+// column wins over that split. Empty cells are simply absent: they never
+// clear a stored value.
+function updateFieldsFromRow(
+  sourceRow: Record<string, unknown>,
+  mapping: UpdateFieldMapping,
+): Partial<Record<UpdatePatientField, string>> {
+  const fields: Partial<Record<UpdatePatientField, string>> = {};
+  for (const field of UPDATE_PATIENT_FIELDS) {
+    const header = mapping[field];
+    if (!header) continue;
+    const text =
+      field === 'dateOfBirth'
+        ? cellToDate(sourceRow[header])
+        : cellToText(sourceRow[header]).trim();
+    if (!text) continue;
+    if (field === 'gender') {
+      const gender = parseGender(text);
+      if (gender) fields.gender = gender;
+    } else if (field === 'phone') {
+      const { phone, phone2 } = splitPhone(text);
+      fields.phone = phone;
+      if (phone2 && !mapping.phone2) fields.phone2 = phone2;
+    } else {
+      fields[field] = text;
+    }
+  }
+  return fields;
 }
 
 // legacyId is required at the mapping level (no column chosen at all ->
@@ -688,6 +827,14 @@ export function parsePatientsUpdateFile(
       // borrar una historia clínica ya escrita a mano en la aplicación.
       const text = cellToText(sourceRow[effectiveMapping.notes]).trim();
       if (text) row.notes = text;
+    }
+    const fields = updateFieldsFromRow(sourceRow, effectiveMapping);
+    if (Object.keys(fields).length > 0) row.fields = fields;
+    if (effectiveMapping.insuranceEntityName) {
+      const name = cellToText(
+        sourceRow[effectiveMapping.insuranceEntityName],
+      ).trim();
+      if (name) row.insuranceEntityName = name;
     }
     if (effectiveMapping.antecedentes) {
       const marked: { antecedenteTypeId: string; detalle: string | null }[] =

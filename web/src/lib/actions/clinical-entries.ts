@@ -47,21 +47,31 @@ function clinicalEntryErrorState(err: unknown): ClinicalEntryFormState {
 // Cuerpo de alta de una consulta a partir del formulario: los campos vacíos se
 // omiten (en el alta "vacío" es "nada que guardar todavía", a diferencia de la
 // edición). Lo comparten crear una consulta y firmar un borrador.
+// Todos los campos opcionales de una consulta. El formulario solo pinta los
+// de la plantilla de la clínica (más los que ya tengan datos — ver
+// visibleFields en lib/consultation-template.ts), así que un campo puede no
+// venir en el FormData.
+const OPTIONAL_FIELDS = [
+  "examinationFindings",
+  "evolution",
+  "diagnosis",
+  "treatment",
+  "report",
+  "followUpNotes",
+  "referringDoctor",
+] as const;
+
 function entryBodyFromForm(formData: FormData) {
   const visitDate = String(formData.get("visitDate") ?? "").trim();
-  const examinationFindings = String(formData.get("examinationFindings") ?? "").trim();
-  const diagnosis = String(formData.get("diagnosis") ?? "").trim();
-  const treatment = String(formData.get("treatment") ?? "").trim();
-  const followUpNotes = String(formData.get("followUpNotes") ?? "").trim();
-
-  return {
+  const body: Record<string, string> = {
     chiefComplaint: String(formData.get("chiefComplaint") ?? "").trim(),
-    ...(visitDate ? { visitDate: new Date(visitDate).toISOString() } : {}),
-    ...(examinationFindings ? { examinationFindings } : {}),
-    ...(diagnosis ? { diagnosis } : {}),
-    ...(treatment ? { treatment } : {}),
-    ...(followUpNotes ? { followUpNotes } : {}),
   };
+  if (visitDate) body.visitDate = new Date(visitDate).toISOString();
+  for (const field of OPTIONAL_FIELDS) {
+    const value = String(formData.get(field) ?? "").trim();
+    if (value) body[field] = value;
+  }
+  return body;
 }
 
 export async function createClinicalEntryAction(
@@ -98,14 +108,16 @@ export async function updateClinicalEntryAction(
 ): Promise<ClinicalEntryFormState> {
   const visitDate = String(formData.get("visitDate") ?? "").trim();
 
-  const body = {
-    ...(visitDate ? { visitDate: new Date(visitDate).toISOString() } : {}),
+  const body: Record<string, string> = {
     chiefComplaint: String(formData.get("chiefComplaint") ?? "").trim(),
-    examinationFindings: String(formData.get("examinationFindings") ?? "").trim(),
-    diagnosis: String(formData.get("diagnosis") ?? "").trim(),
-    treatment: String(formData.get("treatment") ?? "").trim(),
-    followUpNotes: String(formData.get("followUpNotes") ?? "").trim(),
   };
+  if (visitDate) body.visitDate = new Date(visitDate).toISOString();
+  // Solo los campos que el formulario pinta: uno que no viene (no es de la
+  // plantilla de la clínica y está vacío) no se toca, en vez de mandarse
+  // como "" y borrarse.
+  for (const field of OPTIONAL_FIELDS) {
+    if (formData.has(field)) body[field] = String(formData.get(field) ?? "").trim();
+  }
 
   try {
     await apiFetch<ClinicalEntry>(`/clinical-entries/${entryId}`, {
@@ -124,6 +136,17 @@ export async function updateClinicalEntryAction(
 // Admin only — el backend ya devuelve 403 para cualquier otro rol (ver
 // ClinicalEntriesController). Soft delete: la consulta desaparece de la
 // ficha del paciente, pero el registro no se borra de verdad.
+// Sugerencias para "Doctor que lo envía" (nombres ya usados en la clínica).
+// Un fallo aquí no debe impedir escribir la consulta: sin sugerencias, el
+// campo sigue siendo texto libre.
+export async function getReferringDoctorSuggestions(): Promise<string[]> {
+  try {
+    return await apiFetch<string[]>("/clinical-entries/referring-doctors");
+  } catch {
+    return [];
+  }
+}
+
 export async function deleteClinicalEntryAction(
   patientId: string,
   entryId: string,
@@ -146,6 +169,9 @@ export interface DraftValues {
   diagnosis: string;
   treatment: string;
   followUpNotes: string;
+  evolution: string;
+  report: string;
+  referringDoctor: string;
 }
 
 export interface DraftSaveResult {
@@ -173,6 +199,9 @@ export async function saveClinicalEntryDraftAction(
     diagnosis: values.diagnosis,
     treatment: values.treatment,
     followUpNotes: values.followUpNotes,
+    evolution: values.evolution,
+    report: values.report,
+    referringDoctor: values.referringDoctor,
   };
   try {
     const draft = draftId

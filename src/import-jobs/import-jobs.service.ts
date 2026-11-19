@@ -4,6 +4,8 @@ import { ImportJob, ImportJobType } from './entities/import-job.entity';
 
 export interface RowOutcome {
   created: boolean;
+  // Why the row was skipped (created: false) or, with created: true, a note
+  // about something that went wrong in an otherwise-applied row.
   reason?: string;
 }
 
@@ -98,9 +100,16 @@ export class ImportJobsService {
     let createdCount = job.createdCount;
     for (let i = job.cursor; i < end; i++) {
       const outcome = await processRow(job.rows[i] as Row, i + 1, job.extra);
-      if (outcome.created) createdCount++;
-      else
+      if (outcome.created) {
+        createdCount++;
+        // A row that went through but has something worth reporting (e.g. a
+        // document that clashed with another patient while the rest of the
+        // row was applied) counts as done AND is listed with its note.
+        if (outcome.reason)
+          skipped.push({ row: i + 1, reason: outcome.reason });
+      } else {
         skipped.push({ row: i + 1, reason: outcome.reason ?? 'Fila omitida' });
+      }
     }
 
     job.cursor = end;

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsOptional,
@@ -5,6 +6,9 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+export const trim = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 export class CreateClinicalEntryDto {
   @IsOptional()
@@ -38,4 +42,23 @@ export class CreateClinicalEntryDto {
   @IsString()
   @MaxLength(2000)
   followUpNotes?: string;
+
+  // Campos de la plantilla de cirugía (ver consultation-template.ts).
+  // evolution/report son rich text, con el mismo margen para el HTML que
+  // examinationFindings.
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  evolution?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  report?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(200)
+  referringDoctor?: string;
 }

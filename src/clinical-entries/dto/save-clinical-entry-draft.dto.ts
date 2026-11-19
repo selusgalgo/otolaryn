@@ -1,4 +1,6 @@
+import { Transform } from 'class-transformer';
 import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
+import { trim } from './create-clinical-entry.dto';
 
 // Todos los campos son opcionales y chiefComplaint puede ir vacío: un borrador
 // se guarda mientras se escribe, así que no se le exige lo que sí exige firmar
@@ -32,4 +34,20 @@ export class SaveClinicalEntryDraftDto {
   @IsString()
   @MaxLength(2000)
   followUpNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  evolution?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  report?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(200)
+  referringDoctor?: string;
 }

@@ -6,6 +6,12 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+export const PATIENT_GENDERS = ['hombre', 'mujer'] as const;
+export type PatientGender = (typeof PATIENT_GENDERS)[number];
+
+export const HOLDER_RELATIONSHIPS = ['hijo', 'conyuge', 'otro'] as const;
+export type HolderRelationship = (typeof HOLDER_RELATIONSHIPS)[number];
+
 @Entity({ name: 'patients' })
 export class Patient {
   @Column({ name: 'creation_source', type: 'text', default: 'unknown' })
@@ -68,6 +74,24 @@ export class Patient {
 
   @Column({ name: 'insurance_entity_id', type: 'uuid', nullable: true })
   insuranceEntityId: string | null;
+
+  // Nº de tarjeta/póliza en la aseguradora privada de arriba — ver
+  // PatientGenderInsuranceNumber1738100000000.
+  @Column({ name: 'insurance_number', type: 'text', nullable: true })
+  insuranceNumber: string | null;
+
+  // null = sin indicar (todos los pacientes anteriores a la migración).
+  @Column({ type: 'text', nullable: true })
+  gender: PatientGender | null;
+
+  // Familiar a cargo de otro paciente (PatientHolder1738300000000): su
+  // titular y el parentesco. Ambos null = no es familiar a cargo de nadie.
+  // PatientsService.assertHolder valida las reglas que la BD no puede.
+  @Column({ name: 'holder_patient_id', type: 'uuid', nullable: true })
+  holderPatientId: string | null;
+
+  @Column({ name: 'holder_relationship', type: 'text', nullable: true })
+  holderRelationship: HolderRelationship | null;
 
   // PROFESION from the legacy app.
   @Column({ type: 'text', nullable: true })

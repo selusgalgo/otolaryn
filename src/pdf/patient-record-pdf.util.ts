@@ -1,6 +1,16 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
+import {
+  type ConsultationField,
+  type ConsultationTemplate,
+  fieldLabel,
+  visibleFields,
+} from '../clinical-entries/consultation-template';
 import type { ClinicalEntry } from '../clinical-entries/entities/clinical-entry.entity';
-import type { Patient } from '../patients/entities/patient.entity';
+import type {
+  HolderRelationship,
+  Patient,
+  PatientGender,
+} from '../patients/entities/patient.entity';
 import { clinicHeader } from './clinic-header.util';
 import type { ClinicProfileData } from './clinic-header.util';
 import { richTextToPdfContent } from './rich-text-to-pdf.util';
@@ -17,7 +27,20 @@ export interface PatientRecordPdfData {
   personalAntecedentes: MarkedAntecedente[];
   familiarAntecedentes: MarkedAntecedente[];
   entries: ClinicalEntry[];
+  consultationTemplate: ConsultationTemplate;
+  // Titular, si el paciente es familiar a cargo (PatientsService.findHolderLinks).
+  holder?: {
+    firstName: string;
+    lastName: string;
+    documentId: string | null;
+  } | null;
 }
+
+export const HOLDER_RELATIONSHIP_LABEL: Record<HolderRelationship, string> = {
+  hijo: 'Hijo/a',
+  conyuge: 'Cónyuge',
+  otro: 'Otro',
+};
 
 // dateOfBirth is a pure calendar date (Postgres `date`, no time-of-day or
 // timezone attached) — regex-extracted straight from the "YYYY-MM-DD"
@@ -27,7 +50,7 @@ export interface PatientRecordPdfData {
 // the day *before* once formatted in a server whose local zone sits west
 // of UTC — a real, easy-to-miss off-by-one for a value that was never a
 // point in time to begin with.
-function formatCalendarDate(value: string | null): string {
+export function formatCalendarDate(value: string | null): string {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return '—';
   const [, year, month, day] = match;
@@ -42,7 +65,7 @@ function formatCalendarDate(value: string | null): string {
 // still show the clinic's own day, not the server's.
 const CLINIC_TIME_ZONE = 'Europe/Madrid';
 
-function formatClinicDate(value: Date): string {
+export function formatClinicDate(value: Date): string {
   return new Intl.DateTimeFormat('es-ES', {
     timeZone: CLINIC_TIME_ZONE,
   }).format(value);
@@ -64,6 +87,11 @@ function firstConsultationDate(entries: ClinicalEntry[]): string {
   return formatClinicDate(entries[entries.length - 1].visitDate);
 }
 
+export const GENDER_LABEL: Record<PatientGender, string> = {
+  hombre: 'Hombre',
+  mujer: 'Mujer',
+};
+
 // Two columns of label/value pairs, no row borders — with Nº de historia
 // dropped (internal bookkeeping, not meant for a patient-facing export) and
 // Fecha de primera consulta added. A single divider (below, not between
@@ -72,15 +100,33 @@ function datosPacienteColumns(
   patient: Patient,
   insuranceName: string | null,
   entries: ClinicalEntry[],
+  holder: PatientRecordPdfData['holder'],
 ): Content {
+  const holderName = holder ? `${holder.firstName} ${holder.lastName}` : null;
+  // Un familiar a cargo suele no tener DNI propio: se muestra el del titular,
+  // indicando que es suyo.
+  const documentText =
+    patient.documentId ??
+    (holder?.documentId ? `${holder.documentId} (del titular)` : '—');
   // Both phones in one field, "-"-separated, instead of a separate
   // "Teléfono 2" row.
   const phones = [patient.phone, patient.phone2].filter(Boolean).join(' - ');
 
   const rows: [string, string][] = [
     ['Nombre', `${patient.firstName} ${patient.lastName}`],
-    ['DNI', patient.documentId ?? '—'],
+    ['DNI', documentText],
+    ...(holderName
+      ? ([
+          [
+            'Titular',
+            patient.holderRelationship
+              ? `${holderName} (${HOLDER_RELATIONSHIP_LABEL[patient.holderRelationship]})`
+              : holderName,
+          ],
+        ] as [string, string][])
+      : []),
     ['Fecha de nacimiento', formatCalendarDate(patient.dateOfBirth)],
+    ['Género', patient.gender ? GENDER_LABEL[patient.gender] : '—'],
     ['Teléfono', phones || '—'],
     ['Email', patient.email ?? '—'],
     [
@@ -91,6 +137,7 @@ function datosPacienteColumns(
     ],
     ['Profesión', patient.profession ?? '—'],
     ['Aseguradora', insuranceName ?? '—'],
+    ['Nº de seguro privado', patient.insuranceNumber ?? '—'],
     ['Fecha de primera consulta', firstConsultationDate(entries)],
   ];
 
@@ -166,17 +213,92 @@ function divider(): Content {
 // cramming all of that (now rich text, often several lines) into a 5-column
 // table row. Mirrors the legacy template's own per-consulta block layout,
 // which exists for the same reason: free-text fields don't fit a table.
-function consultaBlock(entry: ClinicalEntry): Content[] {
+//
+// That block is the ORL template's (the original five fields, layout already
+// tuned through several rounds of feedback) and stays exactly as it was.
+// Any other template — and any field with data that the ORL block doesn't
+// print — goes through templateFieldBlocks below instead.
+const RICH_FIELDS: ConsultationField[] = [
+  'chiefComplaint',
+  'examinationFindings',
+  'evolution',
+  'treatment',
+  'report',
+];
+
+function templateFieldBlocks(
+  entry: ClinicalEntry,
+  template: ConsultationTemplate,
+  fields: ConsultationField[],
+): Content[] {
+  return fields.flatMap((field): Content[] => {
+    const label = fieldLabel(template, field);
+    if (RICH_FIELDS.includes(field)) {
+      return [
+        { text: label, bold: true, fontSize: 9 },
+        { stack: [richOrDash(entry[field])], margin: [0, 2, 0, 4] },
+      ];
+    }
+    const value = entry[field];
+    if (!value) return [];
+    return [
+      {
+        text: [{ text: `${label}: `, bold: true }, value],
+        fontSize: 9,
+        margin: [0, 0, 0, 4],
+      },
+    ];
+  });
+}
+
+function visitDateLine(entry: ClinicalEntry): Content {
+  return {
+    text: [
+      { text: 'Fecha de consulta: ', bold: true },
+      formatClinicDate(entry.visitDate),
+    ],
+    fontSize: 9,
+    margin: [0, 0, 0, 4],
+  };
+}
+
+// Fields the ORL block below prints by itself (followUpNotes never was).
+const ORL_BLOCK_FIELDS: ConsultationField[] = [
+  'chiefComplaint',
+  'examinationFindings',
+  'diagnosis',
+  'treatment',
+  'followUpNotes',
+];
+
+function consultaBlock(
+  entry: ClinicalEntry,
+  template: ConsultationTemplate,
+): Content[] {
+  const fields = visibleFields(template, entry);
+  if (template !== 'orl') {
+    return [
+      divider(),
+      visitDateLine(entry),
+      ...templateFieldBlocks(entry, template, fields),
+    ];
+  }
+  const extra = fields.filter((f) => !ORL_BLOCK_FIELDS.includes(f));
+  return [
+    ...orlConsultaBlock(entry),
+    ...(extra.length > 0
+      ? [
+          { text: '', margin: [0, 4, 0, 0] } as Content,
+          ...templateFieldBlocks(entry, template, extra),
+        ]
+      : []),
+  ];
+}
+
+function orlConsultaBlock(entry: ClinicalEntry): Content[] {
   const blocks: Content[] = [
     divider(),
-    {
-      text: [
-        { text: 'Fecha de consulta: ', bold: true },
-        formatClinicDate(entry.visitDate),
-      ],
-      fontSize: 9,
-      margin: [0, 0, 0, 4],
-    },
+    visitDateLine(entry),
     { text: 'Motivo', bold: true, fontSize: 9 },
     { stack: [richOrDash(entry.chiefComplaint)], margin: [0, 2, 0, 4] },
   ];
@@ -210,11 +332,14 @@ function consultaBlock(entry: ClinicalEntry): Content[] {
   return blocks;
 }
 
-function consultasList(entries: ClinicalEntry[]): Content {
+function consultasList(
+  entries: ClinicalEntry[],
+  template: ConsultationTemplate,
+): Content {
   if (entries.length === 0) {
     return { text: 'Sin consultas todavía.', fontSize: 9, italics: true };
   }
-  return { stack: entries.flatMap(consultaBlock) };
+  return { stack: entries.flatMap((e) => consultaBlock(e, template)) };
 }
 
 // The order here is exactly the one requested: Datos del paciente,
@@ -233,7 +358,7 @@ export function buildPatientRecordPdf(
       ...clinicHeader(clinic),
 
       sectionTitle('Datos del paciente'),
-      datosPacienteColumns(patient, insuranceName, entries),
+      datosPacienteColumns(patient, insuranceName, entries, data.holder),
       divider(),
 
       sectionTitle('Antecedentes personales'),
@@ -248,7 +373,7 @@ export function buildPatientRecordPdf(
         : { text: 'Sin historia clínica todavía.', fontSize: 9, italics: true },
 
       sectionTitle('Consultas'),
-      consultasList(entries),
+      consultasList(entries, data.consultationTemplate),
     ],
   };
 }

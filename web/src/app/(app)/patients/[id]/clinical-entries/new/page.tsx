@@ -4,8 +4,11 @@ import { ApiError, apiFetch } from "@/lib/api";
 import {
   createClinicalEntryAction,
   finalizeClinicalEntryDraftAction,
+  getReferringDoctorSuggestions,
   saveClinicalEntryDraftAction,
 } from "@/lib/actions/clinical-entries";
+import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { visibleFields } from "@/lib/consultation-template";
 import type { Patient } from "@/lib/types";
 
 export default async function NewClinicalEntryPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +25,10 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
   }
 
   const boundAction = createClinicalEntryAction.bind(null, id);
+  const template = await getClinicConsultationTemplate();
+  const suggestions = visibleFields(template).includes("referringDoctor")
+    ? await getReferringDoctorSuggestions()
+    : [];
 
   return (
     <div className="space-y-4">
@@ -36,6 +43,8 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
           seguir desde cualquier ordenador. Al firmarlo se convierte en la
           consulta (finalize); sin borrador previo se crea directamente. */}
       <ClinicalEntryForm
+        template={template}
+        referringDoctorSuggestions={suggestions}
         action={boundAction}
         draftKey={`clinical-entry-draft:new:${id}`}
         attachmentsPatientId={id}

@@ -11,6 +11,8 @@ import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { fieldLabel } from "@/lib/consultation-template";
 import { getInsuranceOptions } from "@/lib/insurance";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getPractitionerOptions } from "@/lib/practitioners";
@@ -45,7 +47,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   // recepcion can now read Consultas (list + print the ficha/tratamiento
   // PDFs) but never create one — see ClinicalEntriesController. Antecedentes
   // stays clinical-only, excluded for that role same as before.
-  const [entries, practitioners, insuranceOptions, antecedentes] =
+  const [entries, practitioners, insuranceOptions, antecedentes, template] =
     await Promise.all([
       apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
       getPractitionerOptions(),
@@ -56,6 +58,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
             apiFetch<AntecedenteType[]>("/antecedente-types"),
             apiFetch<PatientAntecedente[]>(`/patients/${id}/antecedentes`),
           ]),
+      getClinicConsultationTemplate(),
     ]);
   const canCreateClinicalEntries = me.role !== "recepcion";
   const canDeleteClinicalEntries = me.role === "admin";
@@ -108,7 +111,9 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
-                    <TableHead>Motivo</TableHead>
+                    {/* "Motivo" (corto, como siempre) en ORL; en otra
+                        plantilla, su propio nombre ("Enfermedad actual"). */}
+                    <TableHead>{template === "orl" ? "Motivo" : fieldLabel(template, "chiefComplaint")}</TableHead>
                     <TableHead className="hidden md:table-cell">Doctor</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>

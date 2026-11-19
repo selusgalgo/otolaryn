@@ -84,6 +84,29 @@ export async function updateTenantScheduleAction(
   return { success: true };
 }
 
+// superadmin, any clinic — which fields that clinic's consultas use (see
+// lib/consultation-template.ts). Never touches any existing consulta's data.
+export async function updateTenantConsultationTemplateAction(
+  tenantId: string,
+  _prev: TenantFormState,
+  formData: FormData,
+): Promise<TenantFormState> {
+  try {
+    await apiFetch(`/platform/tenants/${tenantId}/consultation-template`, {
+      method: "PATCH",
+      body: { template: String(formData.get("template") ?? "") },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar la plantilla de consulta." };
+  }
+
+  revalidatePath(`/platform/${tenantId}/settings`);
+  return { success: true };
+}
+
 // superadmin, any clinic — same binding shape as updateTenantScheduleAction.
 export async function updateTenantAppointmentDefaultsAction(
   tenantId: string,

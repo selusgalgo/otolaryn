@@ -14,6 +14,7 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   // teléfono, y esas filas se importan con el dato vacío en vez de omitirse.
   // Solo el nombre sigue siendo imprescindible.
   { field: "dateOfBirth", label: "Fecha de nacimiento", required: false },
+  { field: "gender", label: "Género", required: false },
   { field: "phone", label: "Teléfono", required: false },
   // No obligatorio: si el fichero solo trae un Teléfono con dos números
   // metidos en la misma celda ("645575702/955761278"), el importador ya
@@ -31,6 +32,7 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "postalCode", label: "C.P.", required: false },
   { field: "notes", label: "Notas", required: false },
   { field: "profession", label: "Profesión", required: false },
+  { field: "insuranceNumber", label: "Nº de seguro privado", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
   { field: "firstConsultationOverride", label: "Primera consulta", required: false },
 ];

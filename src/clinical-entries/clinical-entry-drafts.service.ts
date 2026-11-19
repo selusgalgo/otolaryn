@@ -142,5 +142,8 @@ export class ClinicalEntryDraftsService {
     entry.diagnosis = plain(dto.diagnosis, entry.diagnosis);
     entry.treatment = rich(dto.treatment, entry.treatment);
     entry.followUpNotes = plain(dto.followUpNotes, entry.followUpNotes);
+    entry.evolution = rich(dto.evolution, entry.evolution);
+    entry.report = rich(dto.report, entry.report);
+    entry.referringDoctor = plain(dto.referringDoctor, entry.referringDoctor);
   }
 }

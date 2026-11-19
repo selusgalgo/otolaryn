@@ -81,9 +81,31 @@ export class ClinicalEntriesService {
       diagnosis: dto.diagnosis ?? null,
       treatment: dto.treatment ? sanitizeRichText(dto.treatment) : null,
       followUpNotes: dto.followUpNotes ?? null,
+      evolution: dto.evolution ? sanitizeRichText(dto.evolution) : null,
+      report: dto.report ? sanitizeRichText(dto.report) : null,
+      referringDoctor: dto.referringDoctor || null,
       visitDate: dto.visitDate ? toVisitDate(dto.visitDate) : new Date(),
     });
     return this.repo.save(entry);
+  }
+
+  // Sugerencias para "Doctor que lo envía": los nombres ya usados en esta
+  // clínica (RLS filtra el tenant), los más frecuentes primero. Sin catálogo
+  // aparte — el campo sigue siendo texto libre, esto solo evita escribir el
+  // mismo nombre de veinte maneras distintas.
+  async findReferringDoctors(): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('ce')
+      .select('ce.referringDoctor', 'name')
+      .addSelect('COUNT(*)', 'uses')
+      .where('ce.referringDoctor IS NOT NULL')
+      .andWhere("ce.status = 'firmada'")
+      .groupBy('ce.referringDoctor')
+      .orderBy('uses', 'DESC')
+      .addOrderBy('ce.referringDoctor', 'ASC')
+      .limit(200)
+      .getRawMany<{ name: string }>();
+    return rows.map((r) => r.name);
   }
 
   // Imports consultas.xls-shaped rows, relating each to a patient by
@@ -414,6 +436,12 @@ export class ClinicalEntriesService {
       entry.treatment = dto.treatment ? sanitizeRichText(dto.treatment) : null;
     if (dto.followUpNotes !== undefined)
       entry.followUpNotes = dto.followUpNotes || null;
+    if (dto.evolution !== undefined)
+      entry.evolution = dto.evolution ? sanitizeRichText(dto.evolution) : null;
+    if (dto.report !== undefined)
+      entry.report = dto.report ? sanitizeRichText(dto.report) : null;
+    if (dto.referringDoctor !== undefined)
+      entry.referringDoctor = dto.referringDoctor || null;
     return this.repo.save(entry);
   }
 

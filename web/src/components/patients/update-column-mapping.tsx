@@ -4,6 +4,24 @@ import { Label } from "@/components/ui/label";
 import type { UpdateColumnMapping, UpdateImportPreview } from "@/lib/actions/patients";
 import type { AntecedenteType } from "@/lib/types";
 
+// Campos simples que el fichero puede sobrescribir. "Aseguradora" es el
+// nombre (el backend lo resuelve a la aseguradora, creándola si es nueva).
+const PATIENT_FIELDS: { field: Exclude<keyof UpdateColumnMapping, "legacyId" | "firstConsultationOverride" | "notes" | "antecedentes">; label: string }[] = [
+  { field: "documentId", label: "Documento" },
+  { field: "dateOfBirth", label: "Fecha de nacimiento" },
+  { field: "gender", label: "Género" },
+  { field: "phone", label: "Teléfono" },
+  { field: "phone2", label: "Teléfono 2" },
+  { field: "email", label: "Email" },
+  { field: "address", label: "Dirección" },
+  { field: "city", label: "Ciudad/Población" },
+  { field: "province", label: "Provincia" },
+  { field: "postalCode", label: "C.P." },
+  { field: "profession", label: "Profesión" },
+  { field: "insuranceEntityName", label: "Aseguradora" },
+  { field: "insuranceNumber", label: "Nº de seguro privado" },
+];
+
 function sampleFor(preview: UpdateImportPreview, header: string | undefined): string {
   if (!header) return "";
   const values = preview.sampleRows
@@ -21,12 +39,11 @@ interface UpdateColumnMappingProps {
   antecedenteTypes?: AntecedenteType[];
 }
 
-// Versión reducida de ImportColumnMapping para la actualización masiva:
-// solo tres cosas se pueden mapear (Nº de historia para localizar al
-// paciente, Primera consulta y antecedentes) — a propósito, ya que este
-// modo nunca toca el resto de la ficha. Misma lógica de desambiguar
-// nombres repetidos entre categorías que la importación de pacientes
-// nuevos.
+// Versión de ImportColumnMapping para la actualización masiva: Nº de
+// historia localiza al paciente y solo se tocan las columnas que se
+// relacionen (nada más de la ficha), sin nombres ni Nº de historia como
+// dato. Misma lógica de desambiguar nombres repetidos entre categorías que
+// la importación de pacientes nuevos.
 export function UpdateColumnMappingForm({
   preview,
   mapping,
@@ -120,6 +137,36 @@ export function UpdateColumnMappingForm({
           <p className="min-h-4 truncate text-xs text-muted-foreground">
             {sampleFor(preview, mapping.notes)}
           </p>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t pt-3">
+        <p className="text-sm font-medium">
+          Datos del paciente — se sobrescribe el valor guardado (opcional)
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {PATIENT_FIELDS.map(({ field, label }) => (
+            <div key={field} className="space-y-1">
+              <Label htmlFor={`mapping-${field}`}>{label}</Label>
+              <select
+                id={`mapping-${field}`}
+                value={mapping[field] ?? ""}
+                disabled={disabled}
+                onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
+                className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+              >
+                <option value="">No importar</option>
+                {preview.headers.map((header) => (
+                  <option key={header} value={header}>
+                    {header}
+                  </option>
+                ))}
+              </select>
+              <p className="min-h-4 truncate text-xs text-muted-foreground">
+                {sampleFor(preview, mapping[field])}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 

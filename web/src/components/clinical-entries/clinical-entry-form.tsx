@@ -20,8 +20,22 @@ import {
   type StoredDraft,
 } from "@/lib/drafts";
 import type { ClinicalEntry } from "@/lib/types";
+import {
+  ALL_CONSULTATION_FIELDS,
+  DEFAULT_CONSULTATION_TEMPLATE,
+  FIELD_KIND,
+  fieldLabel,
+  visibleFields,
+  type ConsultationField,
+  type ConsultationTemplate,
+} from "@/lib/consultation-template";
 
 interface ClinicalEntryFormProps {
+  // Plantilla de consulta de la clínica (GET /settings/consultation-template):
+  // qué campos se pintan y cómo se llaman. Sin ella, la de siempre (ORL).
+  template?: ConsultationTemplate;
+  // Nombres ya usados en "Doctor que lo envía", para sugerirlos al escribir.
+  referringDoctorSuggestions?: string[];
   action: (prevState: ClinicalEntryFormState, formData: FormData) => Promise<ClinicalEntryFormState>;
   // Presente = modo edición (PATCH, ver EditClinicalEntryDialog); ausente
   // = modo creación, igual que antes.
@@ -81,27 +95,20 @@ const DRAFT_TTL_MS = 8 * 60 * 60 * 1000;
 // pendingDraft vs. autoAppliedDraft más abajo.
 const AUTO_APPLY_THRESHOLD_MS = 10 * 60 * 1000;
 
-interface FormValues {
-  visitDate: string;
-  chiefComplaint: string;
-  examinationFindings: string;
-  diagnosis: string;
-  treatment: string;
-  followUpNotes: string;
-}
+// Todos los campos de consulta viven siempre en el estado (y en el borrador),
+// se pinten o no: así un borrador o una edición nunca pierde un valor de un
+// campo que la plantilla de esta clínica no muestra.
+type FormValues = { visitDate: string } & Record<ConsultationField, string>;
 
 type ClinicalEntryDraft = StoredDraft<Partial<FormValues>>;
 
-const TEXT_FIELDS = ["chiefComplaint", "examinationFindings", "diagnosis", "treatment", "followUpNotes"] as const;
+const TEXT_FIELDS = ALL_CONSULTATION_FIELDS;
 
 function initialTexts(initialValues?: ClinicalEntry): Omit<FormValues, "visitDate"> {
-  return {
-    chiefComplaint: initialValues?.chiefComplaint ?? "",
-    examinationFindings: initialValues?.examinationFindings ?? "",
-    diagnosis: initialValues?.diagnosis ?? "",
-    treatment: initialValues?.treatment ?? "",
-    followUpNotes: initialValues?.followUpNotes ?? "",
-  };
+  return Object.fromEntries(TEXT_FIELDS.map((field) => [field, initialValues?.[field] ?? ""])) as Omit<
+    FormValues,
+    "visitDate"
+  >;
 }
 
 const FIELD_ORDER = ["visitDate", ...TEXT_FIELDS] as const;
@@ -141,6 +148,8 @@ function toDateTimeInputValue(d: Date): string {
 }
 
 export function ClinicalEntryForm({
+  template = DEFAULT_CONSULTATION_TEMPLATE,
+  referringDoctorSuggestions = [],
   action,
   initialValues,
   submitLabel = "Guardar entrada",
@@ -420,6 +429,12 @@ export function ClinicalEntryForm({
 
   const loginHref = `/session/expired?reason=SESSION_EXPIRED&redirect=${encodeURIComponent(pathname)}`;
 
+  // Los de la plantilla, más cualquier otro que la consulta ya traiga con
+  // datos (ver visibleFields) — calculado sobre los valores iniciales, no
+  // los actuales, para que un campo no desaparezca al vaciarlo mientras se
+  // escribe.
+  const fields = visibleFields(template, initialValues);
+
   return (
     <form onSubmit={handleSubmit} className="grid max-w-2xl gap-4">
       {autoAppliedDraft && (
@@ -484,55 +499,56 @@ export function ClinicalEntryForm({
           Se rellena con la fecha y hora actuales — edítala si la consulta fue en otro momento.
         </p>
       </div>
-      <div className="space-y-2">
-        <Label>Motivo de consulta</Label>
-        <input type="hidden" name="chiefComplaint" value={values.chiefComplaint} />
-        <RichTextEditor
-          value={values.chiefComplaint}
-          onChange={(html) => setField("chiefComplaint", html)}
-          disabled={pending}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Exploración</Label>
-        <input type="hidden" name="examinationFindings" value={values.examinationFindings} />
-        <RichTextEditor
-          value={values.examinationFindings}
-          onChange={(html) => setField("examinationFindings", html)}
-          disabled={pending}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="diagnosis">Diagnóstico</Label>
-        <Textarea
-          id="diagnosis"
-          name="diagnosis"
-          value={values.diagnosis}
-          onChange={(e) => setField("diagnosis", e.target.value)}
-          disabled={pending}
-          rows={2}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Tratamiento</Label>
-        <input type="hidden" name="treatment" value={values.treatment} />
-        <RichTextEditor
-          value={values.treatment}
-          onChange={(html) => setField("treatment", html)}
-          disabled={pending}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="followUpNotes">Notas de seguimiento</Label>
-        <Textarea
-          id="followUpNotes"
-          name="followUpNotes"
-          value={values.followUpNotes}
-          onChange={(e) => setField("followUpNotes", e.target.value)}
-          disabled={pending}
-          rows={2}
-        />
-      </div>
+      {fields.map((field) => {
+        const label = fieldLabel(template, field);
+        const kind = FIELD_KIND[field];
+        if (kind === "rich") {
+          return (
+            <div key={field} className="space-y-2">
+              <Label>{label}</Label>
+              <input type="hidden" name={field} value={values[field]} />
+              <RichTextEditor value={values[field]} onChange={(html) => setField(field, html)} disabled={pending} />
+            </div>
+          );
+        }
+        if (kind === "textarea") {
+          return (
+            <div key={field} className="space-y-2">
+              <Label htmlFor={field}>{label}</Label>
+              <Textarea
+                id={field}
+                name={field}
+                value={values[field]}
+                onChange={(e) => setField(field, e.target.value)}
+                disabled={pending}
+                rows={2}
+              />
+            </div>
+          );
+        }
+        return (
+          <div key={field} className="space-y-2">
+            <Label htmlFor={field}>{label}</Label>
+            <Input
+              id={field}
+              name={field}
+              value={values[field]}
+              onChange={(e) => setField(field, e.target.value)}
+              disabled={pending}
+              maxLength={200}
+              autoComplete="off"
+              list={field === "referringDoctor" && referringDoctorSuggestions.length > 0 ? "referringDoctor-options" : undefined}
+            />
+            {field === "referringDoctor" && referringDoctorSuggestions.length > 0 && (
+              <datalist id="referringDoctor-options">
+                {referringDoctorSuggestions.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            )}
+          </div>
+        );
+      })}
       {state.sessionExpired ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
           <span className="text-destructive">

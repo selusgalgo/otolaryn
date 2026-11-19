@@ -10,12 +10,24 @@ import { DeleteClinicalEntryButton } from "@/components/clinical-entries/delete-
 import { DiscardDraftButton } from "@/components/clinical-entries/discard-draft-button";
 import { DraftBadge } from "@/components/clinical-entries/draft-badge";
 import { EditClinicalEntryDialog } from "@/components/clinical-entries/edit-clinical-entry-dialog";
-import { finalizeClinicalEntryDraftAction, saveClinicalEntryDraftAction } from "@/lib/actions/clinical-entries";
+import {
+  finalizeClinicalEntryDraftAction,
+  getReferringDoctorSuggestions,
+  saveClinicalEntryDraftAction,
+} from "@/lib/actions/clinical-entries";
+import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { FIELD_KIND, fieldLabel, visibleFields, type ConsultationField } from "@/lib/consultation-template";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getSessionToken } from "@/lib/session";
 import type { ClinicalEntry } from "@/lib/types";
+
+// Campos con su propio PDF imprimible (ruta hermana de esta página).
+const PRINTABLE: Partial<Record<ConsultationField, string>> = {
+  treatment: "treatment-pdf",
+  report: "report-pdf",
+};
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
@@ -46,6 +58,12 @@ export default async function ClinicalEntryDetailPage({
   }
 
   const me = await getCurrentUser();
+  const template = await getClinicConsultationTemplate();
+  const canEdit = me.role === "admin" || me.role === "profesional";
+  const suggestions =
+    canEdit && visibleFields(template, entry).includes("referringDoctor")
+      ? await getReferringDoctorSuggestions()
+      : [];
 
   // Borrador (aún no firmada): solo llega aquí su autor o un administrador (la
   // API responde 404 al resto). El autor sigue escribiéndolo en el mismo
@@ -73,6 +91,8 @@ export default async function ClinicalEntryDetailPage({
           <DiscardDraftButton patientId={id} draftId={entry.id} />
         </div>
         <ClinicalEntryForm
+          template={template}
+          referringDoctorSuggestions={suggestions}
           action={finalizeClinicalEntryDraftAction.bind(null, id, entry.id)}
           initialValues={entry}
           draftKey={`clinical-entry-draft:draft:${entry.id}`}
@@ -106,73 +126,53 @@ export default async function ClinicalEntryDetailPage({
             <DiscardDraftButton patientId={id} draftId={entry.id} />
           ) : (
             <>
-              {(me.role === "admin" || me.role === "profesional") && <EditClinicalEntryDialog entry={entry} />}
+              {canEdit && (
+                <EditClinicalEntryDialog
+                  entry={entry}
+                  template={template}
+                  referringDoctorSuggestions={suggestions}
+                />
+              )}
               {me.role === "admin" && <DeleteClinicalEntryButton patientId={id} entryId={entryId} />}
             </>
           )}
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Motivo de consulta</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RichTextContent html={entry.chiefComplaint} />
-        </CardContent>
-      </Card>
-
-      {entry.examinationFindings && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Exploración</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RichTextContent html={entry.examinationFindings} />
-          </CardContent>
-        </Card>
-      )}
-
-      {entry.diagnosis && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Diagnóstico</CardTitle>
-          </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm">{entry.diagnosis}</CardContent>
-        </Card>
-      )}
-
-      {entry.treatment && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Tratamiento</CardTitle>
-            {!isDraft && (
-              <Button asChild size="sm" variant="outline">
-                <a
-                  href={`/patients/${id}/clinical-entries/${entryId}/treatment-pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ArrowDownTrayIcon data-icon="inline-start" />
-                  Imprimir
-                </a>
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <RichTextContent html={entry.treatment} />
-          </CardContent>
-        </Card>
-      )}
-
-      {entry.followUpNotes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Notas de seguimiento</CardTitle>
-          </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm">{entry.followUpNotes}</CardContent>
-        </Card>
-      )}
+      {/* Campos según la plantilla de la clínica, en su orden. El primero
+          (Motivo / Enfermedad actual) sale siempre; el resto solo si tiene
+          texto. Tratamiento e Informe se pueden imprimir. */}
+      {visibleFields(template, entry)
+        .filter((field) => field === "chiefComplaint" || !!entry[field])
+        .map((field) => {
+          const printHref = isDraft ? null : PRINTABLE[field];
+          return (
+            <Card key={field}>
+              <CardHeader className={printHref ? "flex flex-row items-center justify-between" : undefined}>
+                <CardTitle className="text-base">{fieldLabel(template, field)}</CardTitle>
+                {printHref && (
+                  <Button asChild size="sm" variant="outline">
+                    <a
+                      href={`/patients/${id}/clinical-entries/${entryId}/${printHref}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ArrowDownTrayIcon data-icon="inline-start" />
+                      Imprimir
+                    </a>
+                  </Button>
+                )}
+              </CardHeader>
+              {FIELD_KIND[field] === "rich" ? (
+                <CardContent>
+                  <RichTextContent html={entry[field] ?? ""} />
+                </CardContent>
+              ) : (
+                <CardContent className="whitespace-pre-wrap text-sm">{entry[field]}</CardContent>
+              )}
+            </Card>
+          );
+        })}
 
       {/* Lo ve quien ve la consulta; se añaden y quitan desde «Editar». */}
       <AttachmentsPanel patientId={id} entryId={entryId} canManage={false} />

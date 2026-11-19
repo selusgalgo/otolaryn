@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
-import type { Patient } from "@/lib/types";
+import { PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface PatientFormProps {
@@ -106,6 +106,20 @@ export function PatientForm({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="gender">Género</Label>
+            <select
+              id="gender"
+              name="gender"
+              defaultValue={initialValues?.gender ?? ""}
+              disabled={pending}
+              className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+            >
+              <option value="">Sin indicar</option>
+              <option value="hombre">{PATIENT_GENDER_LABEL.hombre}</option>
+              <option value="mujer">{PATIENT_GENDER_LABEL.mujer}</option>
+            </select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="profession">Profesión</Label>
             <Input
               id="profession"
@@ -130,6 +144,16 @@ export function PatientForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="insuranceNumber">Nº de seguro privado</Label>
+            <Input
+              id="insuranceNumber"
+              name="insuranceNumber"
+              defaultValue={initialValues?.insuranceNumber ?? ""}
+              maxLength={50}
+              disabled={pending}
+            />
           </div>
         </div>
       </div>
