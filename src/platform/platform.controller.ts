@@ -24,6 +24,7 @@ import {
   MAX_LOGO_UPLOAD_BYTES,
 } from '../settings/clinic-logo.util';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
+import { UpdateConsultationTemplateDto } from '../settings/dto/update-consultation-template.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
 import { UpdateWhatsappPlatformDto } from '../settings/dto/update-whatsapp-settings.dto';
 import { SettingsService } from '../settings/settings.service';
@@ -102,6 +103,19 @@ export class PlatformController {
     @Body() dto: UpdateAppointmentDefaultsDto,
   ) {
     return this.platform.updateAppointmentDefaults(id, dto);
+  }
+
+  @Get(':id/consultation-template')
+  getConsultationTemplate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platform.getConsultationTemplate(id);
+  }
+
+  @Patch(':id/consultation-template')
+  updateConsultationTemplate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateConsultationTemplateDto,
+  ) {
+    return this.platform.updateConsultationTemplate(id, dto.template);
   }
 
   @Get(':id/clinic-profile')

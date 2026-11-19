@@ -2,12 +2,19 @@ import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEmail,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import {
+  HOLDER_RELATIONSHIPS,
+  type HolderRelationship,
+  PATIENT_GENDERS,
+  type PatientGender,
+} from '../entities/patient.entity';
 
 // Trims whitespace before validation/storage. Without this, " 00000002B"
 // and "00000002B" are different strings as far as the documentId unique
@@ -108,6 +115,33 @@ export class CreatePatientDto {
   @IsOptional()
   @IsUUID()
   insuranceEntityId?: string;
+
+  // Nº de tarjeta/póliza en la aseguradora privada. Texto libre: cada
+  // aseguradora tiene su propio formato.
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(50)
+  insuranceNumber?: string;
+
+  // null desde la ficha = volver a "sin indicar" (IsOptional deja pasar null).
+  @IsOptional()
+  @IsIn(PATIENT_GENDERS, { message: 'El género debe ser hombre o mujer' })
+  gender?: PatientGender | null;
+
+  // Titular del que este paciente es familiar a cargo, y el parentesco.
+  // null en ambos = quitar el vínculo. Las reglas (misma clínica, sin
+  // cadenas, parentesco obligatorio con titular) las aplica
+  // PatientsService.assertHolder.
+  @IsOptional()
+  @IsUUID()
+  holderPatientId?: string | null;
+
+  @IsOptional()
+  @IsIn(HOLDER_RELATIONSHIPS, {
+    message: 'El parentesco debe ser hijo, conyuge u otro',
+  })
+  holderRelationship?: HolderRelationship | null;
 
   // "Número de historia" — el asistente de importación de Pacientes lo
   // rellena con el NUMHISTORIA del programa legado, cuando esa fila lo

@@ -20,6 +20,8 @@ function patientPayloadFromFormData(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
   const profession = String(formData.get("profession") ?? "").trim();
   const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
+  const insuranceNumber = String(formData.get("insuranceNumber") ?? "").trim();
+  const gender = String(formData.get("gender") ?? "").trim();
   const firstConsultationOverride = String(formData.get("firstConsultationOverride") ?? "").trim();
 
   return {
@@ -52,7 +54,18 @@ function patientPayloadFromFormData(formData: FormData) {
     notes: notes || null,
     profession: profession || null,
     insuranceEntityId: insuranceEntityId || null,
+    insuranceNumber: insuranceNumber || null,
+    gender: gender || null,
     firstConsultationOverride: firstConsultationOverride || null,
+    // Titular/parentesco solo si el formulario los pinta (la ficha): el
+    // formulario de alta no los tiene, y mandar null ahí no debe borrar un
+    // vínculo existente.
+    ...(formData.has("holderPatientId")
+      ? {
+          holderPatientId: String(formData.get("holderPatientId") ?? "").trim() || null,
+          holderRelationship: String(formData.get("holderRelationship") ?? "").trim() || null,
+        }
+      : {}),
   };
 }
 
@@ -211,6 +224,7 @@ export type ColumnMapping = Partial<
     | "lastName"
     | "documentId"
     | "dateOfBirth"
+    | "gender"
     | "phone"
     | "phone2"
     | "email"
@@ -220,6 +234,7 @@ export type ColumnMapping = Partial<
     | "postalCode"
     | "notes"
     | "profession"
+    | "insuranceNumber"
     | "legacyId"
     | "firstConsultationOverride",
     string
@@ -318,14 +333,31 @@ export async function continueImportJobAction(
   }
 }
 
-// Mirrors UpdateFieldMapping in patients-csv.util.ts — the narrow "update
-// patients" mode only ever touches Primera consulta + antecedentes on an
-// already-existing patient, located by Nº de historia, so its mapping has
-// far fewer fields than the full ColumnMapping above.
-export type UpdateColumnMapping = {
+// Mirrors UpdateFieldMapping in patients-csv.util.ts — the "update patients"
+// mode locates an already-existing patient by Nº de historia and overwrites
+// only the fields it has a column mapped for (a non-empty cell replaces the
+// stored value; an empty cell never clears anything).
+export type UpdateColumnMapping = Partial<
+  Record<
+    | "documentId"
+    | "dateOfBirth"
+    | "gender"
+    | "phone"
+    | "phone2"
+    | "email"
+    | "address"
+    | "city"
+    | "province"
+    | "postalCode"
+    | "profession"
+    | "insuranceNumber",
+    string
+  >
+> & {
   legacyId?: string;
   firstConsultationOverride?: string;
   notes?: string;
+  insuranceEntityName?: string;
   antecedentes?: Record<string, string | undefined>;
 };
 

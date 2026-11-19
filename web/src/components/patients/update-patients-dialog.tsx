@@ -139,9 +139,10 @@ export function UpdatePatientsDialog({
         </DialogHeader>
         <form ref={formRef} className="grid gap-4" onSubmit={(e) => e.preventDefault()}>
           <p className="text-xs text-muted-foreground">
-            Localiza a cada paciente por su Nº de historia y actualiza solo Primera consulta,
-            Historia clínica y antecedentes — el resto de la ficha no se modifica. Un paciente sin
-            Nº de historia coincidente se omite (créalo primero desde Importar pacientes).
+            Localiza a cada paciente por su Nº de historia y actualiza solo las columnas que
+            relaciones: lo que traiga el fichero sustituye al dato guardado, y una celda vacía no
+            borra nada. Un paciente sin Nº de historia coincidente se omite (créalo primero desde
+            Importar pacientes).
           </p>
           <div className="space-y-2">
             <Label>Fichero</Label>
@@ -192,7 +193,8 @@ export function UpdatePatientsDialog({
                     <div className="space-y-1">
                       <p className="font-medium text-destructive">
                         {progress.skipped.length} fila{progress.skipped.length === 1 ? "" : "s"}{" "}
-                        omitida{progress.skipped.length === 1 ? "" : "s"}:
+                        con incidencias (omitida{progress.skipped.length === 1 ? "" : "s"} o actualizada
+                        {progress.skipped.length === 1 ? "" : "s"} solo en parte):
                       </p>
                       <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                         {progress.skipped.map((s) => (

@@ -91,6 +91,14 @@ export class ClinicalEntriesController {
     );
   }
 
+  // Sugerencias del campo "Doctor que lo envía" (ver
+  // ClinicalEntriesService.findReferringDoctors). Declarada antes de
+  // clinical-entries/:id para que esa ruta no la capture.
+  @Get('clinical-entries/referring-doctors')
+  findReferringDoctors() {
+    return this.clinicalEntries.findReferringDoctors();
+  }
+
   // Paso 1 del asistente de importación de Consultas: mismo patrón que
   // /patients/import/preview — lee columnas y unas filas de muestra sin
   // crear nada, para que la persona confirme el mapeo (incluida qué

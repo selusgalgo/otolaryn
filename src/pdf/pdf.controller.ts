@@ -16,6 +16,7 @@ import { Repository } from 'typeorm';
 import { AntecedentesService } from '../antecedentes/antecedentes.service';
 import { ClinicalEntriesService } from '../clinical-entries/clinical-entries.service';
 import { Tenant } from '../iam/entities/tenant.entity';
+import { User } from '../iam/entities/user.entity';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
@@ -26,6 +27,7 @@ import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor'
 import type { ClinicProfileData } from './clinic-header.util';
 import { buildPatientRecordPdf } from './patient-record-pdf.util';
 import { PdfService } from './pdf.service';
+import { buildReportPdf } from './report-pdf.util';
 import { buildTreatmentPdf } from './treatment-pdf.util';
 
 // recepcion included — it can now read Consultas too (see
@@ -50,12 +52,18 @@ export class PdfController {
     // iam.tenants carries no RLS (same as everywhere else it's read) — a
     // direct repo, not TenancyContext, just for the clinic name header.
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
+    // iam.users carries no RLS either — always filtered by this request's
+    // tenant explicitly below.
+    @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
 
-  private async clinicProfile(): Promise<ClinicProfileData> {
-    const tenant = await this.tenants.findOneOrFail({
+  private async currentTenant(): Promise<Tenant> {
+    return this.tenants.findOneOrFail({
       where: { id: this.tenancyContext.tenantId },
     });
+  }
+
+  private clinicProfile(tenant: Tenant): ClinicProfileData {
     return {
       name: tenant.name,
       tagline: tenant.tagline,
@@ -75,13 +83,14 @@ export class PdfController {
     // patient's clinical content.
     const patient = await this.patients.findOne(id);
 
-    const [clinic, types, marked, entries, insuranceEntities] =
+    const [tenant, types, marked, entries, insuranceEntities, links] =
       await Promise.all([
-        this.clinicProfile(),
+        this.currentTenant(),
         this.antecedentes.findAllTypes(),
         this.antecedentes.findForPatient(id),
         this.clinicalEntries.findAllForPatientUnpaged(id),
         this.insurance.findAll(),
+        this.patients.findHolderLinks(patient),
       ]);
 
     const typeById = new Map(types.map((t) => [t.id, t]));
@@ -101,7 +110,9 @@ export class PdfController {
 
     const buffer = await this.pdf.render(
       buildPatientRecordPdf({
-        clinic,
+        clinic: this.clinicProfile(tenant),
+        consultationTemplate: tenant.consultationTemplate,
+        holder: links.holder,
         patient,
         insuranceName,
         personalAntecedentes: resolved.filter((a) => a.category === 'personal'),
@@ -140,6 +151,58 @@ export class PdfController {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="tratamiento-${patient.legacyId ?? patient.id}.pdf"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  // Informe médico (campo Informe, plantilla de cirugía) — same access and
+  // same "no drafts, nothing to print without content" rules as the
+  // Tratamiento slip above.
+  @Get('clinical-entries/:id/report-pdf')
+  async reportPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const entry = await this.clinicalEntries.findOne(id);
+    if (entry.status === 'borrador') {
+      throw new BadRequestException(
+        'Un borrador no se puede imprimir: fírmalo primero.',
+      );
+    }
+    if (!entry.report) {
+      throw new NotFoundException('Esta consulta no tiene informe redactado');
+    }
+    const [patient, tenant, author, insuranceEntities] = await Promise.all([
+      this.patients.findOne(entry.patientId),
+      this.currentTenant(),
+      this.users.findOne({
+        where: {
+          id: entry.authorUserId,
+          tenantId: this.tenancyContext.tenantId,
+        },
+      }),
+      this.insurance.findAll(),
+    ]);
+    const insuranceName =
+      insuranceEntities.find((e) => e.id === patient.insuranceEntityId)?.name ??
+      null;
+    const authorName = author
+      ? `${author.honorific} ${author.firstName} ${author.lastName}`.trim()
+      : null;
+
+    const buffer = await this.pdf.render(
+      buildReportPdf({
+        clinic: this.clinicProfile(tenant),
+        patient,
+        entry,
+        insuranceName,
+        authorName,
+      }),
+    );
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="informe-${patient.legacyId ?? patient.id}.pdf"`,
     });
     return new StreamableFile(buffer);
   }

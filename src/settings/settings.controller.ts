@@ -91,6 +91,16 @@ export class SettingsController {
     );
   }
 
+  // Every tenant role reads it — the consulta form, view and list all
+  // depend on which fields the clinic uses. Changing it is superadmin-only
+  // (PlatformController): it's part of setting a clinic up, not a day-to-day
+  // preference.
+  @Get('consultation-template')
+  @Roles('admin', 'profesional', 'recepcion')
+  getConsultationTemplate(@CurrentUser() user: CurrentUserPayload) {
+    return this.settings.getConsultationTemplate(user.tenantId as string);
+  }
+
   // Admin-only, both read and write — unlike the sections above, device
   // lock is a security control for the clinic's own computers, not
   // something profesional/recepcion need to see or that a PDF export

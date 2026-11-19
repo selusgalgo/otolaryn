@@ -12,7 +12,8 @@ import { CreateAppointmentDialog } from "@/components/appointments/create-appoin
 import { updatePatientAction, type PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
-import type { Patient } from "@/lib/types";
+import { HolderPicker } from "@/components/patients/holder-picker";
+import { HOLDER_RELATIONSHIP_LABEL, PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
@@ -135,6 +136,22 @@ export function PatientProfileSection({
                   />
                 </div>
                 <div className="w-full space-y-1 text-left">
+                  <Label htmlFor="gender" className="text-xs">
+                    Género
+                  </Label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    defaultValue={patient.gender ?? ""}
+                    disabled={pending}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+                  >
+                    <option value="">Sin indicar</option>
+                    <option value="hombre">{PATIENT_GENDER_LABEL.hombre}</option>
+                    <option value="mujer">{PATIENT_GENDER_LABEL.mujer}</option>
+                  </select>
+                </div>
+                <div className="w-full space-y-1 text-left">
                   <Label htmlFor="profession" className="text-xs">
                     Profesión
                   </Label>
@@ -163,6 +180,18 @@ export function PatientProfileSection({
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="w-full space-y-1 text-left">
+                  <Label htmlFor="insuranceNumber" className="text-xs">
+                    Nº de seguro privado
+                  </Label>
+                  <Input
+                    id="insuranceNumber"
+                    name="insuranceNumber"
+                    defaultValue={patient.insuranceNumber ?? ""}
+                    maxLength={50}
+                    disabled={pending}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -268,6 +297,15 @@ export function PatientProfileSection({
                     Solo si la primera consulta no se registró en Historia clínica.
                   </p>
                 </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <HolderPicker
+                    patientId={patient.id}
+                    initialHolder={patient.holder ?? null}
+                    initialRelationship={patient.holderRelationship}
+                    hasDependents={(patient.dependents?.length ?? 0) > 0}
+                    disabled={pending}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -314,13 +352,23 @@ export function PatientProfileSection({
                   <div className="text-xs text-muted-foreground">Origen del alta</div>
                   <div>{{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}</div>
                 </div>}
-                <div>{documentDisplay === "-" ? "" : documentDisplay}</div>
+                <div>
+                  {documentDisplay !== "-"
+                    ? documentDisplay
+                    : patient.holder?.documentId
+                      ? `${formatDocumentId(patient.holder.documentId)} (del titular)`
+                      : ""}
+                </div>
                 <div>
                   {patient.dateOfBirth && (
                     <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-sans text-xs font-medium text-sky-700">
                       {calculateAge(patient.dateOfBirth)} años
                     </span>
                   )}
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Género</div>
+                  <div>{patient.gender ? PATIENT_GENDER_LABEL[patient.gender] : "—"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Profesión</div>
@@ -330,6 +378,41 @@ export function PatientProfileSection({
                   <div className="text-xs text-muted-foreground">Aseguradora</div>
                   <div>{insuranceName || "—"}</div>
                 </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Nº de seguro privado</div>
+                  <div>{patient.insuranceNumber || "—"}</div>
+                </div>
+                {patient.holder && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Familiar a cargo de
+                      {patient.holderRelationship && ` (${HOLDER_RELATIONSHIP_LABEL[patient.holderRelationship]})`}
+                    </div>
+                    <Link href={`/patients/${patient.holder.id}`} className="hover:underline">
+                      {patient.holder.firstName} {patient.holder.lastName}
+                    </Link>
+                  </div>
+                )}
+                {patient.dependents && patient.dependents.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Familiares a cargo</div>
+                    <ul className="space-y-0.5">
+                      {patient.dependents.map((d) => (
+                        <li key={d.id}>
+                          <Link href={`/patients/${d.id}`} className="hover:underline">
+                            {d.firstName} {d.lastName}
+                          </Link>
+                          {d.holderRelationship && (
+                            <span className="text-xs text-muted-foreground">
+                              {" "}
+                              · {HOLDER_RELATIONSHIP_LABEL[d.holderRelationship]}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

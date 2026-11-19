@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsOptional,
@@ -5,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { trim } from './create-clinical-entry.dto';
 
 // All fields optional — a caller sends only what it's changing. Same
 // limits as CreateClinicalEntryDto; chiefComplaint keeps MinLength(1) so
@@ -39,4 +41,20 @@ export class UpdateClinicalEntryDto {
   @IsString()
   @MaxLength(2000)
   followUpNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  evolution?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  report?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(200)
+  referringDoctor?: string;
 }

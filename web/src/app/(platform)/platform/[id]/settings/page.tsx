@@ -5,9 +5,12 @@ import { AppointmentDefaultsForm } from "@/components/settings/appointment-defau
 import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { WhatsappPlatformForm } from "@/components/settings/whatsapp-booking-form";
+import { ConsultationTemplateForm } from "@/components/platform/consultation-template-form";
+import type { ConsultationTemplate } from "@/lib/consultation-template";
 import {
   updateTenantAppointmentDefaultsAction,
   updateTenantClinicProfileAction,
+  updateTenantConsultationTemplateAction,
   updateTenantScheduleAction,
   updateTenantWhatsappPlatformAction,
 } from "@/lib/actions/platform";
@@ -20,11 +23,12 @@ export default async function TenantSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [schedule, appointmentDefaults, clinicProfile, whatsapp] = await Promise.all([
+  const [schedule, appointmentDefaults, clinicProfile, whatsapp, consultationTemplate] = await Promise.all([
     apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`),
     apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
     apiFetch<ClinicProfile>(`/platform/tenants/${id}/clinic-profile`),
     apiFetch<WhatsappBookingSettings>(`/platform/tenants/${id}/whatsapp-booking`),
+    apiFetch<{ template: ConsultationTemplate }>(`/platform/tenants/${id}/consultation-template`),
   ]);
   const scheduleAction = updateTenantScheduleAction.bind(null, id);
   const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
@@ -48,6 +52,18 @@ export default async function TenantSettingsPage({
         </CardHeader>
         <CardContent>
           <ClinicProfileForm action={clinicProfileAction} initialProfile={clinicProfile} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Plantilla de consulta</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConsultationTemplateForm
+            action={updateTenantConsultationTemplateAction.bind(null, id)}
+            initialTemplate={consultationTemplate.template}
+          />
         </CardContent>
       </Card>
 

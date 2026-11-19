@@ -1,3 +1,26 @@
+export type PatientGender = "hombre" | "mujer";
+
+export const PATIENT_GENDER_LABEL: Record<PatientGender, string> = {
+  hombre: "Hombre",
+  mujer: "Mujer",
+};
+
+export type HolderRelationship = "hijo" | "conyuge" | "otro";
+
+export const HOLDER_RELATIONSHIP_LABEL: Record<HolderRelationship, string> = {
+  hijo: "Hijo/a",
+  conyuge: "Cónyuge",
+  otro: "Otro",
+};
+
+export interface PatientLinkSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentId: string | null;
+  legacyId: string | null;
+}
+
 export interface Patient {
   creationSource?: "unknown" | "manual" | "import" | "whatsapp";
   id: string;
@@ -19,6 +42,16 @@ export interface Patient {
   profession: string | null;
   legacyId: string | null;
   insuranceEntityId: string | null;
+  // Nº de tarjeta/póliza en la aseguradora privada.
+  insuranceNumber: string | null;
+  // null = sin indicar.
+  gender: PatientGender | null;
+  // Familiar a cargo: su titular y el parentesco (ambos null si no lo es).
+  holderPatientId: string | null;
+  holderRelationship: HolderRelationship | null;
+  // Solo en GET /patients/:id: el titular y los familiares a cargo.
+  holder?: PatientLinkSummary | null;
+  dependents?: (PatientLinkSummary & { holderRelationship: HolderRelationship | null })[];
   // Manually editable — see the backend DTO comment for why this exists
   // alongside the computed value below instead of replacing it.
   firstConsultationOverride: string | null;
@@ -63,6 +96,10 @@ export interface ClinicalEntry {
   diagnosis: string | null;
   treatment: string | null;
   followUpNotes: string | null;
+  // Plantilla de cirugía (ver lib/consultation-template.ts).
+  evolution: string | null;
+  report: string | null;
+  referringDoctor: string | null;
   // Resolved by the backend from authorUserId regardless of that user's
   // current active status — unlike the "bookable" practitioner list used
   // for picking who to book a new appointment with, a past consulta's

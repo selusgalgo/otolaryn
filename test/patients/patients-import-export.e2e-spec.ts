@@ -20,6 +20,8 @@ interface PatientResponse {
   firstName: string;
   lastName: string;
   documentId: string | null;
+  gender?: string | null;
+  insuranceNumber?: string | null;
   profession: string | null;
   dateOfBirth: string | null;
   phone: string | null;
@@ -133,7 +135,7 @@ const CSV_HEADER =
 
 // What GET /patients/export actually writes now that patients-csv.util's
 // COLUMNS also carries profession/legacyId/firstConsultationDate.
-const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de historia,Primera consulta`;
+const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Género,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de seguro privado,Nº de historia,Primera consulta`;
 
 function csvRow(fields: {
   firstName: string;
@@ -1190,6 +1192,143 @@ describe('Patients — export/import CSV/XLSX', () => {
       expect(res.body.created).toBe(0);
       expect(res.body.skipped).toHaveLength(1);
       expect(res.body.skipped[0].reason).toContain('Nada que actualizar');
+    });
+
+    it('overwrites the patient fields the file maps, and never clears a field from an empty cell', async () => {
+      const createCsv = [
+        'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Teléfono 2,Email,Nº de historia',
+        'SobreEscribe,Test,UPD-OW-1,1990-01-01,600000111,611111111,viejo@example.com,NH-OW-1',
+      ].join('\n');
+      const created = await runImport(
+        server,
+        tokenA,
+        Buffer.from(createCsv, 'utf-8'),
+        'pacientes.csv',
+      );
+      expect(created.body.created).toBe(1);
+
+      // Teléfono trae dos números, Email viene vacío, Sexo con "M", y una
+      // aseguradora y un nº de seguro que antes no tenía.
+      const updateCsv = [
+        'Nº de historia,Teléfono,Email,Sexo,Fecha de nacimiento,Aseguradora,Poliza,Dirección',
+        'NH-OW-1,622222222/633333333,,M,02/03/1985,MAPFRE,POL-123,C/ Nueva 5',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(1);
+      expect(res.body.skipped).toHaveLength(0);
+
+      const list = await request(server)
+        .get('/patients?search=SobreEscribe')
+        .set('Authorization', `Bearer ${tokenA}`);
+      const id = (list.body as PaginatedPatients).data[0].id;
+      const full = await request(server)
+        .get(`/patients/${id}`)
+        .set('Authorization', `Bearer ${tokenA}`);
+      expect(full.body).toMatchObject({
+        phone: '622222222',
+        // Segundo número del mismo Teléfono, sin columna Teléfono 2 propia.
+        phone2: '633333333',
+        gender: 'mujer',
+        dateOfBirth: '1985-03-02',
+        insuranceNumber: 'POL-123',
+        address: 'C/ Nueva 5',
+        // Celda vacía: el valor guardado se conserva.
+        email: 'viejo@example.com',
+        // No mapeado: intacto.
+        documentId: 'UPD-OW-1',
+      });
+      expect(
+        (full.body as { insuranceEntityId: string }).insuranceEntityId,
+      ).toBeTruthy();
+    });
+
+    it('reports a row with an invalid value and a documentId already used by another patient, without aborting the file', async () => {
+      const createCsv = [
+        'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia',
+        'ConflictoUno,Test,UPD-CF-1,1990-01-01,600000121,NH-CF-1',
+        'ConflictoDos,Test,UPD-CF-2,1990-01-01,600000122,NH-CF-2',
+        'ConflictoTres,Test,UPD-CF-3,1990-01-01,600000123,NH-CF-3',
+      ].join('\n');
+      await runImport(
+        server,
+        tokenA,
+        Buffer.from(createCsv, 'utf-8'),
+        'pacientes.csv',
+      );
+
+      const updateCsv = [
+        'Nº de historia,Documento,Email',
+        // Documento de otro paciente -> conflicto.
+        'NH-CF-1,UPD-CF-2,',
+        // Email inválido -> error de validación.
+        'NH-CF-2,,no-es-un-email',
+        // Correcta: debe aplicarse aunque las anteriores fallen.
+        'NH-CF-3,UPD-CF-3B,',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.created).toBe(1);
+      expect(res.body.skipped.map((s) => s.row).sort()).toEqual([1, 2]);
+
+      const ok = await request(server)
+        .get('/patients?search=ConflictoTres')
+        .set('Authorization', `Bearer ${tokenA}`);
+      expect((ok.body as PaginatedPatients).data[0]).toMatchObject({
+        documentId: 'UPD-CF-3B',
+      });
+    });
+
+    it('a documentId clashing with another patient does not discard the rest of the row: it is applied and the clash is reported', async () => {
+      const createCsv = [
+        'Nombre,Apellidos,Documento,Fecha de nacimiento,Teléfono,Nº de historia',
+        'ParcialUno,Test,UPD-PA-1,1990-01-01,600000131,NH-PA-1',
+        'ParcialDos,Test,UPD-PA-2,1990-01-01,600000132,NH-PA-2',
+      ].join('\n');
+      await runImport(
+        server,
+        tokenA,
+        Buffer.from(createCsv, 'utf-8'),
+        'pacientes.csv',
+      );
+
+      // El documento de ParcialUno choca con el de ParcialDos, pero su
+      // género y su nº de seguro son válidos y deben aplicarse.
+      const updateCsv = [
+        'Nº de historia,Documento,Sexo,Poliza',
+        'NH-PA-1,UPD-PA-2,M,POL-PA-1',
+      ].join('\n');
+      const res = await runUpdateImport(
+        server,
+        tokenA,
+        Buffer.from(updateCsv, 'utf-8'),
+        'actualizacion.csv',
+      );
+      expect(res.status).toBe(201);
+      // Cuenta como actualizada, y además queda anotada la incidencia.
+      expect(res.body.created).toBe(1);
+      expect(res.body.skipped).toHaveLength(1);
+      expect(res.body.skipped[0].reason).toContain('UPD-PA-2');
+      expect(res.body.skipped[0].reason).toContain('el resto de la ficha');
+
+      const list = await request(server)
+        .get('/patients?search=ParcialUno')
+        .set('Authorization', `Bearer ${tokenA}`);
+      expect((list.body as PaginatedPatients).data[0]).toMatchObject({
+        documentId: 'UPD-PA-1',
+        gender: 'mujer',
+        insuranceNumber: 'POL-PA-1',
+      });
     });
 
     it('skips a row whose Nº de historia matches no existing patient', async () => {
