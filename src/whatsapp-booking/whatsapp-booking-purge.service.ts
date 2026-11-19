@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { isUUID } from 'class-validator';
 import { DataSource } from 'typeorm';
+import { acquireTenantSharedTransactionLock } from '../tenancy/tenant-operation-lock';
 
 @Injectable()
 export class WhatsappBookingPurgeService
@@ -56,6 +57,7 @@ export class WhatsappBookingPurgeService
     try {
       await runner.connect();
       await runner.startTransaction();
+      await acquireTenantSharedTransactionLock(runner, tenantId);
       await runner.query("SELECT set_config('app.tenant_id', $1, true)", [
         tenantId,
       ]);

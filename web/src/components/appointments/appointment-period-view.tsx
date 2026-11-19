@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
@@ -81,6 +81,30 @@ function formatHours(dateKey: string, schedule: Schedule): string | null {
     [];
   if (slots.length === 0) return null;
   return slots.map((slot) => slot.startTime + '–' + slot.endTime).join(' · ');
+}
+
+function CurrentTimeIndicator({
+  label,
+  top,
+  left = 0,
+}: {
+  label: string;
+  top: number;
+  left?: number;
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={'Hora actual: ' + label}
+      className="pointer-events-none absolute right-0 z-20 border-t-2 border-red-500"
+      style={{ top, left }}
+    >
+      <span aria-hidden="true" className="absolute -left-1.5 -top-[5px] size-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+      <span aria-hidden="true" className="absolute left-2 -top-3 rounded-sm bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 function AppointmentEventCard({
@@ -176,6 +200,7 @@ export function AppointmentPeriodView({
   practitionerId,
 }: AppointmentPeriodViewProps) {
   const router = useRouter();
+  const [currentInstant, setCurrentInstant] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<PeriodAppointment | null>(null);
   const [editTime, setEditTime] = useState('');
@@ -187,6 +212,12 @@ export function AppointmentPeriodView({
   const [moved, setMoved] = useState<{ appointment: PeriodAppointment; newTime: string } | null>(null);
   const [undoError, setUndoError] = useState('');
   const dragRef = useRef<{ appointment: PeriodAppointment; offset: number } | null>(null);
+  useEffect(() => {
+    const updateCurrentInstant = () => setCurrentInstant(new Date().toISOString());
+    updateCurrentInstant();
+    const interval = window.setInterval(updateCurrentInstant, 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
   const openEdit = (appointment: PeriodAppointment) => {
     setEditTime(formatTime(appointment.scheduledAt));
     setEditDuration(appointment.durationMinutes);
@@ -277,6 +308,14 @@ export function AppointmentPeriodView({
   const ends = [...slots.map((slot) => toMinutes(slot.endTime)), ...dailyAppointments.map((a) => clinicMinutesOfDay(a.scheduledAt) + a.durationMinutes)];
   const startMinute = Math.floor(Math.min(...starts, 540) / 60) * 60;
   const endMinute = Math.ceil(Math.max(...ends, 1020) / 60) * 60;
+  const currentDateKey = currentInstant ? clinicDateInputValue(currentInstant) : null;
+  const currentMinute = currentInstant ? clinicMinutesOfDay(currentInstant) : null;
+  const currentTimeLabel = currentInstant ? formatTime(currentInstant) : null;
+  const showCurrentTime =
+    currentDateKey === dateKey &&
+    currentMinute !== null &&
+    currentMinute >= startMinute &&
+    currentMinute < endMinute;
   // Keep short appointments legible without changing their actual duration or
   // breaking the shared time axis between professionals.
   const shortDuration = Math.min(15, ...dailyAppointments.map((a) => Math.max(5, a.durationMinutes)));
@@ -359,7 +398,7 @@ export function AppointmentPeriodView({
                     <div className="p-3 text-xs text-muted-foreground">Hora</div>
                     {sortedColumns.map(([key, column]) => <div key={key} className="border-l p-3"><h3 className="font-semibold">{column.label}</h3><p className="text-xs text-muted-foreground">{column.appointments.length} {column.appointments.length === 1 ? 'cita' : 'citas'}</p></div>)}
                   </div>
-                  <div className="grid" style={{ gridTemplateColumns: `64px repeat(${sortedColumns.length}, minmax(240px, 1fr))` }}>
+                  <div className="relative grid" style={{ gridTemplateColumns: `64px repeat(${sortedColumns.length}, minmax(240px, 1fr))` }}>
                     <div className="relative" style={{ height: (endMinute - startMinute) * pixelsPerMinute }}>
                       {Array.from({ length: (endMinute - startMinute) / 60 }, (_, i) => <span key={i} className="absolute right-2 -translate-y-1/2 text-xs tabular-nums text-muted-foreground" style={{ top: i * 60 * pixelsPerMinute + 8 }}>{String(Math.floor((startMinute + i * 60) / 60)).padStart(2, '0')}:00</span>)}
                     </div>
@@ -440,6 +479,13 @@ export function AppointmentPeriodView({
                         </div>)}
                       </section>;
                     })}
+                    {showCurrentTime && currentMinute !== null && currentTimeLabel && (
+                      <CurrentTimeIndicator
+                        label={currentTimeLabel}
+                        top={(currentMinute - startMinute) * pixelsPerMinute}
+                        left={64}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -489,6 +535,9 @@ export function AppointmentPeriodView({
                     return <section key={day} aria-label={formatDateHeading(day)} className="relative border-l bg-muted/30" style={{ height: (last - first) * weekScale }}>
                       {daySlots.map((slot, i) => <div key={i} className="absolute inset-x-0 bg-background" style={{ top: (toMinutes(slot.startTime) - first) * weekScale, height: (toMinutes(slot.endTime) - toMinutes(slot.startTime)) * weekScale }} />)}
                       {Array.from({ length: (last - first) / 30 }, (_, i) => <div key={i} className="pointer-events-none absolute inset-x-0 border-t border-border/60" style={{ top: i * 30 * weekScale }} />)}
+                      {day === currentDateKey && currentMinute !== null && currentTimeLabel && currentMinute >= first && currentMinute < last && (
+                        <CurrentTimeIndicator label={currentTimeLabel} top={(currentMinute - first) * weekScale} />
+                      )}
                       {groups.map((group) => <div key={group.appointments[0].id} className="absolute inset-x-0 px-0.5 pb-0.5 focus-within:z-20 has-[details[open]]:z-20" style={{ top: (group.start - first) * weekScale, height: (group.end - group.start) * weekScale }}>
                         {group.appointments.length === 1 ? <AppointmentEventCard appointment={group.appointments[0]} fill weekCard shortCard={(group.end - group.start) * weekScale < 44} /> : (
                           <details className="relative h-full">

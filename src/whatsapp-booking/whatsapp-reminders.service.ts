@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { isUUID } from 'class-validator';
 import { DataSource, EntityManager } from 'typeorm';
+import { withTenantSharedLock } from '../tenancy/tenant-operation-lock';
 
 interface Reminder {
   id: string;
@@ -52,12 +53,14 @@ export class WhatsappRemindersService implements OnModuleInit, OnModuleDestroy {
     tenantId: string,
     run: (manager: EntityManager) => Promise<T>,
   ) {
-    return this.dataSource.transaction(async (manager) => {
-      await manager.query("SELECT set_config('app.tenant_id', $1, true)", [
-        tenantId,
-      ]);
-      return run(manager);
-    });
+    return withTenantSharedLock(this.dataSource, tenantId, () =>
+      this.dataSource.transaction(async (manager) => {
+        await manager.query("SELECT set_config('app.tenant_id', $1, true)", [
+          tenantId,
+        ]);
+        return run(manager);
+      }),
+    );
   }
 
   async sendDue() {
@@ -80,11 +83,14 @@ export class WhatsappRemindersService implements OnModuleInit, OnModuleDestroy {
       .split(',')
       .map((value) => value.trim())
       .filter((value) => /^\+[1-9]\d{7,14}$/.test(value));
-    const demoTarget = this.config.get<string>('WHATSAPP_REMINDER_DEMO_RECIPIENT') ?? '';
-    const canForwardDemo = /^\+34600000\d{3}$/.test(synthetic) &&
-      demoTarget !== synthetic && allowed.includes(demoTarget);
+    const demoTarget =
+      this.config.get<string>('WHATSAPP_REMINDER_DEMO_RECIPIENT') ?? '';
+    const canForwardDemo =
+      /^\+34600000\d{3}$/.test(synthetic) &&
+      demoTarget !== synthetic &&
+      allowed.includes(demoTarget);
     const eligible = synthetic
-      ? allowed.filter(phone => phone === synthetic && canForwardDemo)
+      ? allowed.filter((phone) => phone === synthetic && canForwardDemo)
       : allowed;
     if (
       !isUUID(tenantId) ||
@@ -97,10 +103,11 @@ export class WhatsappRemindersService implements OnModuleInit, OnModuleDestroy {
     )
       return;
 
-    for (let i = 0; i < 5; i++) {
-      const [reminder] = await this.withinTenant(tenantId, (manager) =>
-        manager.query<Reminder[]>(
-          `WITH due AS (
+    await withTenantSharedLock(this.dataSource, tenantId, async () => {
+      for (let i = 0; i < 5; i++) {
+        const [reminder] = await this.withinTenant(tenantId, (manager) =>
+          manager.query<Reminder[]>(
+            `WITH due AS (
            SELECT a.id, a.scheduled_at, a.whatsapp_reminder_phone AS phone
            FROM public.appointments a
            JOIN iam.whatsapp_booking_settings s ON s.tenant_id = a.tenant_id
@@ -121,58 +128,65 @@ export class WhatsappRemindersService implements OnModuleInit, OnModuleDestroy {
          SELECT due.id, due.scheduled_at AS "scheduledAt",
            due.scheduled_at::text AS "scheduledAtKey", due.phone
          FROM due JOIN claimed ON claimed.appointment_id = due.id`,
-          [tenantId, eligible],
-        ),
-      );
-      if (!reminder) return;
-
-      const date = new Intl.DateTimeFormat('es-ES', {
-        timeZone: 'Europe/Madrid',
-        dateStyle: 'full',
-        timeStyle: 'short',
-      }).format(reminder.scheduledAt);
-      let status: 'accepted' | 'failed' | 'uncertain' = 'uncertain';
-      try {
-        const response = await fetch(
-          `https://graph.facebook.com/${version}/${phoneId}/messages`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            redirect: 'error',
-            signal: AbortSignal.timeout(10_000),
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              to: (reminder.phone === synthetic ? demoTarget : reminder.phone).slice(1),
-              type: 'template',
-              template: {
-                name: template,
-                language: { code: language },
-                components: [
-                  { type: 'body', parameters: [{ type: 'text', text: date }] },
-                ],
-              },
-            }),
-          },
+            [tenantId, eligible],
+          ),
         );
-        if (response.ok) {
-          const data = (await response.json()) as {
-            messages?: { id?: string }[];
-          };
-          if (data.messages?.[0]?.id) status = 'accepted';
-        } else if (response.status < 500) status = 'failed';
-      } catch {
-        // An uncertain send is left for review to avoid duplicates.
-      }
-      await this.withinTenant(tenantId, (manager) =>
-        manager.query(
-          `UPDATE public.whatsapp_booking_reminders SET status = $4
+        if (!reminder) return;
+
+        const date = new Intl.DateTimeFormat('es-ES', {
+          timeZone: 'Europe/Madrid',
+          dateStyle: 'full',
+          timeStyle: 'short',
+        }).format(reminder.scheduledAt);
+        let status: 'accepted' | 'failed' | 'uncertain' = 'uncertain';
+        try {
+          const response = await fetch(
+            `https://graph.facebook.com/${version}/${phoneId}/messages`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              redirect: 'error',
+              signal: AbortSignal.timeout(10_000),
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: (reminder.phone === synthetic
+                  ? demoTarget
+                  : reminder.phone
+                ).slice(1),
+                type: 'template',
+                template: {
+                  name: template,
+                  language: { code: language },
+                  components: [
+                    {
+                      type: 'body',
+                      parameters: [{ type: 'text', text: date }],
+                    },
+                  ],
+                },
+              }),
+            },
+          );
+          if (response.ok) {
+            const data = (await response.json()) as {
+              messages?: { id?: string }[];
+            };
+            if (data.messages?.[0]?.id) status = 'accepted';
+          } else if (response.status < 500) status = 'failed';
+        } catch {
+          // An uncertain send is left for review to avoid duplicates.
+        }
+        await this.withinTenant(tenantId, (manager) =>
+          manager.query(
+            `UPDATE public.whatsapp_booking_reminders SET status = $4
          WHERE tenant_id = $1 AND appointment_id = $2 AND scheduled_at = $3`,
-          [tenantId, reminder.id, reminder.scheduledAtKey, status],
-        ),
-      );
-    }
+            [tenantId, reminder.id, reminder.scheduledAtKey, status],
+          ),
+        );
+      }
+    });
   }
 }

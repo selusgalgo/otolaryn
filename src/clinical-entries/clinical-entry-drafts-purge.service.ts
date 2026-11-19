@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AttachmentStorage } from '../attachments/attachment-storage.service';
+import { acquireTenantSharedTransactionLock } from '../tenancy/tenant-operation-lock';
 import { DRAFT_TTL_DAYS } from './clinical-entry-draft.util';
 
 const FIRST_RUN_DELAY_MS = 60_000;
@@ -60,6 +61,7 @@ export class ClinicalEntryDraftsPurgeService
       try {
         await queryRunner.connect();
         await queryRunner.startTransaction();
+        await acquireTenantSharedTransactionLock(queryRunner, id);
         await queryRunner.query(
           `SELECT set_config('app.tenant_id', $1, true)`,
           [id],

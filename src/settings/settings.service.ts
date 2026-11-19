@@ -6,13 +6,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
 import { UpdateDeviceLockDto } from './dto/update-device-lock.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
+import { withTenantSharedLock } from '../tenancy/tenant-operation-lock';
 import { defaultWhatsappFeatures } from './dto/whatsapp-features.dto';
 import {
   assertNoOverlap,
@@ -70,6 +71,7 @@ export class SettingsService {
     private readonly clinicHours: Repository<ClinicHour>,
     @InjectRepository(Tenant)
     private readonly tenants: Repository<Tenant>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getWhatsappSettings(tenantId: string) {
@@ -102,48 +104,54 @@ export class SettingsService {
     tenantId: string,
     dto: UpdateWhatsappSettingsDto,
   ) {
-    await this.findTenant(tenantId);
-    const rows = await this.tenants.manager.query(
-      `SELECT id FROM iam.users WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND active = true AND (role = 'profesional' OR (role = 'admin' AND staff_function = 'profesional'))`,
-      [tenantId, dto.practitionerIds],
-    );
-    if (rows.length !== dto.practitionerIds.length)
-      throw new BadRequestException(
-        'Selecciona profesionales activos de esta clínica',
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      await this.findTenant(tenantId);
+      const rows = await this.tenants.manager.query(
+        `SELECT id FROM iam.users WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND active = true AND (role = 'profesional' OR (role = 'admin' AND staff_function = 'profesional'))`,
+        [tenantId, dto.practitionerIds],
       );
-    if (dto.features) {
-      const { hours, visitTypes } = dto.features;
-      const ordered = [...hours].sort(
-        (a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start),
-      );
-      if (
-        ordered.some((range, index) => {
-          const previous = ordered[index - 1];
-          return (
-            range.start >= range.end ||
-            (previous?.weekday === range.weekday && previous.end > range.start)
-          );
-        })
-      )
+      if (rows.length !== dto.practitionerIds.length)
         throw new BadRequestException(
-          'Revisa las franjas de WhatsApp: el fin debe ser posterior al inicio y no pueden solaparse',
+          'Selecciona profesionales activos de esta clínica',
         );
-      if (
-        visitTypes.some((type) =>
-          type.practitionerIds.some((id) => !dto.practitionerIds.includes(id)),
+      if (dto.features) {
+        const { hours, visitTypes } = dto.features;
+        const ordered = [...hours].sort(
+          (a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start),
+        );
+        if (
+          ordered.some((range, index) => {
+            const previous = ordered[index - 1];
+            return (
+              range.start >= range.end ||
+              (previous?.weekday === range.weekday &&
+                previous.end > range.start)
+            );
+          })
         )
-      )
-        throw new BadRequestException(
-          'Cada tipo de cita debe usar profesionales habilitados para WhatsApp',
-        );
-      if (
-        dto.features.receptionPhone &&
-        !/^\+?[0-9][0-9 ()-]{5,39}$/.test(dto.features.receptionPhone)
-      )
-        throw new BadRequestException('Indica un teléfono de recepción válido');
-    }
-    await this.tenants.manager.query(
-      `INSERT INTO iam.whatsapp_booking_settings AS current_settings
+          throw new BadRequestException(
+            'Revisa las franjas de WhatsApp: el fin debe ser posterior al inicio y no pueden solaparse',
+          );
+        if (
+          visitTypes.some((type) =>
+            type.practitionerIds.some(
+              (id) => !dto.practitionerIds.includes(id),
+            ),
+          )
+        )
+          throw new BadRequestException(
+            'Cada tipo de cita debe usar profesionales habilitados para WhatsApp',
+          );
+        if (
+          dto.features.receptionPhone &&
+          !/^\+?[0-9][0-9 ()-]{5,39}$/.test(dto.features.receptionPhone)
+        )
+          throw new BadRequestException(
+            'Indica un teléfono de recepción válido',
+          );
+      }
+      await this.tenants.manager.query(
+        `INSERT INTO iam.whatsapp_booking_settings AS current_settings
          (tenant_id, clinic_enabled, ask_reason, horizon_days, lead_minutes, practitioner_ids,
           cancellation_enabled, cancellation_notice_hours, features)
        VALUES ($1,$2,$3,$4,$5,$6::uuid[],COALESCE($7::boolean,true),COALESCE($8::integer,0),COALESCE($9::jsonb,'{}'))
@@ -154,28 +162,31 @@ export class SettingsService {
          cancellation_enabled = COALESCE($7::boolean,current_settings.cancellation_enabled),
          cancellation_notice_hours = COALESCE($8::integer,current_settings.cancellation_notice_hours),
          features = COALESCE($9::jsonb,current_settings.features)`,
-      [
-        tenantId,
-        dto.clinicEnabled,
-        dto.askReason,
-        dto.horizonDays,
-        dto.leadMinutes,
-        dto.practitionerIds,
-        dto.cancellationEnabled,
-        dto.cancellationNoticeHours,
-        dto.features ? JSON.stringify(dto.features) : null,
-      ],
-    );
-    return this.getWhatsappSettings(tenantId);
+        [
+          tenantId,
+          dto.clinicEnabled,
+          dto.askReason,
+          dto.horizonDays,
+          dto.leadMinutes,
+          dto.practitionerIds,
+          dto.cancellationEnabled,
+          dto.cancellationNoticeHours,
+          dto.features ? JSON.stringify(dto.features) : null,
+        ],
+      );
+      return this.getWhatsappSettings(tenantId);
+    });
   }
 
   async updateWhatsappPlatform(tenantId: string, enabled: boolean) {
-    await this.findTenant(tenantId);
-    await this.tenants.manager.query(
-      `INSERT INTO iam.whatsapp_booking_settings (tenant_id, platform_enabled) VALUES ($1, $2) ON CONFLICT (tenant_id) DO UPDATE SET platform_enabled = EXCLUDED.platform_enabled`,
-      [tenantId, enabled],
-    );
-    return this.getWhatsappSettings(tenantId);
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      await this.findTenant(tenantId);
+      await this.tenants.manager.query(
+        `INSERT INTO iam.whatsapp_booking_settings (tenant_id, platform_enabled) VALUES ($1, $2) ON CONFLICT (tenant_id) DO UPDATE SET platform_enabled = EXCLUDED.platform_enabled`,
+        [tenantId, enabled],
+      );
+      return this.getWhatsappSettings(tenantId);
+    });
   }
 
   async getSchedule(tenantId: string): Promise<Schedule> {
@@ -187,19 +198,21 @@ export class SettingsService {
     tenantId: string,
     dto: UpdateScheduleDto,
   ): Promise<Schedule> {
-    assertNoOverlap(dto.days);
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      assertNoOverlap(dto.days);
 
-    // Full replace, not a diff of adds/removes — simpler and correct for
-    // a form that submits the whole week at once.
-    await this.clinicHours.manager.transaction(async (manager) => {
-      await manager.delete(ClinicHour, { tenantId });
-      const rows = toRows(tenantId, dto.days);
-      if (rows.length > 0) {
-        await manager.insert(ClinicHour, rows);
-      }
+      // Full replace, not a diff of adds/removes — simpler and correct for
+      // a form that submits the whole week at once.
+      await this.clinicHours.manager.transaction(async (manager) => {
+        await manager.delete(ClinicHour, { tenantId });
+        const rows = toRows(tenantId, dto.days);
+        if (rows.length > 0) {
+          await manager.insert(ClinicHour, rows);
+        }
+      });
+
+      return this.getSchedule(tenantId);
     });
-
-    return this.getSchedule(tenantId);
   }
 
   private async findTenant(tenantId: string): Promise<Tenant> {
@@ -221,10 +234,14 @@ export class SettingsService {
     tenantId: string,
     dto: UpdateAppointmentDefaultsDto,
   ): Promise<AppointmentDefaults> {
-    const tenant = await this.findTenant(tenantId);
-    tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
-    await this.tenants.save(tenant);
-    return { defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes };
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const tenant = await this.findTenant(tenantId);
+      tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
+      await this.tenants.save(tenant);
+      return {
+        defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+      };
+    });
   }
 
   async getDeviceLock(tenantId: string): Promise<DeviceLock> {
@@ -239,13 +256,15 @@ export class SettingsService {
     tenantId: string,
     dto: UpdateDeviceLockDto,
   ): Promise<DeviceLock> {
-    const tenant = await this.findTenant(tenantId);
-    tenant.deviceLockEnabled = dto.enabled;
-    await this.tenants.save(tenant);
-    return {
-      enabled: tenant.deviceLockEnabled,
-      hasCredential: tenant.deviceSecretHash !== null,
-    };
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const tenant = await this.findTenant(tenantId);
+      tenant.deviceLockEnabled = dto.enabled;
+      await this.tenants.save(tenant);
+      return {
+        enabled: tenant.deviceLockEnabled,
+        hasCredential: tenant.deviceSecretHash !== null,
+      };
+    });
   }
 
   // Returns the raw token exactly once — only the argon2 hash is persisted,
@@ -256,25 +275,29 @@ export class SettingsService {
   async generateDeviceCredential(
     tenantId: string,
   ): Promise<{ token: string } & DeviceLock> {
-    const tenant = await this.findTenant(tenantId);
-    const token = randomBytes(32).toString('base64url');
-    tenant.deviceSecretHash = await argon2.hash(token);
-    await this.tenants.save(tenant);
-    return {
-      token,
-      enabled: tenant.deviceLockEnabled,
-      hasCredential: true,
-    };
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const tenant = await this.findTenant(tenantId);
+      const token = randomBytes(32).toString('base64url');
+      tenant.deviceSecretHash = await argon2.hash(token);
+      await this.tenants.save(tenant);
+      return {
+        token,
+        enabled: tenant.deviceLockEnabled,
+        hasCredential: true,
+      };
+    });
   }
 
   // Drops the stored credential without touching the enabled toggle — every
   // installed device stops working (enforceDeviceLock short-circuits once
   // deviceSecretHash is null), and the admin can generate a fresh one later.
   async revokeDeviceCredential(tenantId: string): Promise<DeviceLock> {
-    const tenant = await this.findTenant(tenantId);
-    tenant.deviceSecretHash = null;
-    await this.tenants.save(tenant);
-    return { enabled: tenant.deviceLockEnabled, hasCredential: false };
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const tenant = await this.findTenant(tenantId);
+      tenant.deviceSecretHash = null;
+      await this.tenants.save(tenant);
+      return { enabled: tenant.deviceLockEnabled, hasCredential: false };
+    });
   }
 
   async getClinicProfile(tenantId: string): Promise<ClinicProfile> {
@@ -292,21 +315,23 @@ export class SettingsService {
     tenantId: string,
     input: UpdateClinicProfileInput,
   ): Promise<ClinicProfile> {
-    const tenant = await this.findTenant(tenantId);
-    tenant.name = input.name;
-    tenant.tagline = input.tagline;
-    tenant.address = input.address;
-    tenant.phone = input.phone;
-    if (input.logo !== undefined) {
-      tenant.logo = input.logo;
-    }
-    await this.tenants.save(tenant);
-    return {
-      name: tenant.name,
-      tagline: tenant.tagline,
-      address: tenant.address,
-      phone: tenant.phone,
-      logo: tenant.logo,
-    };
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const tenant = await this.findTenant(tenantId);
+      tenant.name = input.name;
+      tenant.tagline = input.tagline;
+      tenant.address = input.address;
+      tenant.phone = input.phone;
+      if (input.logo !== undefined) {
+        tenant.logo = input.logo;
+      }
+      await this.tenants.save(tenant);
+      return {
+        name: tenant.name,
+        tagline: tenant.tagline,
+        address: tenant.address,
+        phone: tenant.phone,
+        logo: tenant.logo,
+      };
+    });
   }
 }

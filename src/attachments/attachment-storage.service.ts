@@ -54,6 +54,10 @@ export class AttachmentStorage {
     }
   }
 
+  async size(key: string): Promise<number> {
+    return (await stat(this.resolve(key))).size;
+  }
+
   createReadStream(key: string): ReadStream {
     return createReadStream(this.resolve(key));
   }

@@ -29,6 +29,7 @@ import type { CreateUserDto } from '../users/dto/create-user.dto';
 import type { ResetPasswordDto } from '../users/dto/reset-password.dto';
 import type { UpdateUserDto } from '../users/dto/update-user.dto';
 import type { SafeUser } from '../users/users.service';
+import { withTenantSharedLock } from '../tenancy/tenant-operation-lock';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -163,19 +164,21 @@ export class PlatformService {
     id: string,
     dto: UpdateScheduleDto,
   ): Promise<TenantSchedule> {
-    const tenant = await this.findTenant(id);
-    assertNoOverlap(dto.days);
+    return withTenantSharedLock(this.dataSource, id, async () => {
+      const tenant = await this.findTenant(id);
+      assertNoOverlap(dto.days);
 
-    await this.clinicHours.manager.transaction(async (manager) => {
-      await manager.delete(ClinicHour, { tenantId: id });
-      const rows = toRows(id, dto.days);
-      if (rows.length > 0) {
-        await manager.insert(ClinicHour, rows);
-      }
+      await this.clinicHours.manager.transaction(async (manager) => {
+        await manager.delete(ClinicHour, { tenantId: id });
+        const rows = toRows(id, dto.days);
+        if (rows.length > 0) {
+          await manager.insert(ClinicHour, rows);
+        }
+      });
+
+      const rows = await this.clinicHours.find({ where: { tenantId: id } });
+      return { tenantName: tenant.name, days: groupByWeekday(rows) };
     });
-
-    const rows = await this.clinicHours.find({ where: { tenantId: id } });
-    return { tenantName: tenant.name, days: groupByWeekday(rows) };
   }
 
   async getAppointmentDefaults(id: string): Promise<TenantAppointmentDefaults> {
@@ -190,13 +193,15 @@ export class PlatformService {
     id: string,
     dto: UpdateAppointmentDefaultsDto,
   ): Promise<TenantAppointmentDefaults> {
-    const tenant = await this.findTenant(id);
-    tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
-    await this.tenants.save(tenant);
-    return {
-      tenantName: tenant.name,
-      defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
-    };
+    return withTenantSharedLock(this.dataSource, id, async () => {
+      const tenant = await this.findTenant(id);
+      tenant.defaultAppointmentDurationMinutes = dto.defaultDurationMinutes;
+      await this.tenants.save(tenant);
+      return {
+        tenantName: tenant.name,
+        defaultDurationMinutes: tenant.defaultAppointmentDurationMinutes,
+      };
+    });
   }
 
   async getClinicProfile(id: string): Promise<ClinicProfile> {
@@ -214,22 +219,24 @@ export class PlatformService {
     id: string,
     input: UpdateClinicProfileInput,
   ): Promise<ClinicProfile> {
-    const tenant = await this.findTenant(id);
-    tenant.name = input.name;
-    tenant.tagline = input.tagline;
-    tenant.address = input.address;
-    tenant.phone = input.phone;
-    if (input.logo !== undefined) {
-      tenant.logo = input.logo;
-    }
-    await this.tenants.save(tenant);
-    return {
-      name: tenant.name,
-      tagline: tenant.tagline,
-      address: tenant.address,
-      phone: tenant.phone,
-      logo: tenant.logo,
-    };
+    return withTenantSharedLock(this.dataSource, id, async () => {
+      const tenant = await this.findTenant(id);
+      tenant.name = input.name;
+      tenant.tagline = input.tagline;
+      tenant.address = input.address;
+      tenant.phone = input.phone;
+      if (input.logo !== undefined) {
+        tenant.logo = input.logo;
+      }
+      await this.tenants.save(tenant);
+      return {
+        name: tenant.name,
+        tagline: tenant.tagline,
+        address: tenant.address,
+        phone: tenant.phone,
+        logo: tenant.logo,
+      };
+    });
   }
 
   // --- Users, scoped to a clinic chosen by superadmin -----------------
@@ -247,32 +254,34 @@ export class PlatformService {
   }
 
   async createUser(tenantId: string, dto: CreateUserDto): Promise<SafeUser> {
-    await this.findTenant(tenantId);
-    const passwordHash = await argon2.hash(dto.password, {
-      type: argon2.argon2id,
-    });
-    const user = this.users.create({
-      tenantId,
-      email: dto.email,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      role: dto.role,
-      staffFunction: dto.role === 'admin' ? dto.staffFunction || null : null,
-      passwordHash,
-    });
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      await this.findTenant(tenantId);
+      const passwordHash = await argon2.hash(dto.password, {
+        type: argon2.argon2id,
+      });
+      const user = this.users.create({
+        tenantId,
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: dto.role,
+        staffFunction: dto.role === 'admin' ? dto.staffFunction || null : null,
+        passwordHash,
+      });
 
-    try {
-      const saved = await this.users.save(user);
-      return stripPasswordHash(saved);
-    } catch (err) {
-      if (
-        err instanceof QueryFailedError &&
-        (err as { code?: string }).code === UNIQUE_VIOLATION
-      ) {
-        throw new ConflictException('Ya existe un usuario con este email');
+      try {
+        const saved = await this.users.save(user);
+        return stripPasswordHash(saved);
+      } catch (err) {
+        if (
+          err instanceof QueryFailedError &&
+          (err as { code?: string }).code === UNIQUE_VIOLATION
+        ) {
+          throw new ConflictException('Ya existe un usuario con este email');
+        }
+        throw err;
       }
-      throw err;
-    }
+    });
   }
 
   private async findUserInTenant(
@@ -293,29 +302,31 @@ export class PlatformService {
     userId: string,
     dto: UpdateUserDto,
   ): Promise<SafeUser> {
-    const user = await this.findUserInTenant(tenantId, userId);
-    if (dto.firstName !== undefined) user.firstName = dto.firstName;
-    if (dto.lastName !== undefined) user.lastName = dto.lastName;
-    if (dto.username !== undefined) user.username = dto.username || null;
-    if (dto.role !== undefined) user.role = dto.role;
-    if (dto.staffFunction !== undefined)
-      user.staffFunction = dto.staffFunction || null;
-    if (user.role !== 'admin') user.staffFunction = null;
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const user = await this.findUserInTenant(tenantId, userId);
+      if (dto.firstName !== undefined) user.firstName = dto.firstName;
+      if (dto.lastName !== undefined) user.lastName = dto.lastName;
+      if (dto.username !== undefined) user.username = dto.username || null;
+      if (dto.role !== undefined) user.role = dto.role;
+      if (dto.staffFunction !== undefined)
+        user.staffFunction = dto.staffFunction || null;
+      if (user.role !== 'admin') user.staffFunction = null;
 
-    try {
-      const saved = await this.users.save(user);
-      return stripPasswordHash(saved);
-    } catch (err) {
-      if (
-        err instanceof QueryFailedError &&
-        (err as { code?: string }).code === UNIQUE_VIOLATION
-      ) {
-        throw new ConflictException(
-          'Ya existe un usuario con este email o nombre de usuario',
-        );
+      try {
+        const saved = await this.users.save(user);
+        return stripPasswordHash(saved);
+      } catch (err) {
+        if (
+          err instanceof QueryFailedError &&
+          (err as { code?: string }).code === UNIQUE_VIOLATION
+        ) {
+          throw new ConflictException(
+            'Ya existe un usuario con este email o nombre de usuario',
+          );
+        }
+        throw err;
       }
-      throw err;
-    }
+    });
   }
 
   async resetPassword(
@@ -323,10 +334,12 @@ export class PlatformService {
     userId: string,
     dto: ResetPasswordDto,
   ): Promise<void> {
-    const user = await this.findUserInTenant(tenantId, userId);
-    user.passwordHash = await argon2.hash(dto.newPassword, {
-      type: argon2.argon2id,
+    return withTenantSharedLock(this.dataSource, tenantId, async () => {
+      const user = await this.findUserInTenant(tenantId, userId);
+      user.passwordHash = await argon2.hash(dto.newPassword, {
+        type: argon2.argon2id,
+      });
+      await this.users.save(user);
     });
-    await this.users.save(user);
   }
 }

@@ -28,6 +28,10 @@ export async function runInTenantTransaction(
   }
 
   try {
+    await queryRunner.query(
+      "SELECT pg_advisory_xact_lock_shared(hashtextextended('mederi-tenant-operation:' || $1::text, 0))",
+      [tenantId],
+    );
     await queryRunner.query(`SELECT set_config('app.tenant_id', $1, true)`, [
       tenantId,
     ]);
