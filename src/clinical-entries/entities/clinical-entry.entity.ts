@@ -43,7 +43,7 @@ export class ClinicalEntry {
   @Column({ name: 'follow_up_notes', type: 'text', nullable: true })
   followUpNotes: string | null;
 
-  // Campos de la plantilla de cirugía (ConsultationTemplates1737900000000).
+  // Campos de la plantilla de cirugía (ConsultationTemplates1738200000000).
   // evolution/report son rich text, igual que examinationFindings/treatment;
   // report es además lo que imprime el PDF de Informe.
   @Column({ type: 'text', nullable: true })

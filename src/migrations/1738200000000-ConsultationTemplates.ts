@@ -10,8 +10,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 //    como Exploración/Tratamiento, y referring_doctor (Doctor que lo envía),
 //    texto libre. "Enfermedad actual" NO es una columna nueva: es el mismo
 //    chief_complaint de siempre, solo con otra etiqueta en esa plantilla.
-export class ConsultationTemplates1737900000000 implements MigrationInterface {
-  name = 'ConsultationTemplates1737900000000';
+export class ConsultationTemplates1738200000000 implements MigrationInterface {
+  name = 'ConsultationTemplates1738200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

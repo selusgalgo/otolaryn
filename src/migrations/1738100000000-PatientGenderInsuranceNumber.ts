@@ -7,8 +7,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 //  - insurance_number: número de tarjeta/póliza del paciente en su
 //    aseguradora privada (la aseguradora en sí ya es insurance_entity_id).
 //    Texto libre: cada aseguradora usa su propio formato.
-export class PatientGenderInsuranceNumber1737800000000 implements MigrationInterface {
-  name = 'PatientGenderInsuranceNumber1737800000000';
+export class PatientGenderInsuranceNumber1738100000000 implements MigrationInterface {
+  name = 'PatientGenderInsuranceNumber1738100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

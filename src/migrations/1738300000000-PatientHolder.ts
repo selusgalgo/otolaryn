@@ -16,8 +16,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 //  - Ni el propio paciente como titular, ni parentesco sin titular. Que no
 //    haya cadenas (titular que a su vez es familiar a cargo) lo valida
 //    PatientsService — un CHECK no puede mirar otras filas.
-export class PatientHolder1738000000000 implements MigrationInterface {
-  name = 'PatientHolder1738000000000';
+export class PatientHolder1738300000000 implements MigrationInterface {
+  name = 'PatientHolder1738300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

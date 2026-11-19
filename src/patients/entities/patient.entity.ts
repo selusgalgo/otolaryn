@@ -76,7 +76,7 @@ export class Patient {
   insuranceEntityId: string | null;
 
   // Nº de tarjeta/póliza en la aseguradora privada de arriba — ver
-  // PatientGenderInsuranceNumber1737800000000.
+  // PatientGenderInsuranceNumber1738100000000.
   @Column({ name: 'insurance_number', type: 'text', nullable: true })
   insuranceNumber: string | null;
 
@@ -84,7 +84,7 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   gender: PatientGender | null;
 
-  // Familiar a cargo de otro paciente (PatientHolder1738000000000): su
+  // Familiar a cargo de otro paciente (PatientHolder1738300000000): su
   // titular y el parentesco. Ambos null = no es familiar a cargo de nadie.
   // PatientsService.assertHolder valida las reglas que la BD no puede.
   @Column({ name: 'holder_patient_id', type: 'uuid', nullable: true })
