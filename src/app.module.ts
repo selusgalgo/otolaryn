@@ -5,6 +5,7 @@ import { AntecedentesModule } from './antecedentes/antecedentes.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { BackupsModule } from './backups/backups.module';
 import { ClinicalEntriesModule } from './clinical-entries/clinical-entries.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
@@ -28,6 +29,7 @@ import { WhatsappBookingModule } from './whatsapp-booking/whatsapp-booking.modul
     PatientsModule,
     ClinicalEntriesModule,
     AppointmentsModule,
+    BackupsModule,
     DashboardModule,
     UsersModule,
     PlatformModule,

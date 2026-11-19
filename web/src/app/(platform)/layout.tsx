@@ -1,64 +1,27 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { SessionGuard } from "@/components/layout/session-guard";
-import { logoutAction } from "@/lib/actions/auth";
-import { getCurrentUser } from "@/lib/auth";
-import { ArrowLeftOnRectangleIcon, UserIcon } from "@heroicons/react/24/outline";
+import { redirect } from 'next/navigation';
+import { PlatformSidebar } from '@/components/layout/platform-sidebar';
+import { SessionGuard } from '@/components/layout/session-guard';
+import { getCurrentUser } from '@/lib/auth';
 
-// Deliberately its own chrome, not a variant of (app)/layout.tsx — superadmin
-// manages clinics themselves, a different domain from the per-clinic Sidebar
-// (Pacientes/Agenda/etc.), so there's no shared nav to reuse here.
-export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
+// Superadmin has its own navigation because it manages platform-wide clinics
+// and billing rather than tenant-scoped patient and agenda pages.
+export default async function PlatformLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const me = await getCurrentUser();
 
-  if (me.role !== "superadmin") {
-    redirect("/dashboard");
+  if (me.role !== 'superadmin') {
+    redirect('/dashboard');
   }
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="flex items-center justify-between bg-nav px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link href="/platform">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-            <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
-          </Link>
-          <span className="hidden text-sm font-medium text-nav-foreground/70 sm:inline">Panel Eiduo</span>
-          <nav className="ml-2 flex items-center gap-1 text-sm">
-            <Link
-              href="/platform"
-              className="rounded-lg px-2 py-1 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
-            >
-              Clínicas
-            </Link>
-            <Link
-              href="/platform/billing"
-              className="rounded-lg px-2 py-1 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
-            >
-              Facturación
-            </Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/account"
-            aria-label="Mi cuenta"
-            className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
-          >
-            <UserIcon className="size-5" />
-          </Link>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              aria-label="Cerrar sesión"
-              className="rounded-lg p-2 text-nav-foreground/70 hover:bg-white/10 hover:text-nav-foreground"
-            >
-              <ArrowLeftOnRectangleIcon className="size-5" />
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="mx-auto max-w-[1080px] px-4 py-6">{children}</main>
+      <PlatformSidebar me={me} />
+      <main className="pb-16 md:pb-0 md:pl-60">
+        <div className="mx-auto max-w-[1080px] px-4 py-6">{children}</div>
+      </main>
       <SessionGuard />
     </div>
   );
