@@ -114,7 +114,7 @@ export class ClinicalEntriesController {
       limits: { fileSize: MAX_IMPORT_FILE_BYTES },
     }),
   )
-  preview(@UploadedFile() file?: Express.Multer.File) {
+  async preview(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se ha recibido ningún fichero');
     }
@@ -123,7 +123,8 @@ export class ClinicalEntriesController {
         'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
       );
     }
-    return previewClinicalEntriesFile(file.buffer, file.originalname);
+    const template = await this.clinicalEntries.getConsultationTemplate();
+    return previewClinicalEntriesFile(file.buffer, file.originalname, template);
   }
 
   // Paso 2: una vez confirmado el mapeo (y por tanto qué columna es
@@ -171,7 +172,7 @@ export class ClinicalEntriesController {
       limits: { fileSize: MAX_IMPORT_FILE_BYTES },
     }),
   )
-  import(
+  async import(
     @UploadedFile() file?: Express.Multer.File,
     @Body('mapping') mappingJson?: string,
     @Body('doctorMapping') doctorMappingJson?: string,
@@ -194,10 +195,14 @@ export class ClinicalEntriesController {
         'El mapeo de médicos',
       ) ?? {};
 
+    // Solo los campos de la plantilla de la clínica pasan a las filas — un
+    // campo de otra plantilla se ignora aunque venga mapeado.
+    const template = await this.clinicalEntries.getConsultationTemplate();
     const { rows, missingColumns } = parseClinicalEntriesFile(
       file.buffer,
       file.originalname,
       mapping,
+      template,
     );
     if (missingColumns.length > 0) {
       throw new BadRequestException(

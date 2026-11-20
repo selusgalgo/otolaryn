@@ -2,15 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
+import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
 
 // field -> the file's own header text, e.g. { patientLegacyId: "NUMHISTORIA" }.
 // insuranceEntityName/doctorName aren't plain fields either — same
 // "resolved server-side" reasoning as ColumnMapping.insuranceEntityName in
 // lib/actions/patients.ts.
-export interface ClinicalEntryColumnMapping {
-  chiefComplaint?: string;
-  examinationFindings?: string;
-  treatment?: string;
+// Los campos de texto (chiefComplaint, evolution, report...) son los de la
+// plantilla de la clínica — ver lib/consultation-template.ts.
+export interface ClinicalEntryColumnMapping extends Partial<Record<ConsultationField, string>> {
   visitDate?: string;
   patientLegacyId?: string;
   patientFirstName?: string;
@@ -20,6 +20,8 @@ export interface ClinicalEntryColumnMapping {
 }
 
 export interface ClinicalEntriesImportPreview {
+  // Plantilla de consulta de la clínica: decide qué campos se pueden mapear.
+  template: ConsultationTemplate;
   headers: string[];
   sampleRows: Record<string, string>[];
   suggestedMapping: ClinicalEntryColumnMapping;
