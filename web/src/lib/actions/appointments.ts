@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { toDateKey } from '@/lib/calendar-grid';
 import { clinicDateInputValue, clinicLocalToUtcIso } from '@/lib/clinic-time';
 import { findNextFreeSlots } from '@/lib/occupancy';
+import { mapFormError } from '@/lib/form-errors';
 import type {
   Appointment,
   AppointmentDefaults,
@@ -17,7 +18,64 @@ import type {
 
 export interface AppointmentFormState {
   error?: string;
+  fieldErrors?: Record<string, string>;
   success?: boolean;
+}
+
+function appointmentFormError(message: string): Pick<AppointmentFormState, 'error' | 'fieldErrors'> {
+  if (/scheduledAt|fecha y hora|fecha, hora/i.test(message)) {
+    return {
+      fieldErrors: {
+        date: 'Revisa la fecha y la hora de la cita.',
+        time: 'Revisa la fecha y la hora de la cita.',
+      },
+    };
+  }
+  const mapped = mapFormError(
+    message,
+    {
+      date: [],
+      time: [],
+      durationMinutes: ['duración', 'duracion'],
+      practitionerId: ['profesional'],
+      status: ['estado'],
+      notes: ['notas'],
+      patientFirstName: ['firstName', 'nombre'],
+      patientLastName: ['lastName', 'apellidos'],
+      patientDocumentId: ['documentId', 'documento', 'número de documento', 'numero de documento'],
+      patientDateOfBirth: ['dateOfBirth', 'fecha de nacimiento'],
+      patientPhone: ['phone', 'teléfono', 'telefono'],
+      patientEmail: ['email', 'correo electrónico', 'correo electronico'],
+    },
+    { patientDocumentId: /documento/i },
+    {
+      date: 'Fecha',
+      time: 'Hora',
+      durationMinutes: 'Duración',
+      practitionerId: 'Profesional',
+      status: 'Estado',
+      notes: 'Notas',
+      patientFirstName: 'Nombre',
+      patientLastName: 'Apellidos',
+      patientDocumentId: 'Documento',
+      patientDateOfBirth: 'Fecha de nacimiento',
+      patientPhone: 'Teléfono',
+      patientEmail: 'Email',
+    },
+  );
+  return {
+    ...(Object.keys(mapped.fieldErrors).length ? { fieldErrors: mapped.fieldErrors } : {}),
+    ...(mapped.formError ? { error: mapped.formError } : {}),
+  };
+}
+
+function missingDateTimeError(): AppointmentFormState {
+  return {
+    fieldErrors: {
+      date: 'Indica la fecha de la cita.',
+      time: 'Indica la hora de la cita.',
+    },
+  };
 }
 
 export interface CalendarAppointment {
@@ -200,7 +258,7 @@ export async function createAppointmentAction(
 ): Promise<AppointmentFormState> {
   const body = newAppointmentBody(formData);
   if (!body) {
-    return { error: 'Indica fecha y hora de la cita.' };
+    return missingDateTimeError();
   }
 
   try {
@@ -210,7 +268,7 @@ export async function createAppointmentAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return appointmentFormError(err.message);
     }
     return { error: 'No se pudo crear la cita.' };
   }
@@ -233,7 +291,7 @@ export async function createAppointmentAction(
 async function createPatientAndAppointment(
   formData: FormData,
 ): Promise<
-  { patientId: string; appointment: Appointment } | { error: string }
+  { patientId: string; appointment: Appointment } | { error?: string; fieldErrors?: Record<string, string> }
 > {
   const mode = String(formData.get('mode') ?? 'existing');
   let patientId: string;
@@ -262,7 +320,10 @@ async function createPatientAndAppointment(
       patientId = patient.id;
     } catch (err) {
       if (err instanceof ApiError) {
-        return { error: `No se pudo crear el paciente: ${err.message}` };
+        const mapped = appointmentFormError(err.message);
+        return Object.keys(mapped.fieldErrors ?? {}).length
+          ? mapped
+          : { error: `No se pudo crear el paciente: ${mapped.error ?? err.message}` };
       }
       return { error: 'No se pudo crear el paciente.' };
     }
@@ -275,7 +336,7 @@ async function createPatientAndAppointment(
 
   const body = newAppointmentBody(formData);
   if (!body) {
-    return { error: 'Indica fecha y hora de la cita.' };
+    return missingDateTimeError();
   }
 
   try {
@@ -289,7 +350,7 @@ async function createPatientAndAppointment(
     return { patientId, appointment };
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return appointmentFormError(err.message);
     }
     return { error: 'No se pudo crear la cita.' };
   }
@@ -304,8 +365,8 @@ export async function createAppointmentForPatientAction(
   formData: FormData,
 ): Promise<AppointmentFormState> {
   const result = await createPatientAndAppointment(formData);
-  if ('error' in result) {
-    return { error: result.error };
+  if (!('patientId' in result)) {
+    return result;
   }
 
   revalidatePath(`/patients/${result.patientId}`);
@@ -322,8 +383,8 @@ export async function createAppointmentFromAgendaAction(
   formData: FormData,
 ): Promise<AppointmentFormState> {
   const result = await createPatientAndAppointment(formData);
-  if ('error' in result) {
-    return { error: result.error };
+  if (!('patientId' in result)) {
+    return result;
   }
 
   revalidatePath(`/patients/${result.patientId}`);
@@ -372,7 +433,7 @@ export async function updateAppointmentAction(
   const practitionerId = String(formData.get('practitionerId') ?? '').trim();
 
   if (!date || !time) {
-    return { error: 'Indica fecha y hora de la cita.' };
+    return missingDateTimeError();
   }
 
   const body = {
@@ -391,7 +452,7 @@ export async function updateAppointmentAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return appointmentFormError(err.message);
     }
     return { error: 'No se pudo actualizar la cita.' };
   }

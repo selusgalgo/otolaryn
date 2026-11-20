@@ -1,0 +1,310 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "PROFESIONAL": [
+      "FECHA"
+    ],
+    "FECHA": [
+      "HORA"
+    ],
+    "HORA": [
+      "DATOS"
+    ],
+    "DATOS": [
+      "RESUMEN"
+    ],
+    "RESUMEN": []
+  },
+  "screens": [
+    {
+      "id": "PROFESIONAL",
+      "title": "Tu profesional",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Con quién te gustaría venir?"
+              },
+              {
+                "type": "TextBody",
+                "text": "Elige a tu profesional."
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "profesional",
+                "label": "Profesional",
+                "required": true,
+                "data-source": "${data.profesionales}"
+              },
+              {
+                "type": "Footer",
+                "label": "Continuar",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "profesional": "${form.profesional}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "data": {
+        "profesionales": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "__example__": [
+            {
+              "id": "ejemplo_1",
+              "title": "Opción de ejemplo"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "FECHA",
+      "title": "Tu cita",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Elige un día"
+              },
+              {
+                "type": "TextBody",
+                "text": "Solo se muestran días con horarios disponibles."
+              },
+              {
+                "type": "CalendarPicker",
+                "name": "fecha",
+                "label": "Fecha de la cita",
+                "mode": "single",
+                "required": true,
+                "min-date": "${data.min_fecha}",
+                "max-date": "${data.max_fecha}",
+                "unavailable-dates": "${data.no_disponibles}"
+              },
+              {
+                "type": "Footer",
+                "label": "Ver horarios",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "profesional": "${screen.PROFESIONAL.form.profesional}",
+                    "fecha": "${form.fecha}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "data": {
+        "min_fecha": {
+          "type": "string",
+          "__example__": "2026-11-18"
+        },
+        "max_fecha": {
+          "type": "string",
+          "__example__": "2026-12-17"
+        },
+        "no_disponibles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": [
+            "2026-11-22"
+          ]
+        }
+      }
+    },
+    {
+      "id": "HORA",
+      "title": "Tu hora",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Qué hora te viene bien?"
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "hora",
+                "label": "Horario disponible",
+                "required": true,
+                "data-source": "${data.horarios}"
+              },
+              {
+                "type": "Footer",
+                "label": "Continuar",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "profesional": "${screen.PROFESIONAL.form.profesional}",
+                    "fecha": "${screen.FECHA.form.fecha}",
+                    "hora": "${form.hora}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "data": {
+        "horarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "__example__": [
+            {
+              "id": "ejemplo_1",
+              "title": "Opción de ejemplo"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "DATOS",
+      "title": "Un último detalle",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Cómo te llamas?"
+              },
+              {
+                "type": "TextBody",
+                "text": "Escribe tu nombre completo y selecciona tu fecha de nacimiento."
+              },
+              {
+                "type": "TextInput",
+                "name": "nombre_completo",
+                "label": "Nombre y apellidos",
+                "input-type": "text",
+                "required": true,
+                "max-chars": 80
+              },
+              {
+                "type": "CalendarPicker",
+                "name": "nacimiento",
+                "label": "Fecha de nacimiento",
+                "mode": "single",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Ver resumen",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "profesional": "${screen.PROFESIONAL.form.profesional}",
+                    "fecha": "${screen.FECHA.form.fecha}",
+                    "hora": "${screen.HORA.form.hora}",
+                    "nombre": "${form.nombre_completo}",
+                    "nacimiento": "${form.nacimiento}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "sensitive": [
+        "nombre_completo",
+        "nacimiento"
+      ]
+    },
+    {
+      "id": "RESUMEN",
+      "title": "Revisa tu cita",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Todo preparado"
+              },
+              {
+                "type": "TextBody",
+                "text": "${data.resumen}"
+              },
+              {
+                "type": "TextCaption",
+                "text": "La cita se reservará al confirmar."
+              },
+              {
+                "type": "Footer",
+                "label": "Confirmar cita",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "profesional": "${screen.PROFESIONAL.form.profesional}",
+                    "fecha": "${screen.FECHA.form.fecha}",
+                    "hora": "${screen.HORA.form.hora}",
+                    "nombre": "${screen.DATOS.form.nombre_completo}",
+                    "nacimiento": "${screen.DATOS.form.nacimiento}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "data": {
+        "resumen": {
+          "type": "string",
+          "__example__": "Profesional de ejemplo\\n20/11/2026 · 10:30"
+        }
+      },
+      "terminal": true
+    }
+  ]
+}

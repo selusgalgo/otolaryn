@@ -530,6 +530,7 @@ export default async function AppointmentsPage({
                       <TableCell>
                         <AppointmentRowActions
                           appointment={appointment}
+                          patientName={patient ? `${patient.firstName} ${patient.lastName}` : undefined}
                           practitioners={practitioners}
                           canDelete={
                             me.role === 'admin' || me.role === 'recepcion'

@@ -14,6 +14,7 @@ import {
 import { ownerPool } from '../rls/support/pools';
 import { WhatsappBookingPurgeService } from '../../src/whatsapp-booking/whatsapp-booking-purge.service';
 import { WhatsappRemindersService } from '../../src/whatsapp-booking/whatsapp-reminders.service';
+import { WhatsappCredentialCrypto } from '../../src/whatsapp-booking/whatsapp-credential-crypto';
 
 const token = 'test_' + 'a'.repeat(48);
 const prefix = '/integrations/whatsapp-booking';
@@ -666,6 +667,8 @@ describe('WhatsApp booking isolation and booking', () => {
       reschedule: false,
       notifyReception: false,
       reminderHours: 0,
+      reminderTemplateName: 'appointment_reminder',
+      reminderTemplateLanguage: 'es_ES',
       visitTypes: [],
       restrictHours: false,
       hours: [],
@@ -804,13 +807,33 @@ describe('WhatsApp booking isolation and booking', () => {
       } finally {
         client.release();
       }
+      const encryptionKey = 'ab'.repeat(32);
+      const connectionClient = await owner.connect();
+      try {
+        await connectionClient.query('BEGIN');
+        await connectionClient.query(
+          "SELECT set_config('app.tenant_id', $1, true)",
+          [tenants[0].id],
+        );
+        await connectionClient.query(
+          `INSERT INTO public.whatsapp_tenant_connections
+           (tenant_id,waba_id,phone_number_id,encrypted_access_token,status)
+           VALUES ($1,'987654321','123456789',$2,'ready')`,
+          [
+            tenants[0].id,
+            new WhatsappCredentialCrypto(encryptionKey).encrypt(
+              tenants[0].id,
+              'fake-token-for-test',
+            ),
+          ],
+        );
+        await connectionClient.query('COMMIT');
+      } finally {
+        connectionClient.release();
+      }
       const connection = {
-        WHATSAPP_REMINDER_PHONE_NUMBER_ID: '123456789',
         WHATSAPP_REMINDER_GRAPH_VERSION: 'v25.0',
-        WHATSAPP_REMINDER_TEMPLATE: 'appointment_reminder',
-        WHATSAPP_REMINDER_ACCESS_TOKEN: 'fake-token-for-test',
-        WHATSAPP_BOOKING_DEMO_SHARED_PHONE: phone,
-        WHATSAPP_REMINDER_DEMO_RECIPIENT: '+34600998877',
+        WHATSAPP_CREDENTIAL_KEY: encryptionKey,
       };
       const before = Object.fromEntries(
         Object.keys(connection).map((key) => [key, process.env[key]]),
@@ -830,7 +853,7 @@ describe('WhatsApp booking isolation and booking', () => {
         expect(sender).toHaveBeenCalledTimes(1);
         const payload = JSON.parse(String(sender.mock.calls[0][1]?.body));
         expect(payload).toMatchObject({
-          to: connection.WHATSAPP_REMINDER_DEMO_RECIPIENT.slice(1),
+          to: phone.slice(1),
           type: 'template',
         });
         expect((await activity()).body.reminders).toEqual(

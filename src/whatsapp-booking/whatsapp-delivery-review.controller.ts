@@ -44,17 +44,37 @@ export class WhatsappDeliveryReviewController {
     const tenant = [this.tenancy.tenantId];
     const manager = this.tenancy.manager;
     const events = await manager.query(
-      `SELECT id, appointment_id AS "appointmentId", kind, occurred_at AS "occurredAt",
-           notify_reception AND acknowledged_at IS NULL AS unread
-       FROM public.whatsapp_booking_activity WHERE tenant_id = $1
-       ORDER BY (notify_reception AND acknowledged_at IS NULL) DESC, occurred_at DESC LIMIT 50`,
+      `SELECT activity.id, activity.appointment_id AS "appointmentId", activity.kind,
+           activity.occurred_at AS "occurredAt",
+           activity.notify_reception AND activity.acknowledged_at IS NULL AS unread,
+           appointment.patient_id AS "patientId",
+           NULLIF(TRIM(CONCAT_WS(' ', patient.first_name, patient.last_name)), '') AS "patientName"
+       FROM public.whatsapp_booking_activity activity
+       LEFT JOIN public.appointments appointment
+         ON appointment.tenant_id = activity.tenant_id
+        AND appointment.id = activity.appointment_id
+       LEFT JOIN public.patients patient
+         ON patient.tenant_id = appointment.tenant_id
+        AND patient.id = appointment.patient_id
+       WHERE activity.tenant_id = $1
+       ORDER BY (activity.notify_reception AND activity.acknowledged_at IS NULL) DESC,
+         activity.occurred_at DESC LIMIT 50`,
       tenant,
     );
     const reminders = await manager.query(
-      `SELECT appointment_id AS "appointmentId", scheduled_at AS "scheduledAt",
-           attempted_at AS "attemptedAt", status
-       FROM public.whatsapp_booking_reminders WHERE tenant_id = $1
-       ORDER BY attempted_at DESC LIMIT 30`,
+      `SELECT reminder.appointment_id AS "appointmentId", reminder.scheduled_at AS "scheduledAt",
+           reminder.attempted_at AS "attemptedAt", reminder.status,
+           appointment.patient_id AS "patientId",
+           NULLIF(TRIM(CONCAT_WS(' ', patient.first_name, patient.last_name)), '') AS "patientName"
+       FROM public.whatsapp_booking_reminders reminder
+       LEFT JOIN public.appointments appointment
+         ON appointment.tenant_id = reminder.tenant_id
+        AND appointment.id = reminder.appointment_id
+       LEFT JOIN public.patients patient
+         ON patient.tenant_id = appointment.tenant_id
+        AND patient.id = appointment.patient_id
+       WHERE reminder.tenant_id = $1
+       ORDER BY reminder.attempted_at DESC LIMIT 30`,
       tenant,
     );
     return {

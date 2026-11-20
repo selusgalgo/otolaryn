@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,6 +8,7 @@ import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { PatientPicker } from "@/components/appointments/patient-picker";
 import { createAppointmentFromAgendaAction } from "@/lib/actions/appointments";
 import type { PractitionerOption } from "@/lib/practitioners";
+import { confirmDiscardUnsavedChanges } from "@/lib/unsaved-changes";
 
 // Agenda's "Nueva cita" button: a modal instead of a full navigation to
 // /appointments/new, since staying on the Agenda list — which just
@@ -59,8 +60,20 @@ export function NewAppointmentDialog({
   hideTrigger?: boolean;
 }) {
   const [openState, setOpenState] = useState(false);
+  const dirtyRef = useRef(false);
   const open = openProp ?? openState;
-  const setOpen = onOpenChangeProp ?? setOpenState;
+  const updateOpen = onOpenChangeProp ?? setOpenState;
+
+  function setOpen(next: boolean) {
+    if (!next && !confirmDiscardUnsavedChanges(dirtyRef.current)) return;
+    if (!next) dirtyRef.current = false;
+    updateOpen(next);
+  }
+
+  function closeAfterSave() {
+    dirtyRef.current = false;
+    updateOpen(false);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -92,8 +105,11 @@ export function NewAppointmentDialog({
           defaultTime={defaultTime}
           defaultPractitionerId={defaultPractitionerId}
           suggestSlots={!defaultTime}
+          onDirtyChange={(dirty) => {
+            dirtyRef.current = dirty;
+          }}
           onSuccess={() => {
-            setOpen(false);
+            closeAfterSave();
             onCreated?.();
           }}
         >

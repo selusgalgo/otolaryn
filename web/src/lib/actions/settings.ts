@@ -64,6 +64,8 @@ export async function updateWhatsappBookingAction(_prevState: ScheduleFormState,
         reschedule: formData.has("reschedule"),
         notifyReception: formData.has("notifyReception"),
         reminderHours: Number(formData.get("reminderHours")),
+        reminderTemplateName: String(formData.get("reminderTemplateName") ?? "").trim(),
+        reminderTemplateLanguage: String(formData.get("reminderTemplateLanguage") ?? "es_ES").trim(),
         restrictHours: formData.has("restrictHours"),
         visitTypes: formData.getAll("visitTypeId").map(String).map(id => ({
           id,

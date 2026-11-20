@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   ArchiveBoxIcon,
   EyeIcon,
@@ -20,6 +20,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import { archivePatientAction, updatePatientAction } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { Patient } from "@/lib/types";
+import { confirmDiscardUnsavedChanges } from "@/lib/unsaved-changes";
 
 interface PatientRowActionsProps {
   patient: Patient;
@@ -40,10 +41,17 @@ export function PatientRowActions({
 }: PatientRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const editDirtyRef = useRef(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const boundUpdate = updatePatientAction.bind(null, patient.id);
   const fullName = `${patient.firstName} ${patient.lastName}`;
+
+  function handleEditOpenChange(next: boolean) {
+    if (!next && !confirmDiscardUnsavedChanges(editDirtyRef.current)) return;
+    if (!next) editDirtyRef.current = false;
+    setEditOpen(next);
+  }
 
   function confirmArchive() {
     setError(null);
@@ -62,7 +70,7 @@ export function PatientRowActions({
       <RowActions
         overflowLabel={`Más acciones para ${fullName}`}
         actions={[
-          { id: "view", label: `Ver a ${fullName}`, icon: <EyeIcon />, href: `/patients/${patient.id}` },
+          { id: "view", label: `Ver a ${fullName}`, visibleLabel: "Ver ficha", icon: <EyeIcon />, href: `/patients/${patient.id}` },
           { id: "edit", label: `Editar a ${fullName}`, icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
           ...(canArchive
             ? [
@@ -79,7 +87,7 @@ export function PatientRowActions({
         ]}
       />
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={editOpen} onOpenChange={handleEditOpenChange}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Editar paciente</DialogTitle>
@@ -91,7 +99,13 @@ export function PatientRowActions({
               action={boundUpdate}
               initialValues={patient}
               submitLabel="Guardar cambios"
-              onSuccess={() => setEditOpen(false)}
+              onDirtyChange={(dirty) => {
+                editDirtyRef.current = dirty;
+              }}
+              onSuccess={() => {
+                editDirtyRef.current = false;
+                setEditOpen(false);
+              }}
               insuranceOptions={insuranceOptions}
             />
           </div>

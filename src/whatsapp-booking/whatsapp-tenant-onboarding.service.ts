@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isUUID } from 'class-validator';
 import { createHash, randomBytes } from 'node:crypto';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { MetaEmbeddedSignup } from './meta-embedded-signup';
@@ -10,20 +11,46 @@ import { WhatsappCredentialCrypto } from './whatsapp-credential-crypto';
 export class WhatsappTenantOnboardingService {
   constructor(private readonly config: ConfigService, private readonly tenancy: TenancyContext) {}
 
-  private ensureDemo(): void {
-    const permitted = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_TENANT_ID');
-    if (!permitted || permitted !== this.tenancy.tenantId) throw new ForbiddenException();
+  /** Optional single-clinic lock for isolated demo environments; omit in multi-tenant production. */
+  private enforceOptionalDemoTenant(): void {
+    const permitted = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_TENANT_ID')?.trim() ?? '';
+    if (!permitted) return;
+    if (!isUUID(permitted)) throw new ServiceUnavailableException('La restricción DEMO de WhatsApp no está configurada correctamente');
+    if (permitted.toLowerCase() !== this.tenancy.tenantId.toLowerCase()) throw new ForbiddenException();
+  }
+
+  private connectionConfig() {
+    const appId = this.config.get<string>('WHATSAPP_META_APP_ID') ?? '';
+    const appSecret = this.config.get<string>('WHATSAPP_META_APP_SECRET') ?? '';
+    const encryptionKey = this.config.get<string>('WHATSAPP_CREDENTIAL_KEY') ?? '';
+    const demoWaba = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_WABA_ID')?.trim() ?? '';
+    const demoPhone = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_PHONE_ID')?.trim() ?? '';
+    if (!/^\d{1,30}$/.test(appId) || !appSecret || !/^[0-9a-f]{64}$/i.test(encryptionKey)) {
+      throw new ServiceUnavailableException('La conexión de WhatsApp aún no está configurada correctamente en el servidor');
+    }
+    // These two values are an optional restriction for a disposable DEMO only.
+    if ((demoWaba || demoPhone) && (!/^\d{1,30}$/.test(demoWaba) || !/^\d{1,30}$/.test(demoPhone))) {
+      throw new ServiceUnavailableException('La restricción de cuenta DEMO de WhatsApp no está configurada correctamente');
+    }
+    return { appId, appSecret, encryptionKey, demoWaba, demoPhone };
+  }
+
+  private signupConfig() {
+    const connection = this.connectionConfig();
+    const configId = this.config.get<string>('WHATSAPP_META_CONFIG_ID') ?? '';
+    if (!/^\d{1,30}$/.test(configId)) throw new ServiceUnavailableException('La configuración de Meta Embedded Signup no está completa');
+    return { ...connection, configId };
+  }
+
+  private enforceOptionalDemoAccount(config: { demoWaba: string; demoPhone: string }, input: { wabaId: string; phoneNumberId: string }): void {
+    if (config.demoWaba && (input.wabaId !== config.demoWaba || input.phoneNumberId !== config.demoPhone)) {
+      throw new ForbiddenException('Esta prueba solo admite la cuenta configurada para DEMO');
+    }
   }
 
   async begin(userId: string) {
-    this.ensureDemo();
-    const appId = this.config.get<string>('WHATSAPP_META_APP_ID') ?? '';
-    const configId = this.config.get<string>('WHATSAPP_META_CONFIG_ID') ?? '';
-    const demoWaba = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_WABA_ID') ?? '';
-    const demoPhone = this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_PHONE_ID') ?? '';
-    if (![appId, configId, demoWaba, demoPhone].every((value) => /^\d{1,30}$/.test(value)) || !this.config.get<string>('WHATSAPP_META_APP_SECRET') || !this.config.get<string>('WHATSAPP_CREDENTIAL_KEY')) {
-      throw new ServiceUnavailableException('La conexión de prueba aún no está configurada');
-    }
+    this.enforceOptionalDemoTenant();
+    const { appId, configId } = this.signupConfig();
     const state = randomBytes(32).toString('base64url');
     await this.tenancy.manager.query(
       `INSERT INTO public.whatsapp_onboarding_attempts (tenant_id,user_id,state_hash,expires_at)
@@ -34,8 +61,8 @@ export class WhatsappTenantOnboardingService {
   }
 
   async finish(userId: string, state: string, input: { code: string; wabaId: string; phoneNumberId: string }) {
-    this.ensureDemo();
-    if (input.wabaId !== this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_WABA_ID') || input.phoneNumberId !== this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_PHONE_ID')) throw new ForbiddenException('Esta prueba solo admite la cuenta y el número de WhatsApp de DEMO');
+    this.enforceOptionalDemoTenant();
+    this.enforceOptionalDemoAccount(this.signupConfig(), input);
     if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw new BadRequestException('La sesión de conexión no es válida');
     const [attempt] = await this.tenancy.manager.query<{ valid: boolean }[]>(
       `SELECT true AS valid FROM public.whatsapp_onboarding_attempts
@@ -51,7 +78,7 @@ export class WhatsappTenantOnboardingService {
   }
 
   async status() {
-    this.ensureDemo();
+    this.enforceOptionalDemoTenant();
     const [connection] = await this.tenancy.manager.query<{ status: string }[]>(
       'SELECT status FROM public.whatsapp_tenant_connections WHERE tenant_id=$1', [this.tenancy.tenantId],
     );
@@ -59,17 +86,19 @@ export class WhatsappTenantOnboardingService {
   }
 
   async activate() {
-    this.ensureDemo();
-    if (this.config.get<string>('WHATSAPP_ROUTER_ACTIVATION_ENABLED') !== 'true' || this.config.get<string>('WHATSAPP_ROUTER_DEMO_TENANT_ID') !== this.tenancy.tenantId || !this.config.get<string>('WHATSAPP_ROUTER_DEMO_BINDINGS') || !this.config.get<string>('WHATSAPP_ROUTER_TOKEN_SHA256')) {
-      throw new ServiceUnavailableException('El canal de prueba aún no está preparado');
+    this.enforceOptionalDemoTenant();
+    const config = this.connectionConfig();
+    if (this.config.get<string>('WHATSAPP_ROUTER_ACTIVATION_ENABLED') !== 'true' || !this.config.get<string>('WHATSAPP_ROUTER_TOKEN_SHA256')) {
+      throw new ServiceUnavailableException('El canal de WhatsApp aún no está habilitado en el servidor');
     }
     const [connection] = await this.tenancy.manager.query<{ waba_id: string; phone_number_id: string; encrypted_access_token: string; status: string }[]>(
       'SELECT waba_id, phone_number_id, encrypted_access_token, status FROM public.whatsapp_tenant_connections WHERE tenant_id=$1 FOR UPDATE', [this.tenancy.tenantId],
     );
-    if (!connection || connection.waba_id !== this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_WABA_ID') || connection.phone_number_id !== this.config.get<string>('WHATSAPP_ONBOARDING_DEMO_PHONE_ID')) throw new BadRequestException('No hay una cuenta de prueba conectada');
-    const cipher = new WhatsappCredentialCrypto(this.config.get<string>('WHATSAPP_CREDENTIAL_KEY') ?? '');
+    if (!connection) throw new BadRequestException('No hay una cuenta de WhatsApp conectada');
+    this.enforceOptionalDemoAccount(config, { wabaId: connection.waba_id, phoneNumberId: connection.phone_number_id });
+    const cipher = new WhatsappCredentialCrypto(config.encryptionKey);
     const token = cipher.decrypt(this.tenancy.tenantId, connection.encrypted_access_token);
-    const meta = new MetaEmbeddedSignup(this.config.get<string>('WHATSAPP_META_APP_ID') ?? '', this.config.get<string>('WHATSAPP_META_APP_SECRET') ?? '');
+    const meta = new MetaEmbeddedSignup(config.appId, config.appSecret);
     if (!await meta.isSubscribed(connection.waba_id, token)) {
       await meta.subscribe(connection.waba_id, token);
       if (!await meta.isSubscribed(connection.waba_id, token)) throw new BadRequestException('Meta todavía no confirma la suscripción de esta cuenta');
@@ -79,12 +108,10 @@ export class WhatsappTenantOnboardingService {
   }
 
   async completeVerifiedSignup(input: { code: string; wabaId: string; phoneNumberId: string }) {
-    const appId = this.config.get<string>('WHATSAPP_META_APP_ID') ?? '';
-    const appSecret = this.config.get<string>('WHATSAPP_META_APP_SECRET') ?? '';
-    const encryptionKey = this.config.get<string>('WHATSAPP_CREDENTIAL_KEY') ?? '';
-    if (!appId || !appSecret || !encryptionKey) throw new ServiceUnavailableException('Conexión de WhatsApp no configurada');
-    const cipher = new WhatsappCredentialCrypto(encryptionKey);
-    const meta = new MetaEmbeddedSignup(appId, appSecret);
+    const config = this.connectionConfig();
+    this.enforceOptionalDemoAccount(config, input);
+    const cipher = new WhatsappCredentialCrypto(config.encryptionKey);
+    const meta = new MetaEmbeddedSignup(config.appId, config.appSecret);
     const token = await meta.exchangeAndVerify(input.code, input.wabaId, input.phoneNumberId);
     const encrypted = cipher.encrypt(this.tenancy.tenantId, token);
     // A linked account remains pending until webhook subscription and a real

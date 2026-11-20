@@ -2,11 +2,42 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
+import { mapFormError } from "@/lib/form-errors";
 import type { Patient } from "@/lib/types";
 
 export interface PatientFormState {
   error?: string;
+  fieldErrors?: Record<string, string>;
   success?: boolean;
+}
+
+function patientFormError(message: string, prefix?: string): Pick<PatientFormState, "error" | "fieldErrors"> {
+  const mapped = mapFormError(
+    message,
+    {
+      firstName: ["nombre"],
+      lastName: ["apellidos"],
+      documentId: ["documento", "número de documento", "numero de documento"],
+      dateOfBirth: ["fecha de nacimiento"],
+      phone: ["teléfono", "telefono"],
+      email: ["correo electrónico", "correo electronico"],
+      notes: ["notas"],
+    },
+    { documentId: /documento/i },
+    {
+      firstName: "Nombre",
+      lastName: "Apellidos",
+      documentId: "Documento",
+      dateOfBirth: "Fecha de nacimiento",
+      phone: "Teléfono",
+      email: "Email",
+      notes: "Notas",
+    },
+  );
+  return {
+    ...(mapped.fieldErrors ? { fieldErrors: mapped.fieldErrors } : {}),
+    ...(mapped.formError ? { error: prefix ? `${prefix}: ${mapped.formError}` : mapped.formError } : {}),
+  };
 }
 
 function patientPayloadFromFormData(formData: FormData) {
@@ -84,7 +115,7 @@ export async function createPatientAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return patientFormError(err.message);
     }
     return { error: "No se pudo crear el paciente." };
   }
@@ -105,7 +136,7 @@ export async function updatePatientAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return patientFormError(err.message);
     }
     return { error: "No se pudo actualizar el paciente." };
   }
@@ -133,7 +164,7 @@ export async function updatePatientNotesAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.message };
+      return patientFormError(err.message);
     }
     return { error: "No se pudieron guardar las notas." };
   }
@@ -447,11 +478,11 @@ export async function continueUpdateJobAction(
 // Called imperatively from PatientPicker (a client component), not bound
 // to a <form> — a plain async function a Client Component can invoke on
 // every keystroke (debounced) is enough here; no need for useActionState.
-export async function searchPatientsAction(query: string): Promise<Patient[]> {
+export async function searchPatientsAction(query: string, pageSize = 10): Promise<Patient[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   const result = await apiFetch<{ data: Patient[] }>(
-    `/patients?search=${encodeURIComponent(trimmed)}&pageSize=10`,
+    `/patients?search=${encodeURIComponent(trimmed)}&pageSize=${Math.min(100, Math.max(1, Math.floor(pageSize)))}`,
   );
   return result.data;
 }

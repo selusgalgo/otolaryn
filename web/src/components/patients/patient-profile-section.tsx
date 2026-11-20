@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowDownTrayIcon, CameraIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,13 @@ import { HolderPicker } from "@/components/patients/holder-picker";
 import { HOLDER_RELATIONSHIP_LABEL, PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
+import { focusFirstFieldError } from "@/lib/form-errors";
+import {
+  confirmDiscardUnsavedChanges,
+  useFormDirtyState,
+  useUnsavedChangesWarning,
+} from "@/lib/unsaved-changes";
+import { toast } from "sonner";
 
 interface PatientProfileSectionProps {
   patient: Patient;
@@ -45,10 +52,38 @@ export function PatientProfileSection({
   const documentDisplay = formatDocumentId(patient.documentId);
   const boundUpdate = updatePatientAction.bind(null, patient.id);
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
+  const {
+    formRef,
+    isDirty,
+    dirtyRef,
+    captureBaseline,
+    onInputCapture,
+    onChangeCapture,
+    onClickCapture,
+  } = useFormDirtyState();
+  useUnsavedChangesWarning(editing && isDirty);
 
   useEffect(() => {
-    if (state.success) setEditing(false);
-  }, [state.success]);
+    if (editing) captureBaseline();
+  }, [editing, captureBaseline]);
+
+  useEffect(() => {
+    if (state.success) {
+      captureBaseline();
+      toast.success("Datos del paciente guardados.");
+      setEditing(false);
+    }
+  }, [state, captureBaseline]);
+
+  useEffect(() => {
+    focusFirstFieldError(formRef.current, state.fieldErrors);
+  }, [state, formRef]);
+
+  function cancelEditing() {
+    if (!confirmDiscardUnsavedChanges(dirtyRef.current)) return;
+    captureBaseline();
+    setEditing(false);
+  }
 
   return (
     <>
@@ -74,28 +109,29 @@ export function PatientProfileSection({
               <PencilIcon data-icon="inline-start" />
               Editar
             </Button>
-            <CreateAppointmentDialog patientId={patient.id} practitioners={practitionerOptions} />
+            <CreateAppointmentDialog
+              patientId={patient.id}
+              patientName={`${patient.firstName} ${patient.lastName}`}
+              practitioners={practitionerOptions}
+            />
           </div>
         )}
       </div>
 
       {editing ? (
-        <form onSubmit={keepValuesOnSubmit(formAction)} className="space-y-4">
+        <form
+          ref={formRef}
+          onSubmit={keepValuesOnSubmit(formAction)}
+          onInputCapture={onInputCapture}
+          onChangeCapture={onChangeCapture}
+          onClickCapture={onClickCapture}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
             <Card className="md:col-span-3">
               <CardContent className="flex flex-col items-center gap-3 text-center">
                 <div className="relative">
                   <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
-                  {/* Sin backend de almacenamiento de fotos todavía — el
-                      hueco visual ya está aquí para cuando lo haya. */}
-                  <button
-                    type="button"
-                    aria-label="Añadir foto"
-                    className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-xs hover:text-foreground"
-                    disabled={pending}
-                  >
-                    <CameraIcon className="size-3.5" />
-                  </button>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-2 text-left">
                   <div className="space-y-1">
@@ -108,7 +144,10 @@ export function PatientProfileSection({
                       defaultValue={patient.firstName}
                       required
                       disabled={pending}
+                      aria-invalid={!!state.fieldErrors?.firstName}
+                      aria-describedby={state.fieldErrors?.firstName ? "profile-firstName-error" : undefined}
                     />
+                    {state.fieldErrors?.firstName && <p id="profile-firstName-error" className="text-xs text-destructive">{state.fieldErrors.firstName}</p>}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="lastName" className="text-xs">
@@ -120,7 +159,10 @@ export function PatientProfileSection({
                       defaultValue={patient.lastName}
                       required
                       disabled={pending}
+                      aria-invalid={!!state.fieldErrors?.lastName}
+                      aria-describedby={state.fieldErrors?.lastName ? "profile-lastName-error" : undefined}
                     />
+                    {state.fieldErrors?.lastName && <p id="profile-lastName-error" className="text-xs text-destructive">{state.fieldErrors.lastName}</p>}
                   </div>
                 </div>
                 <div className="w-full space-y-1 text-left">
@@ -133,7 +175,10 @@ export function PatientProfileSection({
                     defaultValue={patient.documentId ?? ""}
                     maxLength={20}
                     disabled={pending}
+                    aria-invalid={!!state.fieldErrors?.documentId}
+                    aria-describedby={state.fieldErrors?.documentId ? "profile-documentId-error" : undefined}
                   />
+                  {state.fieldErrors?.documentId && <p id="profile-documentId-error" className="text-xs text-destructive">{state.fieldErrors.documentId}</p>}
                 </div>
                 <div className="w-full space-y-1 text-left">
                   <Label htmlFor="gender" className="text-xs">
@@ -215,7 +260,10 @@ export function PatientProfileSection({
                     // puede editar sin tener que inventarla.
                     required={!!patient.dateOfBirth}
                     disabled={pending}
+                    aria-invalid={!!state.fieldErrors?.dateOfBirth}
+                    aria-describedby={state.fieldErrors?.dateOfBirth ? "profile-dateOfBirth-error" : undefined}
                   />
+                  {state.fieldErrors?.dateOfBirth && <p id="profile-dateOfBirth-error" className="text-xs text-destructive">{state.fieldErrors.dateOfBirth}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="phone" className="text-xs text-muted-foreground">
@@ -227,7 +275,10 @@ export function PatientProfileSection({
                     defaultValue={patient.phone ?? ""}
                     required={!!patient.phone}
                     disabled={pending}
+                    aria-invalid={!!state.fieldErrors?.phone}
+                    aria-describedby={state.fieldErrors?.phone ? "profile-phone-error" : undefined}
                   />
+                  {state.fieldErrors?.phone && <p id="profile-phone-error" className="text-xs text-destructive">{state.fieldErrors.phone}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="phone2" className="text-xs text-muted-foreground">
@@ -245,7 +296,10 @@ export function PatientProfileSection({
                     type="email"
                     defaultValue={patient.email ?? ""}
                     disabled={pending}
+                    aria-invalid={!!state.fieldErrors?.email}
+                    aria-describedby={state.fieldErrors?.email ? "profile-email-error" : undefined}
                   />
+                  {state.fieldErrors?.email && <p id="profile-email-error" className="text-xs text-destructive">{state.fieldErrors.email}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="address" className="text-xs text-muted-foreground">
@@ -310,12 +364,18 @@ export function PatientProfileSection({
             </Card>
           </div>
 
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Guardando..." : "Guardar cambios"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+            <Button
+              type="button"
+              data-ignore-dirty="true"
+              variant="outline"
+              onClick={cancelEditing}
+              disabled={pending}
+            >
               Cancelar
             </Button>
           </div>
@@ -326,16 +386,6 @@ export function PatientProfileSection({
             <CardContent className="flex flex-col items-center gap-3 text-center">
               <div className="relative">
                 <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
-                {/* Sin backend de almacenamiento de fotos todavía — el hueco
-                    visual ya está aquí para cuando lo haya, ver conversación
-                    sobre el alcance real de esta función. */}
-                <button
-                  type="button"
-                  aria-label="Añadir foto"
-                  className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-xs hover:text-foreground"
-                >
-                  <CameraIcon className="size-3.5" />
-                </button>
               </div>
               <div>
                 <div className="text-lg font-bold">
