@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Tenant } from '../iam/entities/tenant.entity';
 import { ImportJobsModule } from '../import-jobs/import-jobs.module';
 import { InsuranceModule } from '../insurance/insurance.module';
 import { PatientsModule } from '../patients/patients.module';
@@ -21,6 +23,9 @@ import { ClinicalEntryDraftsService } from './clinical-entry-drafts.service';
     InsuranceModule,
     ImportJobsModule,
     AttachmentStorageModule,
+    // Tenant: the Consultas importer reads the clinic's consultation
+    // template (ClinicalEntriesService.getConsultationTemplate).
+    TypeOrmModule.forFeature([Tenant]),
   ],
   controllers: [
     ClinicalEntriesController,

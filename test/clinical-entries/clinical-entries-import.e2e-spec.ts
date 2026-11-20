@@ -392,3 +392,142 @@ describe('Consultas — import', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// Plantilla de Cirugía: el importador ofrece y guarda Enfermedad actual,
+// Evolución, Diagnóstico, Informe y Doctor que lo envía — y nada de la
+// plantilla de ORL aunque el fichero lo traiga mapeado.
+describe('Consultas — import (plantilla de cirugía)', () => {
+  let app: INestApplication;
+  let server: Server;
+  let owner: Pool;
+  let tenant: TestTenant;
+  let other: TestTenant;
+  let token: string;
+  let doctorUserId: string;
+  let patientId: string;
+
+  const CSV = [
+    'Fecha,Nº de historia,Nombre,Apellidos,Enfermedad actual,Evolución,Diagnóstico,Informe,Doctor que lo envía,Exploración,Doctor',
+    '05/06/2024,NH-900,Paciente,Cirugia,Dolor abdominal,Favorable,Colelitiasis,"Se indica colecistectomía.\nRevisión en 1 mes.",Dra. Pérez,Ignorar,Dr. Cirujano',
+  ].join('\n');
+
+  beforeAll(async () => {
+    owner = ownerPool();
+    [tenant, other] = await createTestTenants(owner);
+    await owner.query(
+      `UPDATE iam.tenants SET consultation_template = 'cirugia' WHERE id = $1`,
+      [tenant.id],
+    );
+
+    const doctorHash = await argon2.hash(DOCTOR_PASSWORD, {
+      type: argon2.argon2id,
+    });
+    const {
+      rows: [doctor],
+    } = await owner.query<{ id: string }>(
+      `INSERT INTO iam.users (tenant_id, email, password_hash, role, first_name, last_name)
+       VALUES ($1, $2, $3, 'profesional', 'Carmen', 'Cirujana') RETURNING id`,
+      [
+        tenant.id,
+        `consultas-import-cirugia-${Date.now()}@rls-test.local`,
+        doctorHash,
+      ],
+    );
+    doctorUserId = doctor.id;
+
+    app = await createTestApp();
+    server = app.getHttpServer() as Server;
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ identifier: tenant.userEmail, password: tenant.userPassword });
+    token = (login.body as LoginResponse).accessToken;
+
+    const patient = await request(server)
+      .post('/patients')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        firstName: 'Paciente',
+        lastName: 'Cirugia',
+        documentId: 'CIR-001',
+        dateOfBirth: '1980-01-01',
+        phone: '+34600000041',
+        legacyId: 'NH-900',
+      });
+    patientId = (patient.body as PatientResponse).id;
+  }, 30000);
+
+  afterAll(async () => {
+    await app.close();
+    await destroyTestTenants(owner, [tenant, other]);
+    await owner.end();
+  });
+
+  it('preview devuelve la plantilla y sugiere los campos de cirugía', async () => {
+    const res = await request(server)
+      .post('/clinical-entries/import/preview')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from(CSV, 'utf-8'), 'consultas.csv');
+
+    expect(res.status).toBe(201);
+    const body = res.body as ImportPreviewResponse & { template: string };
+    expect(body.template).toBe('cirugia');
+    expect(body.suggestedMapping).toMatchObject({
+      chiefComplaint: 'Enfermedad actual',
+      evolution: 'Evolución',
+      diagnosis: 'Diagnóstico',
+      report: 'Informe',
+      referringDoctor: 'Doctor que lo envía',
+      doctorName: 'Doctor',
+    });
+    expect(body.suggestedMapping.examinationFindings).toBeUndefined();
+  });
+
+  it('importa los campos de cirugía e ignora los de otra plantilla', async () => {
+    const mapping = {
+      visitDate: 'Fecha',
+      patientLegacyId: 'Nº de historia',
+      patientFirstName: 'Nombre',
+      patientLastName: 'Apellidos',
+      chiefComplaint: 'Enfermedad actual',
+      evolution: 'Evolución',
+      diagnosis: 'Diagnóstico',
+      report: 'Informe',
+      referringDoctor: 'Doctor que lo envía',
+      examinationFindings: 'Exploración',
+      doctorName: 'Doctor',
+    };
+    const start = await request(server)
+      .post('/clinical-entries/import')
+      .set('Authorization', `Bearer ${token}`)
+      .field('mapping', JSON.stringify(mapping))
+      .field('doctorMapping', JSON.stringify({ 'Dr. Cirujano': doctorUserId }))
+      .attach('file', Buffer.from(CSV, 'utf-8'), 'consultas.csv');
+    expect(start.status).toBe(201);
+    let progress = start.body as ImportJobProgress;
+    while (progress.status !== 'completed') {
+      const res = await request(server)
+        .post(`/clinical-entries/import/${progress.jobId}/continue`)
+        .set('Authorization', `Bearer ${token}`);
+      progress = res.body as ImportJobProgress;
+    }
+    expect(progress.skipped).toEqual([]);
+    expect(progress.created).toBe(1);
+
+    const entries = await request(server)
+      .get(`/patients/${patientId}/clinical-entries`)
+      .set('Authorization', `Bearer ${token}`);
+    const [entry] = (
+      entries.body as {
+        data: Record<string, string | null>[];
+      }
+    ).data;
+    expect(entry.chiefComplaint).toBe('Dolor abdominal');
+    expect(entry.evolution).toBe('Favorable');
+    expect(entry.diagnosis).toBe('Colelitiasis');
+    expect(entry.report).toContain('Se indica colecistectomía.');
+    expect(entry.report).toContain('Revisión en 1 mes.');
+    expect(entry.referringDoctor).toBe('Dra. Pérez');
+    expect(entry.examinationFindings).toBeNull();
+    expect(entry.authorUserId).toBe(doctorUserId);
+  });
+});
