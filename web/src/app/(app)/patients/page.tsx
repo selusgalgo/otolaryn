@@ -48,13 +48,14 @@ export default async function PatientsPage({
     query.set("sortDir", sortDir);
   }
 
-  const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes] =
+  const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes, whatsappStatus] =
     await Promise.all([
       apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
       getCurrentUser(),
       getInsuranceOptions(),
       getPractitionerOptions(),
       getActiveAntecedenteTypes(),
+      apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status").catch(() => ({ enabled: false })),
     ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) => {
@@ -120,6 +121,7 @@ export default async function PatientsPage({
       <PatientsTable
         key={`${page}-${search}-${sortBy ?? ""}-${sortDir}`}
         patients={result.data}
+        showOrigin={whatsappStatus.enabled}
         emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
         // profesional/recepcion pueden crear/editar pacientes para dar
         // citas, pero archivar (dar de baja) es una decisión solo de

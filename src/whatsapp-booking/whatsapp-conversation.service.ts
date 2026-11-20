@@ -8,7 +8,7 @@ import { WhatsappBookingService } from './whatsapp-booking.service';
 type Professional = { id: string; firstName: string; lastName: string };
 type Slot = { scheduledAt: string; durationMinutes: number };
 type Menu = {
-  kind: 'professionals' | 'slots' | 'dates' | 'confirm';
+  kind: 'professionals' | 'slots' | 'dates' | 'confirm' | 'main' | 'another';
   options: { id: string; title: string }[];
   hasMore?: boolean;
   hasPrevious?: boolean;
@@ -16,14 +16,27 @@ type Menu = {
 const storedMenuPrefix = 'WA_MENU_V1:';
 interface State {
   step:
+    | 'visitType'
     | 'professional'
     | 'date'
     | 'slot'
     | 'firstName'
     | 'lastName'
     | 'dob'
-    | 'confirm';
+    | 'reason'
+    | 'reminder'
+    | 'cancelDob'
+    | 'cancelName'
+    | 'cancelPick'
+    | 'cancelConfirm'
+    | 'confirm'
+    | 'another';
   professionals?: Professional[];
+  visitTypeId?: string;
+  visitTypes?: { id: string; name: string }[];
+  rescheduling?: boolean;
+  original?: { id: string; scheduledAt: string };
+
   practitionerId?: string;
   practitionerName?: string;
   date?: string;
@@ -35,10 +48,23 @@ interface State {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
+  reason?: string;
+  reminderOptIn?: boolean;
+  appointments?: {
+    id: string;
+    scheduledAt: string;
+    practitionerName: string;
+    visitTypeId?: string;
+  }[];
+  cancellationId?: string;
+  cancellationName?: string;
+  reuseIdentity?: boolean;
 }
 
 const hash = (value: string) =>
   createHash('sha256').update(value).digest('hex');
+const reminderPrompt =
+  '¿Quieres recibir un recordatorio de esta cita por WhatsApp? Escribe SI o NO.';
 const normalizeText = (value: string) =>
   value
     .normalize('NFD')
@@ -221,7 +247,7 @@ const slotChoices = (
   kind: 'slots',
   options: slots.slice(page * 8, page * 8 + 8).map((slot) => ({
     id: `S:${practitionerId}:${slot.scheduledAt}`,
-    title: formatSlot(slot.scheduledAt),
+    title: formatTime(slot.scheduledAt),
   })),
   hasMore: slots.length > (page + 1) * 8,
 });
@@ -323,22 +349,240 @@ export class WhatsappConversationService {
     let reply: string;
     let menu: Menu | undefined;
     const normalizedText = normalizeText(text);
-    if (
+    const settings = await this.booking.clinicSettings();
+    const features = settings.features;
+    const startsReschedule =
+      /^(cambiar|mover|reprogramar) (mi |una )?cita$/.test(normalizedText);
+    const reception = [
+      features.receptionPhone
+        ? 'Teléfono: ' + features.receptionPhone + '.'
+        : '',
+      features.receptionHours
+        ? 'Horario: ' + features.receptionHours + '.'
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const startsCancellation = /^(cancelar|anular) (mi |una )?cita$/.test(
+      normalizedText,
+    );
+    if (/^(recepcion|ayuda|hablar con recepcion)$/.test(normalizedText)) {
+      reply = 'Contacta con recepción de la clínica.';
+    } else if (/^(hola|menu|buenas)$/.test(normalizedText)) {
+      state = undefined;
+      const options = ['CITA para reservar'];
+      if (await this.booking.cancellationsEnabled())
+        options.push('CANCELAR CITA para cancelar');
+      if (
+        settings.platformEnabled &&
+        settings.clinicEnabled &&
+        features.reschedule
+      )
+        options.push('CAMBIAR CITA para cambiar la hora');
+      options.push('RECEPCIÓN para pedir ayuda');
+      menu = {
+        kind: 'main',
+        options: [
+          { id: 'CITA', title: 'Reservar cita' },
+          ...(await this.booking.cancellationsEnabled() ? [{ id: 'CANCELAR CITA', title: 'Cancelar cita' }] : []),
+          ...(settings.platformEnabled && settings.clinicEnabled && features.reschedule ? [{ id: 'CAMBIAR CITA', title: 'Cambiar cita' }] : []),
+          { id: 'RECEPCIÓN', title: 'Recepción' },
+        ],
+      };
+      reply =
+        (features.welcome.trim() ||
+          '¡Hola! Soy el asistente de citas de la clínica.') +
+        '\nEscribe ' +
+        options.join(' · ') +
+        '.';
+    } else if (state?.step === 'another' && /^(otra_misma|otra_persona|1|2|para mi|para otra persona)$/.test(normalizedText)) {
+      const reuse = /^(otra_misma|1|para mi)$/.test(normalizedText);
+      const identity = reuse ? { firstName: state.firstName, lastName: state.lastName, dateOfBirth: state.dateOfBirth, reuseIdentity: true } : {};
+      if (features.visitTypes.length) {
+        state = { ...identity, step: 'visitType', visitTypes: features.visitTypes };
+        reply = 'Elige el tipo de cita:\n' + features.visitTypes.map((type, i) => i + 1 + '. ' + type.name).join('\n') + '\nEscribe el número de la opción.';
+      } else {
+        const professionals = await this.booking.practitioners();
+        state = { ...identity, step: 'professional', professionals };
+        reply = professionals.length ? 'Elige el profesional con quien quieres reservar:\n' + professionals.map((p, i) => `${i + 1}. ${p.firstName} ${p.lastName}`).join('\n') : 'Ahora mismo no hay profesionales disponibles. Contacta con recepción.';
+        if (professionals.length) menu = { kind: 'professionals', options: professionals.map((p) => ({ id: `P:${p.id}`, title: `${p.firstName} ${p.lastName}` })) };
+      }
+    } else if (state?.step === 'another' && !isStartCommand(text) && !startsCancellation && !startsReschedule && !isCancelCommand(text)) {
+      reply = '¿Quieres reservar otra cita para la misma persona o para otra? Elige 1 para la misma persona o 2 para otra persona.';
+      menu = { kind: 'another', options: [{ id: 'OTRA_MISMA', title: 'Para mí' }, { id: 'OTRA_PERSONA', title: 'Para otra persona' }] };
+    } else if (
+      startsReschedule &&
+      !(
+        settings.platformEnabled &&
+        settings.clinicEnabled &&
+        features.reschedule
+      )
+    ) {
+      reply = 'Contacta con recepción para cambiar tu cita.';
+    } else if (
+      (startsCancellation ||
+        (!state?.rescheduling && state?.step.startsWith('cancel'))) &&
+      !isCancelCommand(text) &&
+      !(await this.booking.cancellationsEnabled())
+    ) {
+      if (state?.step.startsWith('cancel')) state = undefined;
+      reply =
+        'Esta clínica gestiona las cancelaciones a través de recepción. Contacta con la clínica si necesitas cancelar una cita.';
+    } else if (startsCancellation || startsReschedule) {
+      state = { step: 'cancelDob', rescheduling: startsReschedule };
+      reply =
+        'Para buscar tus reservas, indica tu fecha de nacimiento (por ejemplo, 21/04/1990).';
+    } else if (
       isCancelCommand(text) ||
       (state?.step === 'confirm' && normalizedText === 'no')
     ) {
+      const cancellingExisting =
+        state?.rescheduling || state?.step.startsWith('cancel');
       state = undefined;
+      reply = cancellingExisting
+        ? 'De acuerdo, no he cancelado ninguna cita ni cambiado su horario. Escribe CITA cuando quieras reservar.'
+        : 'Sin problema, he cancelado el proceso de reserva. Cuando quieras, escribe CITA y empezamos de nuevo.';
+    } else if (state?.step === 'cancelDob' || state?.step === 'cancelName') {
+      const askingName = state.step === 'cancelName';
+      const parsed = askingName ? state.dateOfBirth! : birthDate(text);
+      if (
+        !parsed ||
+        !isDateString(parsed, { strict: true }) ||
+        parsed > localDate(new Date())
+      ) {
+        reply =
+          'Indica una fecha de nacimiento válida, por ejemplo 21/04/1990.';
+      } else {
+        const cancellationName = askingName ? text : undefined;
+        const appointments = await this.booking.cancellableAppointments(
+          message.phone,
+          parsed,
+          cancellationName,
+          state.rescheduling,
+        );
+        if (appointments === null) {
+          state = { ...state, step: 'cancelName', dateOfBirth: parsed };
+          reply =
+            'Hay varias fichas con esa fecha. Escribe el nombre y los apellidos de la persona de la cita.';
+        } else if (!appointments.length) {
+          reply = state.rescheduling
+            ? 'No encuentro citas disponibles para cambiar con esos datos. Contacta con recepción.'
+            : 'No encuentro citas que puedas cancelar por WhatsApp con estos datos. Si estás fuera de plazo o necesitas ayuda, contacta con recepción.';
+          state = undefined;
+        } else {
+          const options = appointments.map((a) => ({
+            id: a.id,
+            scheduledAt: a.scheduledAt.toISOString(),
+            practitionerName: a.practitionerName,
+            visitTypeId: a.visitTypeId ?? undefined,
+          }));
+          state = {
+            ...state,
+            step: 'cancelPick',
+            dateOfBirth: parsed,
+            cancellationName,
+            appointments: options,
+          };
+          reply =
+            'Estas son tus citas. Escribe el número de la que quieres ' +
+            (state.rescheduling ? 'cambiar' : 'cancelar') +
+            ':\n' +
+            options
+              .map(
+                (a, i) =>
+                  `${i + 1}. ${a.practitionerName}: ${formatSlot(a.scheduledAt)}`,
+              )
+              .join('\n') +
+            '\nEscribe SALIR para volver.';
+        }
+      }
+    } else if (state?.step === 'cancelPick') {
+      const appointments = state.appointments ?? [];
+      const index = menuChoice(text, appointments.length);
+      if (index < 0)
+        reply = 'Indica el número de la cita que has elegido, o escribe SALIR.';
+      else if (state.rescheduling) {
+        const selected = appointments[index];
+        const professionals = await this.booking.practitioners(
+          selected.visitTypeId,
+        );
+        state = {
+          ...state,
+          step: 'professional',
+          professionals,
+          visitTypeId: selected.visitTypeId,
+          original: selected,
+          appointments: undefined,
+        };
+        reply = professionals.length
+          ? 'Elige el profesional para el nuevo horario:\n' +
+            professionals
+              .map((p, i) => i + 1 + '. ' + p.firstName + ' ' + p.lastName)
+              .join('\n')
+          : 'No quedan profesionales disponibles. Contacta con recepción para cambiar tu cita.';
+      } else {
+        const selected = appointments[index];
+        state = {
+          ...state,
+          step: 'cancelConfirm',
+          cancellationId: selected.id,
+          scheduledAt: selected.scheduledAt,
+        };
+        reply = `¿Confirmas que quieres cancelar tu cita con ${selected.practitionerName} el ${formatSlot(selected.scheduledAt)}? Responde SI para cancelarla o SALIR para conservarla.`;
+      }
+    } else if (state?.step === 'cancelConfirm') {
+      if (!/^(si|confirmo|confirmar)$/.test(normalizedText))
+        reply = 'Responde SI para cancelar la cita o SALIR para conservarla.';
+      else {
+        const cancelled = await this.booking.cancelAppointment(
+          message.phone,
+          state.dateOfBirth!,
+          state.cancellationId!,
+          state.scheduledAt!,
+          state.cancellationName,
+        );
+        state = undefined;
+        reply = cancelled
+          ? 'Tu cita ha quedado cancelada.'
+          : 'No he podido cancelar esa cita porque ya no está disponible con esos datos. Contacta con recepción.';
+      }
+    } else if (
+      (!state || isStartCommand(text)) &&
+      settings.platformEnabled &&
+      settings.clinicEnabled &&
+      features.visitTypes.length
+    ) {
+      state = { step: 'visitType', visitTypes: features.visitTypes };
       reply =
-        'Sin problema, he cancelado la reserva. Cuando quieras, escribe CITA y empezamos de nuevo.';
-    } else if (!state || isStartCommand(text)) {
-      const professionals = await this.booking.practitioners();
+        (features.welcome.trim() || 'Elige el tipo de cita.') +
+        '\n' +
+        features.visitTypes
+          .map((type, i) => i + 1 + '. ' + type.name)
+          .join('\n') +
+        '\nEscribe el número de la opción.';
+    } else if (!state || isStartCommand(text) || state.step === 'visitType') {
+      const type =
+        state?.step === 'visitType'
+          ? state.visitTypes?.[menuChoice(text, state.visitTypes.length)]
+          : undefined;
+      const professionals =
+        state?.step === 'visitType' && !type
+          ? []
+          : await this.booking.practitioners(type?.id);
       if (!professionals.length) {
         reply =
-          'Ahora mismo no hay profesionales disponibles para reservar automáticamente. Si quieres, contacta con recepción.';
+          state?.step === 'visitType' && !type
+            ? 'Escribe el número de un tipo de cita de la lista.'
+            : 'Ahora mismo no hay profesionales disponibles para reservar automáticamente. Si quieres, contacta con recepción.';
       } else {
-        state = { step: 'professional', professionals };
+        state = { ...(state?.step === 'visitType' ? state : {}), step: 'professional', professionals, visitTypeId: type?.id };
         reply =
-          '¡Claro! Te ayudo a buscar una cita. Elige el profesional con quien quieres reservar:\n' +
+          (type
+            ? ''
+            : features.welcome.trim()
+              ? features.welcome.trim() + '\n'
+              : '¡Claro! Te ayudo a buscar una cita. ') +
+          'Elige el profesional con quien quieres reservar:\n' +
           professionals
             .map((p, i) => `${i + 1}. ${p.firstName} ${p.lastName}`)
             .join('\n') +
@@ -375,8 +619,13 @@ export class WhatsappConversationService {
           'No he podido identificarlo. Elige uno de los profesionales de la lista o escribe su nombre completo.';
       else {
         const person = state.professionals![index];
-        const dates = await this.booking.availableDates(person.id);
+        const dates = await this.booking.availableDates(
+          person.id,
+          state.visitTypeId,
+          state.original?.id,
+        );
         state = {
+          ...state,
           step: 'date',
           practitionerId: person.id,
           practitionerName: `${person.firstName} ${person.lastName}`,
@@ -385,7 +634,7 @@ export class WhatsappConversationService {
         };
         reply = dates.length
           ? `Perfecto, ${person.firstName}. ${dateMenu(dates, 0)}`
-          : 'No veo fechas disponibles en los próximos 30 días. Puedes probar con otra persona escribiendo CITA.';
+          : 'No veo fechas disponibles para ese profesional. Puedes probar con otra persona escribiendo CITA.';
         if (dates.length) menu = dateChoices(dates, 0, person.id);
       }
     } else if (state.step === 'date') {
@@ -419,13 +668,19 @@ export class WhatsappConversationService {
           menu = dateChoices(dates, page, state.practitionerId!);
       } else {
         try {
-          const slots = await this.booking.slots({
-            practitionerId: state.practitionerId!,
-            date: chosenDate,
-          });
+          const slots = await this.booking.slots(
+            {
+              practitionerId: state.practitionerId!,
+              date: chosenDate,
+              visitTypeId: state.visitTypeId,
+            },
+            state.original?.id,
+          );
           if (!slots.length) {
             const refreshed = await this.booking.availableDates(
               state.practitionerId!,
+              state.visitTypeId,
+              state.original?.id,
             );
             state = { ...state, dateOptions: refreshed, datePage: 0 };
             reply = refreshed.length
@@ -475,8 +730,13 @@ export class WhatsappConversationService {
               return matches.length === 1 ? matches[0].index : -1;
             })();
       if (/^fecha$/i.test(text)) {
-        const dates = await this.booking.availableDates(state.practitionerId!);
+        const dates = await this.booking.availableDates(
+          state.practitionerId!,
+          state.visitTypeId,
+          state.original?.id,
+        );
         state = {
+          ...state,
           step: 'date',
           practitionerId: state.practitionerId,
           practitionerName: state.practitionerName,
@@ -499,20 +759,35 @@ export class WhatsappConversationService {
       } else {
         state = {
           ...state,
-          step: 'firstName',
+          step: state.rescheduling ? 'confirm' : state.reuseIdentity ? (settings.askReason ? 'reason' : features.reminderHours > 0 ? 'reminder' : 'confirm') : 'firstName',
           scheduledAt: slots[page * 8 + index].scheduledAt,
           slots: undefined,
           slotPage: undefined,
         };
-        reply = '¿A nombre de quién reservo? Dime tu nombre.';
+        reply = state.rescheduling
+          ? '¿Confirmas el cambio al ' +
+            formatSlot(state.scheduledAt!) +
+            ' con ' +
+            state.practitionerName +
+            '? Responde SI para cambiarla o SALIR para conservar tu cita.'
+          : state.reuseIdentity
+            ? state.step === 'reason' ? '¿Quieres indicar brevemente el motivo de tu visita? Escríbelo en una frase o responde OMITIR.' : state.step === 'reminder' ? reminderPrompt : `Perfecto. ¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`
+            : '¿A nombre de quién reservo? Escríbeme tu nombre y apellidos juntos.';
+        if (state.step === 'confirm' && !state.rescheduling) menu = { kind: 'confirm', options: [{ id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`, title: 'Confirmar cita' }, { id: 'CANCELAR', title: 'Cancelar' }] };
       }
     } else if (state.step === 'firstName' || state.step === 'lastName') {
-      if (!text || text.length > 100)
-        reply =
-          'No he entendido ese dato. Envíame un nombre o apellido de hasta 100 caracteres.';
-      else if (state.step === 'firstName') {
-        state = { ...state, firstName: text, step: 'lastName' };
-        reply = 'Gracias. ¿Y cuáles son tus apellidos?';
+      if (state.step === 'firstName') {
+        const parts = text.trim().split(/\s+/);
+        const firstName = parts.shift() ?? '';
+        const lastName = parts.join(' ');
+        if (!firstName || !lastName || firstName.length > 100 || lastName.length > 100) {
+          reply = 'Escríbeme tu nombre y apellidos juntos, por ejemplo: Ana García López.';
+        } else {
+          state = { ...state, firstName, lastName, step: 'dob' };
+          reply = 'Para asociar la cita a la ficha correcta, dime tu fecha de nacimiento (por ejemplo, 21/04/1990).';
+        }
+      } else if (!text || text.length > 100) {
+        reply = 'No he entendido ese dato. Envíame tus apellidos de hasta 100 caracteres.';
       } else {
         state = { ...state, lastName: text, step: 'dob' };
         reply =
@@ -528,7 +803,53 @@ export class WhatsappConversationService {
         reply =
           'No he podido leer la fecha. Envíamela como día/mes/año, por ejemplo 21/04/1990.';
       } else {
-        state = { ...state, dateOfBirth: parsedBirthDate, step: 'confirm' };
+        if ((await this.booking.clinicSettings()).askReason) {
+          state = { ...state, dateOfBirth: parsedBirthDate, step: 'reason' };
+          reply =
+            '¿Quieres indicar brevemente el motivo de tu visita? Escríbelo en una frase o responde OMITIR.';
+        } else if (features.reminderHours > 0) {
+          state = { ...state, dateOfBirth: parsedBirthDate, step: 'reminder' };
+          reply = reminderPrompt;
+        } else {
+          state = { ...state, dateOfBirth: parsedBirthDate, step: 'confirm' };
+          reply = `Perfecto. ¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
+          menu = {
+            kind: 'confirm',
+            options: [
+              {
+                id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`,
+                title: 'Confirmar cita',
+              },
+              { id: 'CANCELAR', title: 'Cancelar' },
+            ],
+          };
+        }
+      }
+    } else if (state.step === 'reason' || state.step === 'reminder') {
+      if (state.step === 'reminder' && !/^(si|no)$/.test(normalizedText)) {
+        reply = reminderPrompt;
+      } else if (state.step === 'reason' && text.length > 300) {
+        reply =
+          'Por favor, resume el motivo en un máximo de 300 caracteres o escribe OMITIR.';
+      } else if (state.step === 'reason' && features.reminderHours > 0) {
+        state = {
+          ...state,
+          reason: normalizedText === 'omitir' ? undefined : text,
+          step: 'reminder',
+        };
+        reply = reminderPrompt;
+      } else {
+        state = {
+          ...state,
+          reason:
+            state.step === 'reason'
+              ? normalizedText === 'omitir'
+                ? undefined
+                : text
+              : state.reason,
+          reminderOptIn: state.step === 'reminder' && normalizedText === 'si',
+          step: 'confirm',
+        };
         reply = `Perfecto. ¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
         menu = {
           kind: 'confirm',
@@ -550,7 +871,9 @@ export class WhatsappConversationService {
         !confirms &&
         text !== `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`
       ) {
-        reply = `¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
+        reply = state.rescheduling
+          ? 'Responde SI para cambiar la cita o SALIR para conservarla.'
+          : `¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`;
         menu = {
           kind: 'confirm',
           options: [
@@ -564,36 +887,67 @@ export class WhatsappConversationService {
       } else {
         // An overlap is a database error; roll back to a savepoint before
         // recording the human-readable response in the surrounding transaction.
+        const cancellationHint = (await this.booking.cancellationsEnabled())
+          ? ' Si necesitas cancelarla, escribe CANCELAR CITA.'
+          : ' Si necesitas cancelarla, contacta con recepción.';
         await manager.query('SAVEPOINT whatsapp_booking_attempt');
         try {
-          const result = await this.booking.book(
-            {
+          if (state.original) {
+            await this.booking.rescheduleAppointment({
+              phone: message.phone,
+              dateOfBirth: state.dateOfBirth!,
+              fullName: state.cancellationName,
+              id: state.original.id,
+              expectedAt: state.original.scheduledAt,
               practitionerId: state.practitionerId!,
               scheduledAt: state.scheduledAt!,
-              firstName: state.firstName!,
-              lastName: state.lastName!,
-              dateOfBirth: state.dateOfBirth!,
-              phone: message.phone,
-            },
-            `wa:${messageHash}`,
-          );
+            });
+            reply =
+              'Tu cita se ha cambiado al ' +
+              formatSlot(state.scheduledAt!) +
+              ' con ' +
+              state.practitionerName +
+              '.';
+          } else {
+            const result = await this.booking.book(
+              {
+                practitionerId: state.practitionerId!,
+                scheduledAt: state.scheduledAt!,
+                firstName: state.firstName!,
+                lastName: state.lastName!,
+                dateOfBirth: state.dateOfBirth!,
+                reason: state.reason,
+                visitTypeId: state.visitTypeId,
+                reminderOptIn: state.reminderOptIn,
+                phone: message.phone,
+              },
+              `wa:${messageHash}`,
+            );
+            reply =
+              result.status === 'scheduled'
+                ? `¡Listo! Tu cita con ${state.practitionerName} está reservada para el ${formatSlot(result.scheduledAt.toISOString())}.${cancellationHint}`
+                : 'Lo siento, la cita no se ha podido dejar programada. Contacta con recepción y te ayudarán.';
+          }
           await manager.query('RELEASE SAVEPOINT whatsapp_booking_attempt');
-          reply =
-            result.status === 'scheduled'
-              ? `¡Listo! Tu cita con ${state.practitionerName} está reservada para el ${formatSlot(result.scheduledAt.toISOString())}. Referencia: ${result.id}.`
-              : 'Lo siento, la cita no se ha podido dejar programada. Contacta con recepción y te ayudarán.';
-          state = undefined;
+          if (!state.original && reply.startsWith('¡Listo!')) {
+            state = { step: 'another', firstName: state.firstName, lastName: state.lastName, dateOfBirth: state.dateOfBirth };
+            reply += '\n¿Quieres reservar otra cita? Elige 1 para la misma persona o 2 para otra persona.';
+            menu = { kind: 'another', options: [{ id: 'OTRA_MISMA', title: 'Para mí' }, { id: 'OTRA_PERSONA', title: 'Para otra persona' }] };
+          } else state = undefined;
         } catch (err) {
           await manager.query('ROLLBACK TO SAVEPOINT whatsapp_booking_attempt');
           await manager.query('RELEASE SAVEPOINT whatsapp_booking_attempt');
           if (!(err instanceof HttpException) || err.getStatus() >= 500)
             throw err;
-          reply =
-            'Lo siento, no he podido confirmar la cita. Puede que el horario se haya ocupado o que recepción tenga que revisar los datos. No se ha creado una nueva reserva; escribe CITA y buscamos otra opción.';
+          reply = state?.rescheduling
+            ? 'No he podido cambiar la cita. Si sigue programada, conserva su horario anterior. Contacta con recepción si necesitas ayuda.'
+            : 'Lo siento, no he podido confirmar la cita. Puede que el horario se haya ocupado o que recepción tenga que revisar los datos. No se ha creado una nueva reserva; escribe CITA y buscamos otra opción.';
           state = undefined;
         }
       }
     }
+    if (reception && /recepción/i.test(reply) && settings.platformEnabled)
+      reply += '\n' + reception;
     if (state) {
       await manager.query(
         `INSERT INTO public.whatsapp_booking_sessions (tenant_id, phone_hash, state)

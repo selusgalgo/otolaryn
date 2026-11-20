@@ -2,6 +2,16 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { inboundText, outbound } = require('../scripts/whatsapp-interactive.cjs');
 
+test('renders each main action as a selectable option', () => {
+  const options = ['CITA', 'CANCELAR CITA', 'CAMBIAR CITA', 'RECEPCIÓN'].map(id => ({id}));
+  const result = outbound('34695853627', 'Elige una opción', {kind: 'main', options});
+  const rows = result.interactive.action.sections[0].rows;
+  assert.deepEqual(rows.map(row => row.id), options.map(option => option.id));
+  for (const row of rows) {
+    assert.equal(inboundText({type: 'interactive', interactive: {type: 'list_reply', list_reply: {id: row.id}}}), row.id);
+  }
+});
+
 const phone = '34695853627';
 const practitioner = '00000000-0000-4000-8000-000000000001';
 const first = `S:${practitioner}:2026-11-20T09:00:00.000Z`;
@@ -42,4 +52,11 @@ test('offers dates and a confirmation bound to the chosen appointment', () => {
   const confirm = outbound(phone, '¿Confirmas la cita?', { kind: 'confirm', options: [{ id, title: 'Confirmar cita' }, { id: 'CANCELAR', title: 'Cancelar' }] });
   assert.equal(confirm.interactive.type, 'button');
   assert.equal(inboundText({ type: 'interactive', interactive: { type: 'button_reply', button_reply: { id } } }), id);
+});
+test('offers another booking buttons and accepts their replies', () => {
+  const menu = { kind: 'another', options: [{ id: 'OTRA_MISMA', title: 'Para mí' }, { id: 'OTRA_PERSONA', title: 'Para otra persona' }] };
+  const result = outbound('34695853627', 'Cita confirmada. ¿Quieres otra?', menu);
+  assert.equal(result.interactive.type, 'button');
+  assert.deepEqual(result.interactive.action.buttons.map(button => button.reply.id), ['OTRA_MISMA', 'OTRA_PERSONA']);
+  assert.equal(inboundText({ type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: 'OTRA_PERSONA' } } }), 'OTRA_PERSONA');
 });

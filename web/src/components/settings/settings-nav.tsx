@@ -9,7 +9,8 @@ const LAST_ID = SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id;
 // Configuración is one scrolling page of blocks (each saves on its own);
 // this menu jumps to a block and highlights whichever one is being read —
 // a vertical list on desktop, a sticky row of pills on mobile.
-export function SettingsNav() {
+export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: boolean }) {
+  const sections = SETTINGS_SECTIONS.filter((section) => whatsappEnabled || section.id !== "whatsapp-booking");
   const [activeId, setActiveId] = useState(SETTINGS_SECTIONS[0].id);
   const pillsRef = useRef<HTMLUListElement>(null);
 
@@ -66,7 +67,7 @@ export function SettingsNav() {
       {/* Mobile / tablet: row of pills */}
       <div className="-mx-4 bg-surface/95 px-4 py-2 backdrop-blur lg:hidden">
         <ul ref={pillsRef} className="flex gap-2 overflow-x-auto">
-          {SETTINGS_SECTIONS.map(({ id, title, icon: Icon }) => {
+          {sections.map(({ id, title, icon: Icon }) => {
             const active = id === activeId;
             return (
               <li key={id} data-section={id} className="shrink-0">
@@ -93,7 +94,7 @@ export function SettingsNav() {
       {/* Desktop: vertical list. Padding inside the card keeps each item —
           and the active item's indicator — clear of the rounded corners. */}
       <ul className="hidden space-y-1 rounded-xl border border-border/60 bg-card p-2 shadow-sm lg:block">
-        {SETTINGS_SECTIONS.map(({ id, title, icon: Icon }) => {
+        {sections.map(({ id, title, icon: Icon }) => {
           const active = id === activeId;
           return (
             <li key={id}>

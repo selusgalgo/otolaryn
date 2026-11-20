@@ -11,6 +11,9 @@ export type AppointmentStatus =
 
 @Entity({ name: 'appointments' })
 export class Appointment {
+  @Column({ name: 'booking_source', type: 'text', default: 'unknown' })
+  bookingSource: 'unknown' | 'manual' | 'whatsapp';
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

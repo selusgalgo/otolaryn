@@ -28,6 +28,7 @@ interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly sessionMaxHours: number;
+  private readonly demoOnlyTenant: string | undefined;
 
   constructor(
     config: ConfigService,
@@ -52,6 +53,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     this.sessionMaxHours = Number(
       config.get('SESSION_MAX_HOURS', DEFAULT_SESSION_MAX_HOURS),
     );
+    this.demoOnlyTenant = config.get<string>('MEDERI_DEMO_ONLY_TENANT_ID');
   }
 
   // Runs only after passport-jwt has already verified the signature and
@@ -93,6 +95,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         error: 'Unauthorized',
         code: AuthErrorCode.AccountDisabled,
       });
+    }
+    if (this.demoOnlyTenant && user.tenantId !== this.demoOnlyTenant) {
+      throw new UnauthorizedException();
     }
 
     if (user.tenantId) {

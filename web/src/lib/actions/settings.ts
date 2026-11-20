@@ -18,6 +18,74 @@ export interface ScheduleFormState {
   success?: boolean;
 }
 
+export async function beginWhatsappConnection(): Promise<{ appId?: string; configId?: string; state?: string; error?: string }> {
+  try {
+    return await apiFetch('/settings/whatsapp-connection/begin', { method: 'POST' });
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'No se ha podido iniciar la conexión.' };
+  }
+}
+
+export async function completeWhatsappConnection(input: { state: string; code: string; wabaId: string; phoneNumberId: string }): Promise<{ status?: string; error?: string }> {
+  try {
+    return await apiFetch('/settings/whatsapp-connection/complete', { method: 'POST', body: input });
+  } catch (err) {
+    return { error: err instanceof ApiError && err.status < 500 ? err.message : 'Se ha interrumpido la respuesta. Comprueba el estado de la conexión antes de volver a intentarlo.' };
+  }
+}
+
+export async function checkWhatsappConnection(): Promise<{ status?: string; error?: string; warning?: string }> {
+  try {
+    const current = await apiFetch<{ status: string }>('/settings/whatsapp-connection');
+    if (current.status !== 'pending') return current;
+    try {
+      return await apiFetch('/settings/whatsapp-connection/activate', { method: 'POST' });
+    } catch (err) {
+      return { status: 'pending', warning: err instanceof ApiError ? err.message : 'No se ha podido comprobar la activación.' };
+    }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'No se ha podido comprobar la conexión.' };
+  }
+}
+
+export async function updateWhatsappBookingAction(_prevState: ScheduleFormState, formData: FormData): Promise<ScheduleFormState> {
+  try {
+    await apiFetch("/settings/whatsapp-booking", { method: "PATCH", body: {
+      clinicEnabled: formData.get("clinicEnabled") === "on",
+      askReason: formData.get("askReason") === "on",
+      horizonDays: Number(formData.get("horizonDays")),
+      leadMinutes: Number(formData.get("leadMinutes")),
+      cancellationEnabled: formData.get("cancellationEnabled") === "on",
+      cancellationNoticeHours: Number(formData.get("cancellationNoticeHours")),
+      features: {
+        welcome: String(formData.get("welcome") ?? "").trim(),
+        receptionPhone: String(formData.get("receptionPhone") ?? "").trim(),
+        receptionHours: String(formData.get("receptionHours") ?? "").trim(),
+        reschedule: formData.has("reschedule"),
+        notifyReception: formData.has("notifyReception"),
+        reminderHours: Number(formData.get("reminderHours")),
+        restrictHours: formData.has("restrictHours"),
+        visitTypes: formData.getAll("visitTypeId").map(String).map(id => ({
+          id,
+          name: String(formData.get(`typeName-${id}`) ?? "").trim(),
+          durationMinutes: Number(formData.get(`typeDuration-${id}`)),
+          practitionerIds: formData.getAll(`typePractitioner-${id}`).map(String),
+        })),
+        hours: formData.getAll("rangeId").map(String).map(id => ({
+          weekday: Number(formData.get(`weekday-${id}`)),
+          start: String(formData.get(`start-${id}`) ?? ""),
+          end: String(formData.get(`end-${id}`) ?? ""),
+        })),
+      },
+      practitionerIds: formData.getAll("practitionerIds").map(String),
+    }});
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : "No se pudo guardar la configuración." };
+  }
+  revalidatePath("/settings");
+  return { success: true };
+}
+
 // admin, own clinic.
 export async function updateScheduleAction(
   _prevState: ScheduleFormState,

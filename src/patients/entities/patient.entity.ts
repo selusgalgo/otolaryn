@@ -8,6 +8,9 @@ import {
 
 @Entity({ name: 'patients' })
 export class Patient {
+  @Column({ name: 'creation_source', type: 'text', default: 'unknown' })
+  creationSource: 'unknown' | 'manual' | 'import' | 'whatsapp';
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

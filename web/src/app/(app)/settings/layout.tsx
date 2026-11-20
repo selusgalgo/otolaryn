@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { getCurrentUser } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
 
 // Shared shell for every Configuración section: the section menu stays on
 // screen (left column on desktop, pills on mobile) while only the right
@@ -13,12 +14,13 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   if (me.role !== "admin") {
     redirect("/dashboard");
   }
+  const whatsapp = await apiFetch<{ platformEnabled: boolean }>("/settings/whatsapp-booking");
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración</h1>
       <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <SettingsNav />
+        <SettingsNav whatsappEnabled={whatsapp.platformEnabled} />
         <div className="min-w-0 space-y-4">{children}</div>
       </div>
     </div>

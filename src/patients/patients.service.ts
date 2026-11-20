@@ -204,7 +204,10 @@ export class PatientsService {
     return this.repo.findOne({ where: { legacyId } });
   }
 
-  async create(dto: CreatePatientDto): Promise<Patient> {
+  async create(
+    dto: CreatePatientDto,
+    creationSource: 'manual' | 'import' | 'whatsapp' = 'manual',
+  ): Promise<Patient> {
     // Número de historia (24/09/2026, a petición del usuario): antes solo
     // lo traían los pacientes del importador del legado (NUMHISTORIA) —
     // uno creado desde el formulario normal se quedaba con legacy_id NULL
@@ -217,6 +220,7 @@ export class PatientsService {
     const legacyId = dto.legacyId ?? (await this.assignNextPatientNumber());
     const patient = this.repo.create({
       ...dto,
+      creationSource,
       legacyId,
       // Notas is edited as rich text (Tiptap) — sanitized here, not just
       // trusted from the client, so a crafted request can't smuggle
@@ -340,7 +344,7 @@ export class PatientsService {
     // keep going.
     await this.repo.query('SAVEPOINT row_import');
     try {
-      const patient = await this.create(dto);
+      const patient = await this.create(dto, 'import');
       if (antecedentes && antecedentes.length > 0) {
         await this.repo.manager.insert(
           PatientAntecedente,

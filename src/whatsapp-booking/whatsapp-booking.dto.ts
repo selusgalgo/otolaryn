@@ -1,7 +1,9 @@
 import {
+  IsBoolean,
   IsDateString,
   IsISO8601,
   IsIn,
+  IsOptional,
   IsString,
   IsUUID,
   Matches,
@@ -10,6 +12,10 @@ import {
 } from 'class-validator';
 
 export class SlotQueryDto {
+  @IsOptional()
+  @IsUUID('4')
+  visitTypeId?: string;
+
   @IsUUID()
   practitionerId: string;
 
@@ -19,6 +25,19 @@ export class SlotQueryDto {
 }
 
 export class BookingDto {
+  @IsOptional()
+  @IsBoolean()
+  reminderOptIn?: boolean;
+
+  @IsOptional()
+  @IsUUID('4')
+  visitTypeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+
   @IsUUID()
   practitionerId: string;
 

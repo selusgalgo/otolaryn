@@ -7,11 +7,13 @@ import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { DeviceLockForm } from "@/components/settings/device-lock-form";
 import { InsuranceEntitiesForm } from "@/components/settings/insurance-entities-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
+import { WhatsappSetupWizard } from "@/components/settings/whatsapp-setup-wizard";
 import { SettingsSection } from "@/components/settings/settings-section";
 import {
   updateAppointmentDefaultsAction,
   updateClinicProfileAction,
   updateScheduleAction,
+  updateWhatsappBookingAction,
 } from "@/lib/actions/settings";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -22,6 +24,8 @@ import type {
   DeviceLock,
   InsuranceEntity,
   Schedule,
+  AppUser,
+  WhatsappBookingSettings,
 } from "@/lib/types";
 
 // Every Configuración block on one scrolling page (the side menu in
@@ -35,7 +39,7 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const [profile, schedule, appointmentDefaults, antecedenteTypes, insuranceEntities, deviceLock] =
+  const [profile, schedule, appointmentDefaults, antecedenteTypes, insuranceEntities, deviceLock, whatsapp, practitioners] =
     await Promise.all([
       apiFetch<ClinicProfile>("/settings/clinic-profile"),
       apiFetch<Schedule>("/settings/schedule"),
@@ -43,6 +47,8 @@ export default async function SettingsPage() {
       apiFetch<AntecedenteType[]>("/antecedente-types"),
       apiFetch<InsuranceEntity[]>("/insurance-entities"),
       apiFetch<DeviceLock>("/settings/device-lock"),
+      apiFetch<WhatsappBookingSettings>("/settings/whatsapp-booking"),
+      apiFetch<AppUser[]>("/users?bookable=true"),
     ]);
   const personalTypes = antecedenteTypes.filter((t) => t.category === "personal");
   const familiarTypes = antecedenteTypes.filter((t) => t.category === "familiar");
@@ -84,6 +90,12 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       </SettingsSection>
+
+      {whatsapp.platformEnabled && <SettingsSection id="whatsapp-booking">
+        <Card><CardHeader><CardTitle className="text-base">Reservas por WhatsApp</CardTitle></CardHeader>
+          <CardContent><WhatsappSetupWizard action={updateWhatsappBookingAction} settings={whatsapp} practitioners={practitioners} /></CardContent>
+        </Card>
+      </SettingsSection>}
 
       <SettingsSection id="antecedentes">
         <div className="grid gap-4 md:grid-cols-2">

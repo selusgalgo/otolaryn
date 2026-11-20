@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentDefaultsForm } from "@/components/settings/appointment-defaults-form";
 import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
+import { WhatsappPlatformForm } from "@/components/settings/whatsapp-booking-form";
 import {
   updateTenantAppointmentDefaultsAction,
   updateTenantClinicProfileAction,
   updateTenantScheduleAction,
+  updateTenantWhatsappPlatformAction,
 } from "@/lib/actions/platform";
 import { apiFetch } from "@/lib/api";
-import type { ClinicProfile, TenantAppointmentDefaults, TenantSchedule } from "@/lib/types";
+import type { ClinicProfile, TenantAppointmentDefaults, TenantSchedule, WhatsappBookingSettings } from "@/lib/types";
 
 export default async function TenantSettingsPage({
   params,
@@ -18,10 +20,11 @@ export default async function TenantSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [schedule, appointmentDefaults, clinicProfile] = await Promise.all([
+  const [schedule, appointmentDefaults, clinicProfile, whatsapp] = await Promise.all([
     apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`),
     apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
     apiFetch<ClinicProfile>(`/platform/tenants/${id}/clinic-profile`),
+    apiFetch<WhatsappBookingSettings>(`/platform/tenants/${id}/whatsapp-booking`),
   ]);
   const scheduleAction = updateTenantScheduleAction.bind(null, id);
   const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
@@ -34,6 +37,10 @@ export default async function TenantSettingsPage({
         Clínicas
       </Link>
       <h1 className="text-2xl font-bold">Configuración — {schedule.tenantName}</h1>
+
+      <Card><CardHeader><CardTitle className="text-base">Reservas por WhatsApp</CardTitle></CardHeader>
+        <CardContent><WhatsappPlatformForm action={updateTenantWhatsappPlatformAction.bind(null, id)} enabled={whatsapp.platformEnabled} /></CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
