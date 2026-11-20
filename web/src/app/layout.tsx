@@ -16,7 +16,7 @@ const inter = localFont({
 
 export const metadata: Metadata = {
   title: "Mederi",
-  description: "Gestión clínica ORL",
+  description: "Gestión de pacientes para clínicas",
 };
 
 export default function RootLayout({
