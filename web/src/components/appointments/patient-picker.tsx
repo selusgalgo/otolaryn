@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchPatientsAction } from "@/lib/actions/patients";
+import { PossibleDuplicateWarning } from "@/components/patients/possible-duplicate-warning";
+import { useAppointmentFieldErrors } from "@/components/appointments/appointment-form";
 import { formatDocumentId } from "@/lib/utils";
 import type { Patient } from "@/lib/types";
 
@@ -25,12 +27,17 @@ function patientContactLine(p: Pick<Patient, "documentId" | "phone" | "phone2">)
 // collide with the appointment's own date/time/notes fields in the same
 // <form>; the parent server action reads them by name.
 export function PatientPicker() {
+  const fieldErrors = useAppointmentFieldErrors();
   const [mode, setMode] = useState<Mode>("existing");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Patient[]>([]);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [searching, setSearching] = useState(false);
+  const [newIdentity, setNewIdentity] = useState({ firstName: "", lastName: "", dateOfBirth: "", documentId: "" });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patientDisplayName = mode === "existing"
+    ? selected ? `${selected.firstName} ${selected.lastName}` : ""
+    : `${newIdentity.firstName} ${newIdentity.lastName}`.trim();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -52,6 +59,7 @@ export function PatientPicker() {
   return (
     <div className="space-y-4">
       <input type="hidden" name="mode" value={mode} />
+      <input type="hidden" name="patientDisplayName" value={patientDisplayName} />
       <div className="flex gap-2">
         <Button
           type="button"
@@ -137,30 +145,70 @@ export function PatientPicker() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="patientFirstName">Nombre</Label>
-              <Input id="patientFirstName" name="patientFirstName" required />
+              <Input
+                id="patientFirstName"
+                name="patientFirstName"
+                required
+                value={newIdentity.firstName}
+                onChange={(event) => setNewIdentity((current) => ({ ...current, firstName: event.target.value }))}
+                aria-invalid={!!fieldErrors.patientFirstName}
+                aria-describedby={fieldErrors.patientFirstName ? "patientFirstName-error" : undefined}
+              />
+              {fieldErrors.patientFirstName && <p id="patientFirstName-error" className="text-xs text-destructive">{fieldErrors.patientFirstName}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="patientLastName">Apellidos</Label>
-              <Input id="patientLastName" name="patientLastName" required />
+              <Input
+                id="patientLastName"
+                name="patientLastName"
+                required
+                value={newIdentity.lastName}
+                onChange={(event) => setNewIdentity((current) => ({ ...current, lastName: event.target.value }))}
+                aria-invalid={!!fieldErrors.patientLastName}
+                aria-describedby={fieldErrors.patientLastName ? "patientLastName-error" : undefined}
+              />
+              {fieldErrors.patientLastName && <p id="patientLastName-error" className="text-xs text-destructive">{fieldErrors.patientLastName}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="patientDocumentId">Documento (DNI/NIE/pasaporte)</Label>
-              <Input id="patientDocumentId" name="patientDocumentId" maxLength={20} />
+              <Input
+                id="patientDocumentId"
+                name="patientDocumentId"
+                maxLength={20}
+                value={newIdentity.documentId}
+                onChange={(event) => setNewIdentity((current) => ({ ...current, documentId: event.target.value }))}
+                aria-invalid={!!fieldErrors.patientDocumentId}
+                aria-describedby={fieldErrors.patientDocumentId ? "patientDocumentId-error" : undefined}
+              />
+              {fieldErrors.patientDocumentId && <p id="patientDocumentId-error" className="text-xs text-destructive">{fieldErrors.patientDocumentId}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="patientDateOfBirth">Fecha de nacimiento</Label>
-              <Input id="patientDateOfBirth" name="patientDateOfBirth" type="date" required />
+              <Input
+                id="patientDateOfBirth"
+                name="patientDateOfBirth"
+                type="date"
+                required
+                value={newIdentity.dateOfBirth}
+                onChange={(event) => setNewIdentity((current) => ({ ...current, dateOfBirth: event.target.value }))}
+                aria-invalid={!!fieldErrors.patientDateOfBirth}
+                aria-describedby={fieldErrors.patientDateOfBirth ? "patientDateOfBirth-error" : undefined}
+              />
+              {fieldErrors.patientDateOfBirth && <p id="patientDateOfBirth-error" className="text-xs text-destructive">{fieldErrors.patientDateOfBirth}</p>}
             </div>
           </div>
+          <PossibleDuplicateWarning values={newIdentity} />
           <div className="space-y-2">
             <Label htmlFor="patientPhone">Teléfono</Label>
-            <Input id="patientPhone" name="patientPhone" required />
+            <Input id="patientPhone" name="patientPhone" required aria-invalid={!!fieldErrors.patientPhone} aria-describedby={fieldErrors.patientPhone ? "patientPhone-error" : undefined} />
+            {fieldErrors.patientPhone && <p id="patientPhone-error" className="text-xs text-destructive">{fieldErrors.patientPhone}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="patientEmail">Email</Label>
-            <Input id="patientEmail" name="patientEmail" type="email" />
+            <Input id="patientEmail" name="patientEmail" type="email" aria-invalid={!!fieldErrors.patientEmail} aria-describedby={fieldErrors.patientEmail ? "patientEmail-error" : undefined} />
+            {fieldErrors.patientEmail && <p id="patientEmail-error" className="text-xs text-destructive">{fieldErrors.patientEmail}</p>}
           </div>
         </div>
       )}

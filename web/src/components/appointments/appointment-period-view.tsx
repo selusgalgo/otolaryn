@@ -26,6 +26,10 @@ import { parseDateKey } from '@/lib/calendar-grid';
 import type { PractitionerOption } from '@/lib/practitioners';
 import type { Schedule } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import {
+  confirmDiscardUnsavedChanges,
+  useUnsavedChangesWarning,
+} from '@/lib/unsaved-changes';
 
 export interface PeriodAppointment {
   id: string;
@@ -211,6 +215,11 @@ export function AppointmentPeriodView({
   const [dragPreview, setDragPreview] = useState<{ minute: number; valid: boolean } | null>(null);
   const [moved, setMoved] = useState<{ appointment: PeriodAppointment; newTime: string } | null>(null);
   const [undoError, setUndoError] = useState('');
+  const timeEditDirty =
+    editing !== null &&
+    (editTime !== formatTime(editing.scheduledAt) ||
+      editDuration !== editing.durationMinutes);
+  useUnsavedChangesWarning(timeEditDirty);
   const dragRef = useRef<{ appointment: PeriodAppointment; offset: number } | null>(null);
   useEffect(() => {
     const updateCurrentInstant = () => setCurrentInstant(new Date().toISOString());
@@ -223,6 +232,10 @@ export function AppointmentPeriodView({
     setEditDuration(appointment.durationMinutes);
     setEditError('');
     setEditing(appointment);
+  };
+  const closeTimeEditor = () => {
+    if (pending || !confirmDiscardUnsavedChanges(timeEditDirty)) return;
+    setEditing(null);
   };
   const saveTime = (appointment: PeriodAppointment, time: string, duration: number, fromDialog: boolean) => {
     setNotice('');
@@ -573,7 +586,7 @@ export function AppointmentPeriodView({
         onOpenChange={setBookingOpen}
         hideTrigger
       />
-      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open && !pending) setEditing(null); }}>
+      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) closeTimeEditor(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Editar hora de la cita</DialogTitle><DialogDescription>{editing?.patientName} · {formatDateHeading(dateKey)}</DialogDescription></DialogHeader>
           <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (editing) saveTime(editing, editTime, editDuration, true); }}>
@@ -582,7 +595,7 @@ export function AppointmentPeriodView({
               <label className="space-y-1 text-sm">Duración (min)<input className="h-9 w-full rounded-md border bg-background px-2" type="number" min={5} max={480} required value={editDuration} onChange={(event) => setEditDuration(event.target.valueAsNumber)} /></label>
             </div>
             {editError && <p role="alert" className="text-sm text-destructive">{editError}</p>}
-            <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" disabled={pending}>{pending ? 'Guardando…' : 'Guardar'}</Button></div>
+            <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={closeTimeEditor}>Cancelar</Button><Button type="submit" disabled={pending}>{pending ? 'Guardando…' : 'Guardar'}</Button></div>
           </form>
         </DialogContent>
       </Dialog>

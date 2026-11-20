@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { PencilIcon, TrashIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +20,11 @@ import {
 } from "@/lib/actions/appointments";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
+import { confirmDiscardUnsavedChanges } from "@/lib/unsaved-changes";
 
 interface AppointmentRowActionsProps {
   appointment: Appointment;
+  patientName?: string;
   practitioners?: PractitionerOption[] | null;
   // admin/recepcion (el backend ya devuelve 403 a cualquier otro rol) —
   // ver AppointmentsController.remove.
@@ -32,12 +34,19 @@ interface AppointmentRowActionsProps {
 // Same "dialogs live outside DropdownMenuContent, as siblings" pattern as
 // PatientRowActions — each dialog keeps its own open state independent of
 // the menu, so it stays open after the menu itself closes on select.
-export function AppointmentRowActions({ appointment, practitioners, canDelete }: AppointmentRowActionsProps) {
+export function AppointmentRowActions({ appointment, patientName, practitioners, canDelete }: AppointmentRowActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const editDirtyRef = useRef(false);
   const [pending, startTransition] = useTransition();
   const boundUpdate = updateAppointmentAction.bind(null, appointment.id);
+
+  function handleEditOpenChange(next: boolean) {
+    if (!next && !confirmDiscardUnsavedChanges(editDirtyRef.current)) return;
+    if (!next) editDirtyRef.current = false;
+    setEditOpen(next);
+  }
 
   return (
     <>
@@ -70,7 +79,7 @@ export function AppointmentRowActions({ appointment, practitioners, canDelete }:
         ]}
       />
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={editOpen} onOpenChange={handleEditOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Editar cita</DialogTitle>
@@ -81,7 +90,14 @@ export function AppointmentRowActions({ appointment, practitioners, canDelete }:
             submitLabel="Guardar cambios"
             showStatus
             practitioners={practitioners}
-            onSuccess={() => setEditOpen(false)}
+            confirmationPatientName={patientName}
+            onDirtyChange={(dirty) => {
+              editDirtyRef.current = dirty;
+            }}
+            onSuccess={() => {
+              editDirtyRef.current = false;
+              setEditOpen(false);
+            }}
           />
         </DialogContent>
       </Dialog>

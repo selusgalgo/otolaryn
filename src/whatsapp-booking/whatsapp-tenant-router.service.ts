@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isUUID } from 'class-validator';
 import { from } from 'rxjs';
 import { DataSource } from 'typeorm';
 import { TenancyContext } from '../tenancy/tenancy-context';
@@ -25,35 +26,41 @@ export class WhatsappTenantRouterService {
   }
 
   async process(input: { phoneNumberId: string; phone: string; messageId: string; text: string }) {
-    // The current release is fail-closed to one explicitly configured demo
-    // clinic and synthetic patient phones until the integration is reviewed.
-    const demoTenant = this.config.get<string>('WHATSAPP_ROUTER_DEMO_TENANT_ID') ?? '';
+    // Optional single-tenant routing is kept for isolated DEMO environments.
+    // Multi-tenant production resolves the clinic from the ready phone route.
+    const demoTenant = this.config.get<string>('WHATSAPP_ROUTER_DEMO_TENANT_ID')?.trim() ?? '';
     const bindingsText = this.config.get<string>('WHATSAPP_ROUTER_DEMO_BINDINGS') ?? '';
-    let bindings: Record<string, string>;
-    try { bindings = JSON.parse(bindingsText) as Record<string, string>; } catch { throw new ServiceUnavailableException(); }
-    if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) throw new ServiceUnavailableException();
-    const pairs = Object.entries(bindings);
-    if (!pairs.length || pairs.length > 20 || pairs.some(([phone, alias]) => !/^\+[1-9]\d{7,14}$/.test(phone) || typeof alias !== 'string' || !/^\+[1-9]\d{7,14}$/.test(alias)) || new Set(pairs.map(([, alias]) => alias)).size !== pairs.length) throw new ServiceUnavailableException();
-    const patientPhone = Object.hasOwn(bindings, input.phone) ? bindings[input.phone] : undefined;
-    if (typeof patientPhone !== 'string' || !/^\+[1-9]\d{7,14}$/.test(patientPhone)) throw new ForbiddenException();
+    let patientPhone = input.phone;
+    if (demoTenant || bindingsText) {
+      if (!isUUID(demoTenant) || !bindingsText) throw new ServiceUnavailableException();
+      let bindings: Record<string, string>;
+      try { bindings = JSON.parse(bindingsText) as Record<string, string>; } catch { throw new ServiceUnavailableException(); }
+      if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) throw new ServiceUnavailableException();
+      const pairs = Object.entries(bindings);
+      if (!pairs.length || pairs.length > 20 || pairs.some(([phone, alias]) => !/^\+[1-9]\d{7,14}$/.test(phone) || typeof alias !== 'string' || !/^\+[1-9]\d{7,14}$/.test(alias)) || new Set(pairs.map(([, alias]) => alias)).size !== pairs.length) throw new ServiceUnavailableException();
+      const alias = Object.hasOwn(bindings, input.phone) ? bindings[input.phone] : undefined;
+      if (typeof alias !== 'string' || !/^\+[1-9]\d{7,14}$/.test(alias)) throw new ForbiddenException();
+      patientPhone = alias;
+    }
     const [route] = await this.database.query<{ tenant_id: string | null }[]>(
       'SELECT iam.whatsapp_connection_tenant($1) AS tenant_id', [input.phoneNumberId],
     );
-    if (!demoTenant || route?.tenant_id !== demoTenant) throw new ForbiddenException();
+    const tenantId = route?.tenant_id;
+    if (!tenantId || (demoTenant && tenantId !== demoTenant)) throw new ForbiddenException();
     const encryptedKey = this.config.get<string>('WHATSAPP_CREDENTIAL_KEY') ?? '';
-    if (!encryptedKey) throw new ServiceUnavailableException();
+    if (!/^[0-9a-f]{64}$/i.test(encryptedKey)) throw new ServiceUnavailableException();
     const cipher = new WhatsappCredentialCrypto(encryptedKey);
     const body = { phone: patientPhone, messageId: input.messageId, text: input.text };
-    const prepared = await this.inTenant(demoTenant, async () => {
+    const prepared = await this.inTenant(tenantId, async () => {
       const rows = await this.tenancy.manager.query<{ encrypted_access_token: string }[]>(
         `SELECT encrypted_access_token FROM public.whatsapp_tenant_connections
-         WHERE tenant_id=$1 AND phone_number_id=$2 AND status='ready'`, [demoTenant, input.phoneNumberId],
+         WHERE tenant_id=$1 AND phone_number_id=$2 AND status='ready'`, [tenantId, input.phoneNumberId],
       );
       if (!rows.length) throw new ForbiddenException();
       const response = await this.conversation.process(body);
       const claim = await this.deliveries.claim(body);
       if (!claim.send || !claim.attempt) return { send: false as const };
-      return { send: true as const, attempt: claim.attempt, token: cipher.decrypt(demoTenant, rows[0].encrypted_access_token), response };
+      return { send: true as const, attempt: claim.attempt, token: cipher.decrypt(tenantId, rows[0].encrypted_access_token), response };
     });
     if (!prepared.send) return { status: 'duplicate' as const };
 
@@ -70,7 +77,7 @@ export class WhatsappTenantRouterService {
         if (Array.isArray(messages) && typeof messages[0]?.id === 'string' && messages[0].id) result = 'sent';
       }
     } catch { /* The remote outcome is unknown: never retry automatically. */ }
-    await this.inTenant(demoTenant, () => this.deliveries.result({ phone: patientPhone, messageId: input.messageId, attempt: prepared.attempt, result }));
+    await this.inTenant(tenantId, () => this.deliveries.result({ phone: patientPhone, messageId: input.messageId, attempt: prepared.attempt, result }));
     return { status: result };
   }
 }

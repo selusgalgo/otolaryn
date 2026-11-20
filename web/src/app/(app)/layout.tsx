@@ -3,6 +3,7 @@ import { DraftScopeProvider } from "@/components/layout/draft-scope";
 import { HotjarSuppress } from "@/components/layout/hotjar-suppress";
 import { SessionGuard } from "@/components/layout/session-guard";
 import { Sidebar } from "@/components/layout/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { getCurrentUser } from "@/lib/auth";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getSessionToken } from "@/lib/session";
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="px-4 py-6">{children}</div>
         </main>
         <SessionGuard />
+        <Toaster position="top-center" />
       </div>
     </DraftScopeProvider>
   );

@@ -1,12 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { updatePatientNotesAction, type PatientFormState } from "@/lib/actions/patients";
+import { toast } from "sonner";
+import {
+  confirmDiscardUnsavedChanges,
+  useUnsavedChangesWarning,
+} from "@/lib/unsaved-changes";
 
 interface PatientNotesCardProps {
   patientId: string;
@@ -18,12 +23,23 @@ const initialState: PatientFormState = {};
 export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
+  const draftRef = useRef(draft);
+  const isDirty = draft !== (notes ?? "");
   const boundUpdate = updatePatientNotesAction.bind(null, patientId);
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
+  useUnsavedChangesWarning(editing && isDirty);
 
   useEffect(() => {
-    if (state.success) setEditing(false);
-  }, [state.success]);
+    if (state.success) {
+      toast.success("Historia clínica guardada.");
+      setEditing(false);
+    }
+  }, [state]);
+
+  function cancelEditing() {
+    if (!confirmDiscardUnsavedChanges(draftRef.current !== (notes ?? ""))) return;
+    setEditing(false);
+  }
 
   return (
     <Card>
@@ -34,6 +50,7 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
             size="sm"
             variant="outline"
             onClick={() => {
+              draftRef.current = notes ?? "";
               setDraft(notes ?? "");
               setEditing(true);
             }}
@@ -47,8 +64,16 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
         {editing ? (
           <form action={formAction} className="space-y-3">
             <input type="hidden" name="notes" value={draft} />
-            <RichTextEditor value={draft} onChange={setDraft} disabled={pending} />
-            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            <RichTextEditor
+              value={draft}
+              onChange={(value) => {
+                draftRef.current = value;
+                setDraft(value);
+              }}
+              disabled={pending}
+            />
+            {state.fieldErrors?.notes && <p className="text-xs text-destructive">{state.fieldErrors.notes}</p>}
+            {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={pending}>
                 {pending ? "Guardando..." : "Guardar"}
@@ -57,7 +82,7 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => setEditing(false)}
+                onClick={cancelEditing}
                 disabled={pending}
               >
                 Cancelar

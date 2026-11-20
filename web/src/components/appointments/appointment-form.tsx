@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { createContext, useActionState, useContext, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -10,11 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
 import { getAppointmentDefaultDurationAction, getNextFreeSlotsAction } from "@/lib/actions/appointments";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
-import { clinicDateInputValue, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
+import { clinicDateInputValue, clinicLocalToUtcIso, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
+import { useFormDirtyState, useUnsavedChangesWarning } from "@/lib/unsaved-changes";
+import { focusFirstFieldError } from "@/lib/form-errors";
+import { toast } from "sonner";
 
 interface AppointmentFormProps {
   action: (prevState: AppointmentFormState, formData: FormData) => Promise<AppointmentFormState>;
@@ -61,6 +64,9 @@ interface AppointmentFormProps {
   // Called after a successful submit — used by the dialog wrappers to
   // close themselves, since those actions revalidate instead of redirecting.
   onSuccess?: () => void;
+  confirmationPatientName?: string;
+  // Lets a dialog ask before closing after the person has changed a field.
+  onDirtyChange?: (dirty: boolean) => void;
   // "columns" is Agenda's "Nueva cita" modal — the one with both a patient
   // picker and a profesional picker, wide enough to earn a two-column
   // layout with its own scrolling middle (see the dialog wrapper, which
@@ -72,6 +78,12 @@ interface AppointmentFormProps {
 }
 
 const initialState: AppointmentFormState = {};
+
+export const AppointmentFieldErrorsContext = createContext<Record<string, string>>({});
+
+export function useAppointmentFieldErrors(): Record<string, string> {
+  return useContext(AppointmentFieldErrorsContext);
+}
 
 // Only a last-resort starting value before the clinic's own configured
 // default (Configuración → Citas) loads — see the duration-fetch effect
@@ -105,18 +117,37 @@ export function AppointmentForm({
   suggestSlots,
   children,
   onSuccess,
+  confirmationPatientName,
+  onDirtyChange,
   layout = "stacked",
 }: AppointmentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const {
+    formRef,
+    isDirty,
+    scheduleRefresh,
+    captureBaseline,
+    rebaseFields,
+    onInputCapture,
+    onChangeCapture,
+    onClickCapture,
+  } = useFormDirtyState(onDirtyChange);
+  useUnsavedChangesWarning(isDirty);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
+  const durationBaselineNeedsRefresh = useRef(false);
   // The browser's own "completa este campo" bubble (from the fields'
   // native `required`) is easy to miss — it's silent/invisible unless you
   // happen to be looking right at that field, doesn't match the app's own
   // red-text error styling used everywhere else (e.g. login), and behaves
   // inconsistently across browsers/mobile. `noValidate` on the <form>
   // below turns that off in favor of this explicit, visible check.
-  const [clientError, setClientError] = useState<string | null>(null);
+  const [clientFieldErrors, setClientFieldErrors] = useState<Record<string, string>>({});
+  const fieldErrors = { ...(state.fieldErrors ?? {}), ...clientFieldErrors };
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   // Controlled (not defaultValue/ref): the suggestions effect below needs
   // to know the duration someone's actually about to book *right now* to
@@ -145,15 +176,20 @@ export function AppointmentForm({
   function validateBeforeSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (needsPractitionerFirst && !practitionerId) {
       e.preventDefault();
-      setClientError("Selecciona un profesional antes de guardar.");
+      setClientFieldErrors({ practitionerId: "Selecciona un profesional antes de guardar." });
+      document.getElementById("practitionerId")?.focus();
       return;
     }
     if (!dateInputRef.current?.value || !timeInputRef.current?.value) {
       e.preventDefault();
-      setClientError("Indica la fecha y la hora de la cita.");
+      setClientFieldErrors({
+        ...(!dateInputRef.current?.value ? { date: "Indica la fecha de la cita." } : {}),
+        ...(!timeInputRef.current?.value ? { time: "Indica la hora de la cita." } : {}),
+      });
+      (dateInputRef.current?.value ? timeInputRef.current : dateInputRef.current)?.focus();
       return;
     }
-    setClientError(null);
+    setClientFieldErrors({});
     submitKeepingValues(e);
   }
 
@@ -162,8 +198,25 @@ export function AppointmentForm({
   const [suggestedSlots, setSuggestedSlots] = useState<string[] | null>(null);
 
   useEffect(() => {
-    if (state.success) onSuccess?.();
-  }, [state.success, onSuccess]);
+    if (state.success) {
+      captureBaseline();
+      const date = dateInputRef.current?.value;
+      const time = timeInputRef.current?.value;
+      const nameInput = formRef.current?.elements.namedItem("patientDisplayName");
+      const patientName = confirmationPatientName
+        || (nameInput instanceof HTMLInputElement ? nameInput.value : "");
+      const dateTime = date && time
+        ? formatInClinicTimeZone(clinicLocalToUtcIso(date, time), { dateStyle: "medium", timeStyle: "short" })
+        : "";
+      const confirmation = initialValues ? "Cita actualizada" : "Cita creada";
+      toast.success(`${confirmation}${patientName ? ` para ${patientName}` : ""}${dateTime ? ` · ${dateTime}` : ""}.`);
+      onSuccessRef.current?.();
+    }
+  }, [state, confirmationPatientName, initialValues, captureBaseline, formRef]);
+
+  useEffect(() => {
+    focusFirstFieldError(formRef.current, { ...(state.fieldErrors ?? {}), ...clientFieldErrors });
+  }, [state.fieldErrors, clientFieldErrors, formRef]);
 
   useEffect(() => {
     if (!canFetchSuggestions || !duration) return;
@@ -190,13 +243,24 @@ export function AppointmentForm({
   useEffect(() => {
     if (initialValues) return;
     getAppointmentDefaultDurationAction().then((minutes) => {
-      setDuration((current) => (current === FALLBACK_DURATION_MINUTES ? minutes : current));
+      setDuration((current) => {
+        if (current !== FALLBACK_DURATION_MINUTES) return current;
+        if (current !== minutes) durationBaselineNeedsRefresh.current = true;
+        return minutes;
+      });
     });
   }, [initialValues]);
+
+  useEffect(() => {
+    if (!durationBaselineNeedsRefresh.current) return;
+    durationBaselineNeedsRefresh.current = false;
+    rebaseFields(["durationMinutes"]);
+  }, [duration, rebaseFields]);
 
   function applySlot(iso: string) {
     if (dateInputRef.current) dateInputRef.current.value = toDateInputValue(iso);
     if (timeInputRef.current) timeInputRef.current.value = toTimeInputValue(iso);
+    scheduleRefresh();
   }
 
   const columns = layout === "columns";
@@ -215,6 +279,8 @@ export function AppointmentForm({
         onChange={(e) => setPractitionerId(e.target.value)}
         disabled={pending}
         className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+        aria-invalid={!!fieldErrors.practitionerId}
+        aria-describedby={fieldErrors.practitionerId ? "practitionerId-error" : undefined}
       >
         <option value="" disabled>
           Selecciona un profesional
@@ -225,6 +291,7 @@ export function AppointmentForm({
           </option>
         ))}
       </select>
+      {fieldErrors.practitionerId && <p id="practitionerId-error" className="text-xs text-destructive">{fieldErrors.practitionerId}</p>}
     </div>
   );
 
@@ -271,7 +338,10 @@ export function AppointmentForm({
           defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
           required
           disabled={pending}
+          aria-invalid={!!fieldErrors.date}
+          aria-describedby={fieldErrors.date ? "date-error" : undefined}
         />
+        {fieldErrors.date && <p id="date-error" className="text-xs text-destructive">{fieldErrors.date}</p>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="time">Hora</Label>
@@ -283,7 +353,10 @@ export function AppointmentForm({
           defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : defaultTime}
           required
           disabled={pending}
+          aria-invalid={!!fieldErrors.time}
+          aria-describedby={fieldErrors.time ? "time-error" : undefined}
         />
+        {fieldErrors.time && <p id="time-error" className="text-xs text-destructive">{fieldErrors.time}</p>}
       </div>
     </div>
   );
@@ -304,7 +377,10 @@ export function AppointmentForm({
           setDuration(Number.isNaN(next) ? 0 : next);
         }}
         disabled={pending}
+        aria-invalid={!!fieldErrors.durationMinutes}
+        aria-describedby={fieldErrors.durationMinutes ? "durationMinutes-error" : undefined}
       />
+      {fieldErrors.durationMinutes && <p id="durationMinutes-error" className="text-xs text-destructive">{fieldErrors.durationMinutes}</p>}
     </div>
   );
 
@@ -317,6 +393,8 @@ export function AppointmentForm({
         defaultValue={initialValues?.status}
         disabled={pending}
         className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
+        aria-invalid={!!fieldErrors.status}
+        aria-describedby={fieldErrors.status ? "status-error" : undefined}
       >
         {APPOINTMENT_STATUSES.map((s) => (
           <option key={s} value={s}>
@@ -324,6 +402,7 @@ export function AppointmentForm({
           </option>
         ))}
       </select>
+      {fieldErrors.status && <p id="status-error" className="text-xs text-destructive">{fieldErrors.status}</p>}
     </div>
   );
 
@@ -336,6 +415,7 @@ export function AppointmentForm({
     <Collapsible defaultOpen={Boolean(initialValues?.notes)}>
       <CollapsibleTrigger
         type="button"
+        data-ignore-dirty="true"
         disabled={pending}
         className="group flex w-full items-center justify-between text-sm font-medium disabled:opacity-50"
       >
@@ -343,20 +423,22 @@ export function AppointmentForm({
         <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-open:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2">
-        <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} />
+        <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} aria-invalid={!!fieldErrors.notes} aria-describedby={fieldErrors.notes ? "notes-error" : undefined} />
+        {fieldErrors.notes && <p id="notes-error" className="text-xs text-destructive">{fieldErrors.notes}</p>}
       </CollapsibleContent>
     </Collapsible>
   ) : (
     <div className="space-y-2">
       <Label htmlFor="notes">Notas</Label>
-      <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} />
+      <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} aria-invalid={!!fieldErrors.notes} aria-describedby={fieldErrors.notes ? "notes-error" : undefined} />
+      {fieldErrors.notes && <p id="notes-error" className="text-xs text-destructive">{fieldErrors.notes}</p>}
     </div>
   );
 
   const footer = (
     <div className={cn("flex items-center gap-4", columns && "justify-between border-t pt-4")}>
-      {(clientError ?? state.error) && (
-        <p className="text-sm text-destructive">{clientError ?? state.error}</p>
+      {state.error && (
+        <p className="text-sm text-destructive" role="alert">{state.error}</p>
       )}
       <Button type="submit" disabled={pending} className={cn("w-fit", columns && "ml-auto")}>
         {pending ? (
@@ -373,10 +455,20 @@ export function AppointmentForm({
 
   if (columns) {
     return (
-      <form onSubmit={validateBeforeSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+      <form
+        ref={formRef}
+        onSubmit={validateBeforeSubmit}
+        onInputCapture={onInputCapture}
+        onChangeCapture={onChangeCapture}
+        onClickCapture={onClickCapture}
+        noValidate
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div className="grid flex-1 gap-x-6 gap-y-4 overflow-y-auto px-1 py-1 sm:grid-cols-2">
           <div className="space-y-4">
-            {children}
+            <AppointmentFieldErrorsContext.Provider value={fieldErrors}>
+              {children}
+            </AppointmentFieldErrorsContext.Provider>
             {practitionerField}
           </div>
           <div className="space-y-4">
@@ -393,8 +485,18 @@ export function AppointmentForm({
   }
 
   return (
-    <form onSubmit={validateBeforeSubmit} noValidate className="grid max-w-md gap-4">
-      {children}
+    <form
+      ref={formRef}
+      onSubmit={validateBeforeSubmit}
+      onInputCapture={onInputCapture}
+      onChangeCapture={onChangeCapture}
+      onClickCapture={onClickCapture}
+      noValidate
+      className="grid max-w-md gap-4"
+    >
+      <AppointmentFieldErrorsContext.Provider value={fieldErrors}>
+        {children}
+      </AppointmentFieldErrorsContext.Provider>
       {practitionerField}
       {suggestionsField}
       {dateTimeField}

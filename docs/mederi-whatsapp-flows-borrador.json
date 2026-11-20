@@ -1,0 +1,242 @@
+{
+  "version": "7.3",
+  "screens": [
+    {
+      "id": "PROFESIONAL",
+      "title": "Tu profesional",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Con quién te gustaría venir?"
+              },
+              {
+                "type": "TextBody",
+                "text": "Ejemplo visual: estas opciones no crean una cita."
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "profesional",
+                "label": "Profesional",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "ejemplo_1",
+                    "title": "Profesional de ejemplo 1"
+                  },
+                  {
+                    "id": "ejemplo_2",
+                    "title": "Profesional de ejemplo 2"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continuar",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "FECHA"
+                  },
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "FECHA",
+      "title": "Tu cita",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Elige un día"
+              },
+              {
+                "type": "TextBody",
+                "text": "Las fechas de este prototipo son de ejemplo."
+              },
+              {
+                "type": "CalendarPicker",
+                "name": "fecha",
+                "label": "Fecha de la cita",
+                "mode": "single",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Continuar",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "HORA"
+                  },
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "HORA",
+      "title": "Tu hora",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Qué hora te viene bien?"
+              },
+              {
+                "type": "TextBody",
+                "text": "Horarios de ejemplo, sin conexión a Mederi."
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "hora",
+                "label": "Horario",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "0900",
+                    "title": "09:00"
+                  },
+                  {
+                    "id": "1030",
+                    "title": "10:30"
+                  },
+                  {
+                    "id": "1200",
+                    "title": "12:00"
+                  },
+                  {
+                    "id": "1700",
+                    "title": "17:00"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continuar",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "DATOS"
+                  },
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "DATOS",
+      "title": "Un último detalle",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "¿Cómo te llamas?"
+              },
+              {
+                "type": "TextBody",
+                "text": "Escribe tu nombre completo y selecciona tu fecha de nacimiento."
+              },
+              {
+                "type": "TextInput",
+                "name": "nombre_completo",
+                "label": "Nombre y apellidos",
+                "input-type": "text",
+                "required": true,
+                "max-chars": 80
+              },
+              {
+                "type": "DatePicker",
+                "name": "nacimiento",
+                "label": "Fecha de nacimiento",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Ver resumen",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "RESUMEN"
+                  },
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "sensitive": [
+        "nombre_completo",
+        "nacimiento"
+      ]
+    },
+    {
+      "id": "RESUMEN",
+      "title": "Revisa tu cita",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "formulario",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Todo preparado"
+              },
+              {
+                "type": "TextBody",
+                "text": "Esta es una simulación visual. No reserva una cita ni comprueba horarios."
+              },
+              {
+                "type": "Footer",
+                "label": "Finalizar simulación",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "terminal": true
+    }
+  ]
+}

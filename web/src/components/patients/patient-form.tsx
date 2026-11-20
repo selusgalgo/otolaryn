@@ -1,15 +1,23 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { PossibleDuplicateWarning } from "@/components/patients/possible-duplicate-warning";
 import type { PatientFormState } from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
+import { focusFirstFieldError } from "@/lib/form-errors";
 import { PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
+import {
+  confirmDiscardUnsavedChanges,
+  useFormDirtyState,
+  useUnsavedChangesWarning,
+} from "@/lib/unsaved-changes";
+import { toast } from "sonner";
 
 interface PatientFormProps {
   action: (prevState: PatientFormState, formData: FormData) => Promise<PatientFormState>;
@@ -28,6 +36,7 @@ interface PatientFormProps {
   // chrome of its own to back out of. Omitted (as in every Dialog-based
   // use of this form) means no cancel button at all.
   onCancel?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
   insuranceOptions?: InsuranceOption[];
 }
 
@@ -48,17 +57,61 @@ export function PatientForm({
   submitIcon,
   onSuccess,
   onCancel,
+  onDirtyChange,
   insuranceOptions,
 }: PatientFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
+  const [identity, setIdentity] = useState({
+    firstName: initialValues?.firstName ?? "",
+    lastName: initialValues?.lastName ?? "",
+    dateOfBirth: initialValues?.dateOfBirth?.slice(0, 10) ?? "",
+    documentId: initialValues?.documentId ?? "",
+  });
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+  const {
+    formRef,
+    isDirty,
+    dirtyRef,
+    markDirty,
+    scheduleRefresh,
+    captureBaseline,
+    onInputCapture,
+    onChangeCapture,
+    onClickCapture,
+  } = useFormDirtyState(onDirtyChange);
+  useUnsavedChangesWarning(isDirty);
 
   useEffect(() => {
-    if (state.success) onSuccess?.();
-  }, [state.success, onSuccess]);
+    if (state.success) {
+      captureBaseline();
+      toast.success(initialValues ? "Paciente actualizado." : "Paciente creado.");
+      onSuccessRef.current?.();
+    }
+  }, [state, initialValues, captureBaseline]);
+
+  useEffect(() => {
+    focusFirstFieldError(formRef.current, state.fieldErrors);
+  }, [state, formRef]);
+
+  function cancelForm() {
+    if (!confirmDiscardUnsavedChanges(dirtyRef.current)) return;
+    captureBaseline();
+    onCancel?.();
+  }
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="space-y-4">
+    <form
+      ref={formRef}
+      onSubmit={keepValuesOnSubmit(formAction)}
+      onInputCapture={onInputCapture}
+      onChangeCapture={onChangeCapture}
+      onClickCapture={onClickCapture}
+      className="space-y-4"
+    >
       <div className="space-y-4">
         <h3 className="text-sm font-medium">Datos del paciente</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
@@ -68,9 +121,13 @@ export function PatientForm({
               id="firstName"
               name="firstName"
               defaultValue={initialValues?.firstName}
+              onChange={(event) => setIdentity((current) => ({ ...current, firstName: event.target.value }))}
               required
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.firstName}
+              aria-describedby={state.fieldErrors?.firstName ? "firstName-error" : undefined}
             />
+            {state.fieldErrors?.firstName && <p id="firstName-error" className="text-xs text-destructive">{state.fieldErrors.firstName}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="lastName">Apellidos</Label>
@@ -78,9 +135,13 @@ export function PatientForm({
               id="lastName"
               name="lastName"
               defaultValue={initialValues?.lastName}
+              onChange={(event) => setIdentity((current) => ({ ...current, lastName: event.target.value }))}
               required
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.lastName}
+              aria-describedby={state.fieldErrors?.lastName ? "lastName-error" : undefined}
             />
+            {state.fieldErrors?.lastName && <p id="lastName-error" className="text-xs text-destructive">{state.fieldErrors.lastName}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="documentId">Documento (DNI/NIE/pasaporte)</Label>
@@ -88,9 +149,13 @@ export function PatientForm({
               id="documentId"
               name="documentId"
               defaultValue={initialValues?.documentId ?? ""}
+              onChange={(event) => setIdentity((current) => ({ ...current, documentId: event.target.value }))}
               maxLength={20}
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.documentId}
+              aria-describedby={state.fieldErrors?.documentId ? "documentId-error" : undefined}
             />
+            {state.fieldErrors?.documentId && <p id="documentId-error" className="text-xs text-destructive">{state.fieldErrors.documentId}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="dateOfBirth">Fecha de nacimiento</Label>
@@ -99,11 +164,15 @@ export function PatientForm({
               name="dateOfBirth"
               type="date"
               defaultValue={initialValues?.dateOfBirth?.slice(0, 10)}
+              onChange={(event) => setIdentity((current) => ({ ...current, dateOfBirth: event.target.value }))}
               // Alta: obligatoria. Edición: solo si el paciente ya la tiene,
               // para poder editar uno importado sin fecha sin inventarla.
               required={!initialValues || !!initialValues.dateOfBirth}
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.dateOfBirth}
+              aria-describedby={state.fieldErrors?.dateOfBirth ? "dateOfBirth-error" : undefined}
             />
+            {state.fieldErrors?.dateOfBirth && <p id="dateOfBirth-error" className="text-xs text-destructive">{state.fieldErrors.dateOfBirth}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Género</Label>
@@ -156,6 +225,7 @@ export function PatientForm({
             />
           </div>
         </div>
+        {!initialValues && <PossibleDuplicateWarning values={identity} />}
       </div>
 
       <details open className="group rounded-lg border p-4">
@@ -172,7 +242,10 @@ export function PatientForm({
               type="email"
               defaultValue={initialValues?.email ?? ""}
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.email}
+              aria-describedby={state.fieldErrors?.email ? "email-error" : undefined}
             />
+            {state.fieldErrors?.email && <p id="email-error" className="text-xs text-destructive">{state.fieldErrors.email}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Teléfono</Label>
@@ -182,7 +255,10 @@ export function PatientForm({
               defaultValue={initialValues?.phone ?? ""}
               required={!initialValues || !!initialValues.phone}
               disabled={pending}
+              aria-invalid={!!state.fieldErrors?.phone}
+              aria-describedby={state.fieldErrors?.phone ? "phone-error" : undefined}
             />
+            {state.fieldErrors?.phone && <p id="phone-error" className="text-xs text-destructive">{state.fieldErrors.phone}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone2">Teléfono 2</Label>
@@ -216,7 +292,15 @@ export function PatientForm({
       <div className="space-y-2">
         <Label>Notas</Label>
         <input type="hidden" name="notes" value={notes} />
-        <RichTextEditor value={notes} onChange={setNotes} disabled={pending} />
+        <RichTextEditor
+          value={notes}
+          onChange={(value) => {
+            markDirty();
+            setNotes(value);
+            scheduleRefresh();
+          }}
+          disabled={pending}
+        />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <div className="flex gap-2">
@@ -231,7 +315,13 @@ export function PatientForm({
           )}
         </Button>
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+          <Button
+            type="button"
+            data-ignore-dirty="true"
+            variant="outline"
+            onClick={cancelForm}
+            disabled={pending}
+          >
             Cancelar
           </Button>
         )}

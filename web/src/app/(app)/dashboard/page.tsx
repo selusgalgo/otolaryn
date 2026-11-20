@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DraftBadge } from "@/components/clinical-entries/draft-badge";
+import { isDraftExpiringSoon } from "@/lib/draft-expiry";
 import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
@@ -66,6 +67,12 @@ export default async function DashboardPage() {
     return patient ? `${patient.firstName} ${patient.lastName}` : "—";
   }
 
+  const urgentOwnDrafts = (dashboard.drafts ?? []).filter(
+    (draft) => draft.authorUserId === me.id && isDraftExpiringSoon(draft.draftExpiresAt),
+  );
+  const urgentDraftIds = new Set(urgentOwnDrafts.map((draft) => draft.id));
+  const otherDrafts = (dashboard.drafts ?? []).filter((draft) => !urgentDraftIds.has(draft.id));
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">
@@ -117,18 +124,48 @@ export default async function DashboardPage() {
         </Card>
       )}
 
+      {urgentOwnDrafts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Borradores que caducan pronto</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {urgentOwnDrafts.map((draft) => (
+                <li key={draft.id} className="py-2">
+                  <Link
+                    href={`/patients/${draft.patientId}/clinical-entries/${draft.id}`}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 hover:underline"
+                  >
+                    <span className="text-sm">
+                      <span className="font-bold">{patientName(draft.patientId)}</span>
+                      {" · "}
+                      {draft.chiefComplaint ? truncateText(stripHtml(draft.chiefComplaint), MOTIVO_MAX_CHARS) : "Sin motivo todavía"}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-3">
+                      <DraftBadge expiresAt={draft.draftExpiresAt} />
+                      <span className="text-sm font-medium">Continuar borrador →</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Borradores de consulta pendientes (los propios; todos los de la clínica
           para un administrador): recordatorio para terminarlos antes de que se
           borren solos a los 10 días. Los que están a punto de caducar salen
           primero y en tono de alerta (ver DraftBadge). */}
-      {dashboard.drafts !== null && dashboard.drafts.length > 0 && (
+      {dashboard.drafts !== null && otherDrafts.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Borradores pendientes</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
-              {dashboard.drafts.map((draft) => (
+              {otherDrafts.map((draft) => (
                 <li key={draft.id} className="py-2">
                   <Link
                     href={`/patients/${draft.patientId}/clinical-entries/${draft.id}`}

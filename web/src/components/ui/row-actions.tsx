@@ -20,6 +20,7 @@ export interface RowAction {
   disabled?: boolean;
   destructive?: boolean;
   overflowOnly?: boolean;
+  visibleLabel?: string;
 }
 
 export function RowActions({
@@ -48,12 +49,15 @@ export function RowActions({
               key={action.id}
               asChild
               variant="ghost"
-              size="icon"
+              size={action.visibleLabel ? "sm" : "icon"}
               aria-label={action.label}
               title={action.label}
-              className={destructiveClass}
+              className={`${destructiveClass ?? ""} ${action.visibleLabel ? "h-8 gap-1 px-2 text-xs" : ""}`}
             >
-              <Link href={action.href}>{action.icon}</Link>
+              <Link href={action.href}>
+                {action.icon}
+                {action.visibleLabel && <span>{action.visibleLabel}</span>}
+              </Link>
             </Button>
           );
         }
@@ -62,14 +66,15 @@ export function RowActions({
           <Button
             key={action.id}
             variant="ghost"
-            size="icon"
+            size={action.visibleLabel ? "sm" : "icon"}
             aria-label={action.label}
             title={action.label}
             onClick={action.onSelect}
             disabled={action.disabled}
-            className={destructiveClass}
+            className={`${destructiveClass ?? ""} ${action.visibleLabel ? "h-8 gap-1 px-2 text-xs" : ""}`}
           >
             {action.icon}
+            {action.visibleLabel && <span>{action.visibleLabel}</span>}
           </Button>
         );
       })}

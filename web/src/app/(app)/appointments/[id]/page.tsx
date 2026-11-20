@@ -48,7 +48,11 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           <h1 className="text-2xl font-bold">{formatDateTime(appointment.scheduledAt)}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <EditAppointmentDialog appointment={appointment} practitioners={practitioners} />
+          <EditAppointmentDialog
+            appointment={appointment}
+            patientName={`${patient.firstName} ${patient.lastName}`}
+            practitioners={practitioners}
+          />
           {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
           {(me.role === "admin" || me.role === "recepcion") && (
             <DeleteAppointmentButton id={appointment.id} />
