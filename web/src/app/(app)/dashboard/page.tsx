@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DraftBadge } from "@/components/clinical-entries/draft-badge";
 import { isDraftExpiringSoon } from "@/lib/draft-expiry";
+import { decodeJwtClaims } from "@/lib/jwt";
+import { getSessionToken } from "@/lib/session";
 import { AgendaCalendar } from "@/components/dashboard/agenda-calendar";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
@@ -67,8 +69,9 @@ export default async function DashboardPage() {
     return patient ? `${patient.firstName} ${patient.lastName}` : "—";
   }
 
+  const currentUserId = decodeJwtClaims(await getSessionToken())?.sub;
   const urgentOwnDrafts = (dashboard.drafts ?? []).filter(
-    (draft) => draft.authorUserId === me.id && isDraftExpiringSoon(draft.draftExpiresAt),
+    (draft) => draft.authorUserId === currentUserId && isDraftExpiringSoon(draft.draftExpiresAt),
   );
   const urgentDraftIds = new Set(urgentOwnDrafts.map((draft) => draft.id));
   const otherDrafts = (dashboard.drafts ?? []).filter((draft) => !urgentDraftIds.has(draft.id));
