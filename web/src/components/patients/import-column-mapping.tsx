@@ -32,6 +32,8 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "postalCode", label: "C.P.", required: false },
   { field: "notes", label: "Notas", required: false },
   { field: "profession", label: "Profesión", required: false },
+  { field: "drugAllergies", label: "Alergias medicamentosas", required: false },
+  { field: "currentMedications", label: "Medicación actual", required: false },
   { field: "insuranceNumber", label: "Nº de seguro privado", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
   { field: "firstConsultationOverride", label: "Primera consulta", required: false },

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDownTrayIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { updatePatientAction, type PatientFormState } from "@/lib/actions/patien
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import { HolderPicker } from "@/components/patients/holder-picker";
+import { PrintPatientRecordDialog } from "@/components/patients/print-patient-record-dialog";
 import { HOLDER_RELATIONSHIP_LABEL, PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
@@ -30,21 +31,97 @@ interface PatientProfileSectionProps {
   insuranceName?: string;
   practitionerOptions?: PractitionerOption[] | null;
   whatsappEnabled?: boolean;
+  // El médico ve "Nueva consulta" en la acción principal de la cabecera;
+  // recepción, que no crea consultas, ve "Nueva cita".
+  canCreateClinicalEntries?: boolean;
+  // Columna derecha (la ancha): Antecedentes, Consultas e Historia clínica,
+  // que la página trae del servidor y aquí solo se colocan.
+  children?: ReactNode;
 }
 
 const initialState: PatientFormState = {};
 
-// Migas de pan + acciones (Editar/Dar de baja) y los widgets de
-// identidad/datos del paciente viven juntos aquí porque "Editar" ya no
-// abre un modal ni cambia de tarjeta — los mismos dos widgets se quedan
-// donde están, solo que cada valor pasa a ser su campo editable, con
-// Guardar/Cancelar debajo de ambos.
+const CREATION_SOURCE_LABEL = {
+  manual: "Manual",
+  import: "Importación",
+  whatsapp: "WhatsApp",
+  unknown: "Desconocido",
+} as const;
+
+const SELECT_CLASS =
+  "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50";
+
+// Una fila "Etiqueta   valor" del bloque de datos: etiqueta en negrita a
+// ancho fijo y valor en gris al lado, como una ficha en papel. El valor
+// puede partir línea (direcciones, emails largos) sin empujar la etiqueta.
+function InfoRow({ label, children }: { label: string; children?: ReactNode }) {
+  const empty = children === undefined || children === null || children === "";
+  return (
+    <div className="grid grid-cols-[7.25rem_minmax(0,1fr)] gap-x-3">
+      <dt className="font-medium text-foreground">{label}</dt>
+      <dd className="break-words text-muted-foreground">{empty ? "—" : children}</dd>
+    </div>
+  );
+}
+
+// Grupo de filas separado del anterior por una línea fina: datos
+// personales / contacto / administrativos, para que la lista no sea un
+// bloque continuo de quince filas iguales.
+function InfoGroup({ children }: { children: ReactNode }) {
+  return <dl className="space-y-2.5 border-t pt-4 first:border-t-0 first:pt-0">{children}</dl>;
+}
+
+// El error de campo (si lo hay) se pinta debajo con id `profile-<id>-error`,
+// el que referencian aria-describedby y focusFirstFieldError.
+function EditField({
+  id,
+  label,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+      {error && (
+        <p id={`profile-${id}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Atributos de accesibilidad de un campo con posible error de servidor.
+function errorProps(id: string, error?: string) {
+  return {
+    "aria-invalid": !!error,
+    "aria-describedby": error ? `profile-${id}-error` : undefined,
+  };
+}
+
+// Migas de pan + acciones (Editar/Imprimir/Cita) y la ficha a dos columnas:
+// a la izquierda, estrecha, la tarjeta de identidad (foto o iniciales,
+// nombre, nº de historia y edad) y debajo los datos del paciente; a la
+// derecha, ancha, lo que pase la página como children. "Editar" no abre un
+// modal: las dos tarjetas de la izquierda se quedan donde están y cada valor
+// pasa a ser su campo, con Guardar/Cancelar debajo. Por debajo de lg todo se
+// apila en una columna: identidad, datos y luego la columna derecha.
 export function PatientProfileSection({
   patient,
   insuranceOptions,
   insuranceName,
   practitionerOptions,
   whatsappEnabled = false,
+  canCreateClinicalEntries = false,
+  children,
 }: PatientProfileSectionProps) {
   const [editing, setEditing] = useState(false);
   // formatDocumentId returns "-" for a missing/placeholder document — blank
@@ -85,6 +162,14 @@ export function PatientProfileSection({
     setEditing(false);
   }
 
+  const fullName = `${patient.firstName} ${patient.lastName}`;
+
+  const avatar = (
+    <div className="relative">
+      <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="xl" />
+    </div>
+  );
+
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -93,163 +178,90 @@ export function PatientProfileSection({
             Pacientes
           </Link>
           <span>›</span>
-          <span className="text-foreground">
-            {patient.firstName} {patient.lastName}
-          </span>
+          <span className="text-foreground">{fullName}</span>
         </div>
         {!editing && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <a href={`/patients/${patient.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                <ArrowDownTrayIcon data-icon="inline-start" />
-                Imprimir
-              </a>
-            </Button>
+            <PrintPatientRecordDialog patientId={patient.id} />
             <Button variant="outline" onClick={() => setEditing(true)}>
               <PencilIcon data-icon="inline-start" />
               Editar
             </Button>
-            <CreateAppointmentDialog
-              patientId={patient.id}
-              patientName={`${patient.firstName} ${patient.lastName}`}
-              practitioners={practitionerOptions}
-            />
+            {canCreateClinicalEntries ? (
+              <Button asChild>
+                <Link href={`/patients/${patient.id}/clinical-entries/new`}>
+                  <PlusIcon data-icon="inline-start" />
+                  Nueva consulta
+                </Link>
+              </Button>
+            ) : (
+              <CreateAppointmentDialog
+                patientId={patient.id}
+                patientName={fullName}
+                practitioners={practitionerOptions}
+              />
+            )}
           </div>
         )}
       </div>
 
-      {editing ? (
-        <form
-          ref={formRef}
-          onSubmit={keepValuesOnSubmit(formAction)}
-          onInputCapture={onInputCapture}
-          onChangeCapture={onChangeCapture}
-          onClickCapture={onClickCapture}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-            <Card className="md:col-span-3">
-              <CardContent className="flex flex-col items-center gap-3 text-center">
-                <div className="relative">
-                  <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
-                </div>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)]">
+        {/* ── Columna izquierda ── */}
+        {editing ? (
+          <form
+            ref={formRef}
+            onSubmit={keepValuesOnSubmit(formAction)}
+            onInputCapture={onInputCapture}
+            onChangeCapture={onChangeCapture}
+            onClickCapture={onClickCapture}
+            className="space-y-4"
+          >
+            <Card>
+              <CardContent className="flex flex-col items-center gap-4 py-2 text-center">
+                {avatar}
                 <div className="grid w-full grid-cols-2 gap-2 text-left">
-                  <div className="space-y-1">
-                    <Label htmlFor="firstName" className="text-xs">
-                      Nombre
-                    </Label>
+                  <EditField id="firstName" error={state.fieldErrors?.firstName} label="Nombre">
                     <Input
                       id="firstName"
                       name="firstName"
                       defaultValue={patient.firstName}
                       required
                       disabled={pending}
-                      aria-invalid={!!state.fieldErrors?.firstName}
-                      aria-describedby={state.fieldErrors?.firstName ? "profile-firstName-error" : undefined}
+                      {...errorProps("firstName", state.fieldErrors?.firstName)}
                     />
-                    {state.fieldErrors?.firstName && <p id="profile-firstName-error" className="text-xs text-destructive">{state.fieldErrors.firstName}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="lastName" className="text-xs">
-                      Apellidos
-                    </Label>
+                  </EditField>
+                  <EditField id="lastName" error={state.fieldErrors?.lastName} label="Apellidos">
                     <Input
                       id="lastName"
                       name="lastName"
                       defaultValue={patient.lastName}
                       required
                       disabled={pending}
-                      aria-invalid={!!state.fieldErrors?.lastName}
-                      aria-describedby={state.fieldErrors?.lastName ? "profile-lastName-error" : undefined}
+                      {...errorProps("lastName", state.fieldErrors?.lastName)}
                     />
-                    {state.fieldErrors?.lastName && <p id="profile-lastName-error" className="text-xs text-destructive">{state.fieldErrors.lastName}</p>}
-                  </div>
+                  </EditField>
                 </div>
-                <div className="w-full space-y-1 text-left">
-                  <Label htmlFor="documentId" className="text-xs">
-                    Documento (DNI/NIE)
-                  </Label>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Datos del paciente</CardTitle>
+              </CardHeader>
+              {/* Una columna dentro de la columna estrecha (lg+); cuando
+                  todo se apila en tablet hay sitio para dos. */}
+              <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <EditField id="documentId" error={state.fieldErrors?.documentId} label="Documento (DNI/NIE)">
                   <Input
                     id="documentId"
                     name="documentId"
                     defaultValue={patient.documentId ?? ""}
                     maxLength={20}
                     disabled={pending}
-                    aria-invalid={!!state.fieldErrors?.documentId}
-                    aria-describedby={state.fieldErrors?.documentId ? "profile-documentId-error" : undefined}
+                    {...errorProps("documentId", state.fieldErrors?.documentId)}
                   />
-                  {state.fieldErrors?.documentId && <p id="profile-documentId-error" className="text-xs text-destructive">{state.fieldErrors.documentId}</p>}
-                </div>
-                <div className="w-full space-y-1 text-left">
-                  <Label htmlFor="gender" className="text-xs">
-                    Género
-                  </Label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    defaultValue={patient.gender ?? ""}
-                    disabled={pending}
-                    className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Sin indicar</option>
-                    <option value="hombre">{PATIENT_GENDER_LABEL.hombre}</option>
-                    <option value="mujer">{PATIENT_GENDER_LABEL.mujer}</option>
-                  </select>
-                </div>
-                <div className="w-full space-y-1 text-left">
-                  <Label htmlFor="profession" className="text-xs">
-                    Profesión
-                  </Label>
-                  <Input
-                    id="profession"
-                    name="profession"
-                    defaultValue={patient.profession ?? ""}
-                    disabled={pending}
-                  />
-                </div>
-                <div className="w-full space-y-1 text-left">
-                  <Label htmlFor="insuranceEntityId" className="text-xs">
-                    Aseguradora
-                  </Label>
-                  <select
-                    id="insuranceEntityId"
-                    name="insuranceEntityId"
-                    defaultValue={patient.insuranceEntityId ?? ""}
-                    disabled={pending}
-                    className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Sin especificar</option>
-                    {insuranceOptions?.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="w-full space-y-1 text-left">
-                  <Label htmlFor="insuranceNumber" className="text-xs">
-                    Nº de seguro privado
-                  </Label>
-                  <Input
-                    id="insuranceNumber"
-                    name="insuranceNumber"
-                    defaultValue={patient.insuranceNumber ?? ""}
-                    maxLength={50}
-                    disabled={pending}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-9">
-              <CardHeader>
-                <CardTitle className="text-base">Datos del paciente</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <Label htmlFor="dateOfBirth" className="text-xs text-muted-foreground">
-                    Fecha de nacimiento
-                  </Label>
+                </EditField>
+                <EditField id="dateOfBirth" error={state.fieldErrors?.dateOfBirth} label="Fecha de nacimiento">
                   <Input
                     id="dateOfBirth"
                     name="dateOfBirth"
@@ -260,57 +272,57 @@ export function PatientProfileSection({
                     // puede editar sin tener que inventarla.
                     required={!!patient.dateOfBirth}
                     disabled={pending}
-                    aria-invalid={!!state.fieldErrors?.dateOfBirth}
-                    aria-describedby={state.fieldErrors?.dateOfBirth ? "profile-dateOfBirth-error" : undefined}
+                    {...errorProps("dateOfBirth", state.fieldErrors?.dateOfBirth)}
                   />
-                  {state.fieldErrors?.dateOfBirth && <p id="profile-dateOfBirth-error" className="text-xs text-destructive">{state.fieldErrors.dateOfBirth}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="text-xs text-muted-foreground">
-                    Teléfono
-                  </Label>
+                </EditField>
+                <EditField id="gender" label="Género">
+                  <select
+                    id="gender"
+                    name="gender"
+                    defaultValue={patient.gender ?? ""}
+                    disabled={pending}
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">Sin indicar</option>
+                    <option value="hombre">{PATIENT_GENDER_LABEL.hombre}</option>
+                    <option value="mujer">{PATIENT_GENDER_LABEL.mujer}</option>
+                  </select>
+                </EditField>
+                <EditField id="profession" label="Profesión">
+                  <Input
+                    id="profession"
+                    name="profession"
+                    defaultValue={patient.profession ?? ""}
+                    disabled={pending}
+                  />
+                </EditField>
+                <EditField id="phone" error={state.fieldErrors?.phone} label="Teléfono">
                   <Input
                     id="phone"
                     name="phone"
                     defaultValue={patient.phone ?? ""}
                     required={!!patient.phone}
                     disabled={pending}
-                    aria-invalid={!!state.fieldErrors?.phone}
-                    aria-describedby={state.fieldErrors?.phone ? "profile-phone-error" : undefined}
+                    {...errorProps("phone", state.fieldErrors?.phone)}
                   />
-                  {state.fieldErrors?.phone && <p id="profile-phone-error" className="text-xs text-destructive">{state.fieldErrors.phone}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone2" className="text-xs text-muted-foreground">
-                    Teléfono 2
-                  </Label>
+                </EditField>
+                <EditField id="phone2" label="Teléfono 2">
                   <Input id="phone2" name="phone2" defaultValue={patient.phone2 ?? ""} disabled={pending} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="text-xs text-muted-foreground">
-                    Email
-                  </Label>
+                </EditField>
+                <EditField id="email" error={state.fieldErrors?.email} label="Email">
                   <Input
                     id="email"
                     name="email"
                     type="email"
                     defaultValue={patient.email ?? ""}
                     disabled={pending}
-                    aria-invalid={!!state.fieldErrors?.email}
-                    aria-describedby={state.fieldErrors?.email ? "profile-email-error" : undefined}
+                    {...errorProps("email", state.fieldErrors?.email)}
                   />
-                  {state.fieldErrors?.email && <p id="profile-email-error" className="text-xs text-destructive">{state.fieldErrors.email}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="address" className="text-xs text-muted-foreground">
-                    Dirección
-                  </Label>
+                </EditField>
+                <EditField id="address" label="Dirección">
                   <Input id="address" name="address" defaultValue={patient.address ?? ""} disabled={pending} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="postalCode" className="text-xs text-muted-foreground">
-                    C.P.
-                  </Label>
+                </EditField>
+                <EditField id="postalCode" label="C.P.">
                   <Input
                     id="postalCode"
                     name="postalCode"
@@ -318,19 +330,38 @@ export function PatientProfileSection({
                     defaultValue={patient.postalCode ?? ""}
                     disabled={pending}
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="city" className="text-xs text-muted-foreground">
-                    Ciudad/Población
-                  </Label>
+                </EditField>
+                <EditField id="city" label="Ciudad/Población">
                   <Input id="city" name="city" defaultValue={patient.city ?? ""} disabled={pending} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="province" className="text-xs text-muted-foreground">
-                    Provincia
-                  </Label>
+                </EditField>
+                <EditField id="province" label="Provincia">
                   <Input id="province" name="province" defaultValue={patient.province ?? ""} disabled={pending} />
-                </div>
+                </EditField>
+                <EditField id="insuranceEntityId" label="Aseguradora">
+                  <select
+                    id="insuranceEntityId"
+                    name="insuranceEntityId"
+                    defaultValue={patient.insuranceEntityId ?? ""}
+                    disabled={pending}
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">Sin especificar</option>
+                    {insuranceOptions?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </EditField>
+                <EditField id="insuranceNumber" label="Nº de seguro privado">
+                  <Input
+                    id="insuranceNumber"
+                    name="insuranceNumber"
+                    defaultValue={patient.insuranceNumber ?? ""}
+                    maxLength={50}
+                    disabled={pending}
+                  />
+                </EditField>
                 <div className="space-y-1">
                   <Label htmlFor="firstConsultationOverride" className="text-xs text-muted-foreground">
                     Primera consulta
@@ -351,7 +382,7 @@ export function PatientProfileSection({
                     Solo si la primera consulta no se registró en Historia clínica.
                   </p>
                 </div>
-                <div className="sm:col-span-2 lg:col-span-3">
+                <div className="sm:col-span-2 lg:col-span-1">
                   <HolderPicker
                     patientId={patient.id}
                     initialHolder={patient.holder ?? null}
@@ -362,158 +393,123 @@ export function PatientProfileSection({
                 </div>
               </CardContent>
             </Card>
-          </div>
 
-          {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
-          <div className="flex gap-2">
-            <Button type="submit" disabled={pending}>
-              {pending ? "Guardando..." : "Guardar cambios"}
-            </Button>
-            <Button
-              type="button"
-              data-ignore-dirty="true"
-              variant="outline"
-              onClick={cancelEditing}
-              disabled={pending}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-          <Card className="md:col-span-3">
-            <CardContent className="flex flex-col items-center gap-3 text-center">
-              <div className="relative">
-                <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="lg" />
-              </div>
-              <div>
-                <div className="text-lg font-bold">
-                  {patient.firstName} {patient.lastName}
-                </div>
-                {patient.legacyId && (
-                  <div className="text-xs text-muted-foreground">
-                    Nº de historia: {formatLegacyId(patient.legacyId)}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2 text-sm">
-                {(whatsappEnabled || patient.creationSource !== "whatsapp") && <div>
-                  <div className="text-xs text-muted-foreground">Origen del alta</div>
-                  <div>{{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}</div>
-                </div>}
-                <div>
-                  {documentDisplay !== "-"
-                    ? documentDisplay
-                    : patient.holder?.documentId
-                      ? `${formatDocumentId(patient.holder.documentId)} (del titular)`
-                      : ""}
-                </div>
-                <div>
-                  {patient.dateOfBirth && (
-                    <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-sans text-xs font-medium text-sky-700">
-                      {calculateAge(patient.dateOfBirth)} años
-                    </span>
+            {state.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {state.error}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button type="submit" disabled={pending}>
+                {pending ? "Guardando..." : "Guardar cambios"}
+              </Button>
+              <Button type="button" data-ignore-dirty="true" variant="outline" onClick={cancelEditing} disabled={pending}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-3 text-center">
+                {avatar}
+                <div className="space-y-1">
+                  <h1 className="text-lg leading-tight font-bold">{fullName}</h1>
+                  {patient.legacyId && (
+                    <div className="text-sm text-muted-foreground">
+                      Nº de historia:{" "}
+                      <span className="font-medium text-foreground">{formatLegacyId(patient.legacyId)}</span>
+                    </div>
                   )}
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Género</div>
-                  <div>{patient.gender ? PATIENT_GENDER_LABEL[patient.gender] : "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Profesión</div>
-                  <div>{patient.profession || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Aseguradora</div>
-                  <div>{insuranceName || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Nº de seguro privado</div>
-                  <div>{patient.insuranceNumber || "—"}</div>
-                </div>
-                {patient.holder && (
-                  <div>
-                    <div className="text-xs text-muted-foreground">
-                      Familiar a cargo de
-                      {patient.holderRelationship && ` (${HOLDER_RELATIONSHIP_LABEL[patient.holderRelationship]})`}
-                    </div>
-                    <Link href={`/patients/${patient.holder.id}`} className="hover:underline">
-                      {patient.holder.firstName} {patient.holder.lastName}
-                    </Link>
-                  </div>
+                {patient.dateOfBirth && (
+                  <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-sans text-xs font-medium text-sky-700">
+                    {calculateAge(patient.dateOfBirth)} años
+                  </span>
                 )}
-                {patient.dependents && patient.dependents.length > 0 && (
-                  <div>
-                    <div className="text-xs text-muted-foreground">Familiares a cargo</div>
-                    <ul className="space-y-0.5">
-                      {patient.dependents.map((d) => (
-                        <li key={d.id}>
-                          <Link href={`/patients/${d.id}`} className="hover:underline">
-                            {d.firstName} {d.lastName}
-                          </Link>
-                          {d.holderRelationship && (
-                            <span className="text-xs text-muted-foreground">
-                              {" "}
-                              · {HOLDER_RELATIONSHIP_LABEL[d.holderRelationship]}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="md:col-span-9">
-            <CardHeader>
-              <CardTitle className="text-base">Datos del paciente</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <div className="text-muted-foreground">Fecha de nacimiento</div>
-                <div>{formatDateOnly(patient.dateOfBirth)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Teléfono</div>
-                <div>{patient.phone || "-"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Teléfono 2</div>
-                <div>{patient.phone2 || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Email</div>
-                <div>{patient.email || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Dirección</div>
-                <div>{patient.address || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">C.P.</div>
-                <div>{patient.postalCode || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Ciudad/Población</div>
-                <div>{patient.city || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Provincia</div>
-                <div>{patient.province || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Primera consulta</div>
-                <div>
-                  {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : "—"}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Datos del paciente</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <InfoGroup>
+                  <InfoRow label="Documento">
+                    {documentDisplay !== "-"
+                      ? documentDisplay
+                      : patient.holder?.documentId
+                        ? `${formatDocumentId(patient.holder.documentId)} (del titular)`
+                        : null}
+                  </InfoRow>
+                  <InfoRow label="Nacimiento">
+                    {patient.dateOfBirth ? formatDateOnly(patient.dateOfBirth) : null}
+                  </InfoRow>
+                  <InfoRow label="Género">{patient.gender ? PATIENT_GENDER_LABEL[patient.gender] : null}</InfoRow>
+                  <InfoRow label="Profesión">{patient.profession}</InfoRow>
+                </InfoGroup>
+
+                <InfoGroup>
+                  <InfoRow label="Teléfono">{patient.phone}</InfoRow>
+                  {patient.phone2 && <InfoRow label="Teléfono 2">{patient.phone2}</InfoRow>}
+                  <InfoRow label="Email">
+                    {patient.email && <span className="break-all">{patient.email}</span>}
+                  </InfoRow>
+                  <InfoRow label="Dirección">{patient.address}</InfoRow>
+                  <InfoRow label="C.P.">{patient.postalCode}</InfoRow>
+                  <InfoRow label="Ciudad">{patient.city}</InfoRow>
+                  <InfoRow label="Provincia">{patient.province}</InfoRow>
+                </InfoGroup>
+
+                <InfoGroup>
+                  <InfoRow label="Aseguradora">{insuranceName}</InfoRow>
+                  <InfoRow label="Nº de seguro">{patient.insuranceNumber}</InfoRow>
+                  <InfoRow label="Primera consulta">
+                    {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : null}
+                  </InfoRow>
+                  {(whatsappEnabled || patient.creationSource !== "whatsapp") && (
+                    <InfoRow label="Origen del alta">
+                      {CREATION_SOURCE_LABEL[patient.creationSource ?? "unknown"]}
+                    </InfoRow>
+                  )}
+                  {patient.holder && (
+                    <InfoRow label="A cargo de">
+                      <Link href={`/patients/${patient.holder.id}`} className="text-foreground hover:underline">
+                        {patient.holder.firstName} {patient.holder.lastName}
+                      </Link>
+                      {patient.holderRelationship && (
+                        <span className="block text-xs">
+                          {HOLDER_RELATIONSHIP_LABEL[patient.holderRelationship]}
+                        </span>
+                      )}
+                    </InfoRow>
+                  )}
+                  {patient.dependents && patient.dependents.length > 0 && (
+                    <InfoRow label="Familiares a cargo">
+                      <ul className="space-y-1">
+                        {patient.dependents.map((d) => (
+                          <li key={d.id}>
+                            <Link href={`/patients/${d.id}`} className="text-foreground hover:underline">
+                              {d.firstName} {d.lastName}
+                            </Link>
+                            {d.holderRelationship && (
+                              <span className="block text-xs">{HOLDER_RELATIONSHIP_LABEL[d.holderRelationship]}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </InfoRow>
+                  )}
+                </InfoGroup>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ── Columna derecha ── */}
+        <div className="min-w-0 space-y-4">{children}</div>
+      </div>
     </>
   );
 }

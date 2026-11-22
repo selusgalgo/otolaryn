@@ -13,7 +13,10 @@ import { Tenant } from '../iam/entities/tenant.entity';
 import { User } from '../iam/entities/user.entity';
 import { UpdateAppointmentDefaultsDto } from '../settings/dto/update-appointment-defaults.dto';
 import { UpdateScheduleDto } from '../settings/dto/update-schedule.dto';
-import type { ConsultationTemplate } from '../clinical-entries/consultation-template';
+import {
+  resolveFields,
+  type ConsultationTemplate,
+} from '../clinical-entries/consultation-template';
 import type {
   ClinicProfile,
   ConsultationTemplateSetting,
@@ -210,7 +213,13 @@ export class PlatformService {
     id: string,
   ): Promise<ConsultationTemplateSetting> {
     const tenant = await this.findTenant(id);
-    return { template: tenant.consultationTemplate };
+    return {
+      template: tenant.consultationTemplate,
+      fields: resolveFields(
+        tenant.consultationTemplate,
+        tenant.consultationFields,
+      ),
+    };
   }
 
   // Only changes which fields the clinic's consulta form/view/PDF show —
@@ -220,14 +229,20 @@ export class PlatformService {
   async updateConsultationTemplate(
     id: string,
     template: ConsultationTemplate,
+    fields?: string[],
   ): Promise<ConsultationTemplateSetting> {
     // Same shared tenant lock as the other writes here, so it never runs
     // in the middle of a backup restore of this clinic.
     return withTenantSharedLock(this.dataSource, id, async () => {
       const tenant = await this.findTenant(id);
       tenant.consultationTemplate = template;
+      // Sin lista, la clínica vuelve a usar los campos de su plantilla.
+      tenant.consultationFields = fields ?? null;
       await this.tenants.save(tenant);
-      return { template: tenant.consultationTemplate };
+      return {
+        template: tenant.consultationTemplate,
+        fields: resolveFields(template, tenant.consultationFields),
+      };
     });
   }
 

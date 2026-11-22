@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Query,
   Res,
   StreamableFile,
   UseGuards,
@@ -25,7 +26,10 @@ import { PatientsService } from '../patients/patients.service';
 import { TenancyContext } from '../tenancy/tenancy-context';
 import { TenantContextInterceptor } from '../tenancy/tenant-context.interceptor';
 import type { ClinicProfileData } from './clinic-header.util';
-import { buildPatientRecordPdf } from './patient-record-pdf.util';
+import {
+  buildPatientRecordPdf,
+  parsePatientRecordSections,
+} from './patient-record-pdf.util';
 import { PdfService } from './pdf.service';
 import { buildReportPdf } from './report-pdf.util';
 import { buildTreatmentPdf } from './treatment-pdf.util';
@@ -77,7 +81,11 @@ export class PdfController {
   async patientRecordPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Res({ passthrough: true }) res: Response,
+    // Bloques elegidos en el diálogo de "Imprimir" (lista separada por
+    // comas). Sin él, la ficha completa.
+    @Query('sections') sectionsParam?: string,
   ): Promise<StreamableFile> {
+    const sections = parsePatientRecordSections(sectionsParam);
     // No "own patients" narrowing — same access as ClinicalEntriesController/
     // AntecedentesController already give admin/profesional on this
     // patient's clinical content.
@@ -112,12 +120,14 @@ export class PdfController {
       buildPatientRecordPdf({
         clinic: this.clinicProfile(tenant),
         consultationTemplate: tenant.consultationTemplate,
+        consultationFields: tenant.consultationFields,
         holder: links.holder,
         patient,
         insuranceName,
         personalAntecedentes: resolved.filter((a) => a.category === 'personal'),
         familiarAntecedentes: resolved.filter((a) => a.category === 'familiar'),
         entries,
+        sections,
       }),
     );
 

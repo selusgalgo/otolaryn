@@ -22,6 +22,8 @@ export interface ClinicalEntryColumnMapping extends Partial<Record<ConsultationF
 export interface ClinicalEntriesImportPreview {
   // Plantilla de consulta de la clínica: decide qué campos se pueden mapear.
   template: ConsultationTemplate;
+  // Campos que usa la clínica (los marcados o los de su plantilla).
+  fields?: ConsultationField[];
   headers: string[];
   sampleRows: Record<string, string>[];
   suggestedMapping: ClinicalEntryColumnMapping;

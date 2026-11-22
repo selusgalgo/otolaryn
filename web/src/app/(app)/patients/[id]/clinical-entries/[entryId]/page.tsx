@@ -15,7 +15,7 @@ import {
   getReferringDoctorSuggestions,
   saveClinicalEntryDraftAction,
 } from "@/lib/actions/clinical-entries";
-import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { getClinicConsultationConfig } from "@/lib/clinic-consultation-template";
 import { FIELD_KIND, fieldLabel, visibleFields, type ConsultationField } from "@/lib/consultation-template";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -58,10 +58,10 @@ export default async function ClinicalEntryDetailPage({
   }
 
   const me = await getCurrentUser();
-  const template = await getClinicConsultationTemplate();
+  const { template, fields: enabledFields } = await getClinicConsultationConfig();
   const canEdit = me.role === "admin" || me.role === "profesional";
   const suggestions =
-    canEdit && visibleFields(template, entry).includes("referringDoctor")
+    canEdit && visibleFields(template, entry, enabledFields).includes("referringDoctor")
       ? await getReferringDoctorSuggestions()
       : [];
 
@@ -92,6 +92,7 @@ export default async function ClinicalEntryDetailPage({
         </div>
         <ClinicalEntryForm
           template={template}
+          enabledFields={enabledFields}
           referringDoctorSuggestions={suggestions}
           action={finalizeClinicalEntryDraftAction.bind(null, id, entry.id)}
           initialValues={entry}
@@ -130,6 +131,7 @@ export default async function ClinicalEntryDetailPage({
                 <EditClinicalEntryDialog
                   entry={entry}
                   template={template}
+                  enabledFields={enabledFields}
                   referringDoctorSuggestions={suggestions}
                 />
               )}
@@ -142,7 +144,7 @@ export default async function ClinicalEntryDetailPage({
       {/* Campos según la plantilla de la clínica, en su orden. El primero
           (Motivo / Enfermedad actual) sale siempre; el resto solo si tiene
           texto. Tratamiento e Informe se pueden imprimir. */}
-      {visibleFields(template, entry)
+      {visibleFields(template, entry, enabledFields)
         .filter((field) => field === "chiefComplaint" || !!entry[field])
         .map((field) => {
           const printHref = isDraft ? null : PRINTABLE[field];

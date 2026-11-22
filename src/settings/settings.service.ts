@@ -7,7 +7,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
-import type { ConsultationTemplate } from '../clinical-entries/consultation-template';
+import {
+  resolveFields,
+  type ConsultationField,
+  type ConsultationTemplate,
+} from '../clinical-entries/consultation-template';
 import { ClinicHour } from '../iam/entities/clinic-hour.entity';
 import { Tenant } from '../iam/entities/tenant.entity';
 import { UpdateAppointmentDefaultsDto } from './dto/update-appointment-defaults.dto';
@@ -43,6 +47,8 @@ export interface DeviceLock {
 
 export interface ConsultationTemplateSetting {
   template: ConsultationTemplate;
+  // Campos efectivos de la clínica (los marcados, o los de su plantilla).
+  fields: ConsultationField[];
 }
 
 export interface ClinicProfile {
@@ -240,7 +246,13 @@ export class SettingsService {
     tenantId: string,
   ): Promise<ConsultationTemplateSetting> {
     const tenant = await this.findTenant(tenantId);
-    return { template: tenant.consultationTemplate };
+    return {
+      template: tenant.consultationTemplate,
+      fields: resolveFields(
+        tenant.consultationTemplate,
+        tenant.consultationFields,
+      ),
+    };
   }
 
   async getAppointmentDefaults(tenantId: string): Promise<AppointmentDefaults> {

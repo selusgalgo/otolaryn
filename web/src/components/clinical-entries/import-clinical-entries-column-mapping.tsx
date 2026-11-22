@@ -19,8 +19,9 @@ import {
 // envía"...). Motivo/Enfermedad actual es el único obligatorio.
 function plainFields(
   template: ConsultationTemplate,
+  fields: ConsultationField[],
 ): { field: ConsultationField; label: string; required: boolean }[] {
-  return TEMPLATE_DEFINITIONS[template].fields.map((field) => ({
+  return fields.map((field) => ({
     field,
     label: fieldLabel(template, field),
     required: field === "chiefComplaint",
@@ -95,7 +96,7 @@ export function ImportClinicalEntriesColumnMapping({
         {TEMPLATE_DEFINITIONS[template].name}.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {plainFields(template).map(({ field, label, required }) => {
+        {plainFields(template, preview.fields ?? TEMPLATE_DEFINITIONS[template].fields).map(({ field, label, required }) => {
           const selected = mapping[field] ?? "";
           return (
             <div key={field} className="space-y-1">

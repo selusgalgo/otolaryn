@@ -123,8 +123,14 @@ export class ClinicalEntriesController {
         'Formato no admitido — sube un fichero .csv, .xls o .xlsx',
       );
     }
-    const template = await this.clinicalEntries.getConsultationTemplate();
-    return previewClinicalEntriesFile(file.buffer, file.originalname, template);
+    const { template, fields } =
+      await this.clinicalEntries.getConsultationConfig();
+    return previewClinicalEntriesFile(
+      file.buffer,
+      file.originalname,
+      template,
+      fields,
+    );
   }
 
   // Paso 2: una vez confirmado el mapeo (y por tanto qué columna es
@@ -197,12 +203,14 @@ export class ClinicalEntriesController {
 
     // Solo los campos de la plantilla de la clínica pasan a las filas — un
     // campo de otra plantilla se ignora aunque venga mapeado.
-    const template = await this.clinicalEntries.getConsultationTemplate();
+    const { template, fields } =
+      await this.clinicalEntries.getConsultationConfig();
     const { rows, missingColumns } = parseClinicalEntriesFile(
       file.buffer,
       file.originalname,
       mapping,
       template,
+      fields,
     );
     if (missingColumns.length > 0) {
       throw new BadRequestException(

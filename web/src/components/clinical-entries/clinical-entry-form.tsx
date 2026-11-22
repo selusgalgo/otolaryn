@@ -34,6 +34,8 @@ interface ClinicalEntryFormProps {
   // Plantilla de consulta de la clínica (GET /settings/consultation-template):
   // qué campos se pintan y cómo se llaman. Sin ella, la de siempre (ORL).
   template?: ConsultationTemplate;
+  // Campos marcados para la clínica; sin ellos, los de la plantilla.
+  enabledFields?: ConsultationField[];
   // Nombres ya usados en "Doctor que lo envía", para sugerirlos al escribir.
   referringDoctorSuggestions?: string[];
   action: (prevState: ClinicalEntryFormState, formData: FormData) => Promise<ClinicalEntryFormState>;
@@ -149,6 +151,7 @@ function toDateTimeInputValue(d: Date): string {
 
 export function ClinicalEntryForm({
   template = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields,
   referringDoctorSuggestions = [],
   action,
   initialValues,
@@ -433,7 +436,7 @@ export function ClinicalEntryForm({
   // datos (ver visibleFields) — calculado sobre los valores iniciales, no
   // los actuales, para que un campo no desaparezca al vaciarlo mientras se
   // escribe.
-  const fields = visibleFields(template, initialValues);
+  const fields = visibleFields(template, initialValues, enabledFields);
 
   return (
     <form onSubmit={handleSubmit} className="grid max-w-2xl gap-4">

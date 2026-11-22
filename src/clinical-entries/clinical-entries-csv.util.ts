@@ -44,8 +44,9 @@ const ALIASES: Partial<Record<ConsultationField, string[]>> = {
 
 export function importableFields(
   template: ConsultationTemplate,
+  fields?: ConsultationField[],
 ): ConsultationField[] {
-  return TEMPLATE_DEFINITIONS[template].fields;
+  return fields ?? TEMPLATE_DEFINITIONS[template].fields;
 }
 
 function candidateHeaders(
@@ -99,11 +100,12 @@ export interface ClinicalEntryFieldMapping extends ClinicalEntryTextFields {
 export function suggestClinicalEntryMapping(
   headers: string[],
   template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ClinicalEntryFieldMapping {
   const byNormalized = new Map(headers.map((h) => [normalizeHeader(h), h]));
   const mapping: ClinicalEntryFieldMapping = {};
   const used = new Set<string>();
-  for (const field of importableFields(template)) {
+  for (const field of importableFields(template, enabledFields)) {
     for (const candidate of candidateHeaders(template, field)) {
       const actual = byNormalized.get(normalizeHeader(candidate));
       // Una misma columna nunca se sugiere para dos campos.
@@ -143,6 +145,9 @@ export interface ClinicalEntriesImportPreview {
   // La plantilla de la clínica: el asistente pinta un selector por cada
   // campo de esa plantilla, con sus etiquetas.
   template: ConsultationTemplate;
+  // Campos que usa la clínica (los marcados por superadmin o los de su
+  // plantilla): el asistente pinta un selector por cada uno.
+  fields: ConsultationField[];
   headers: string[];
   sampleRows: Record<string, string>[];
   suggestedMapping: ClinicalEntryFieldMapping;
@@ -152,6 +157,7 @@ export function previewClinicalEntriesFile(
   buffer: Buffer,
   filename: string,
   template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ClinicalEntriesImportPreview {
   const { headers, rows } = readSheet(buffer, filename);
   const sampleRows = rows.slice(0, PREVIEW_ROW_COUNT).map((row) => {
@@ -161,9 +167,14 @@ export function previewClinicalEntriesFile(
   });
   return {
     template,
+    fields: importableFields(template, enabledFields),
     headers,
     sampleRows,
-    suggestedMapping: suggestClinicalEntryMapping(headers, template),
+    suggestedMapping: suggestClinicalEntryMapping(
+      headers,
+      template,
+      enabledFields,
+    ),
   };
 }
 
@@ -210,11 +221,12 @@ export function parseClinicalEntriesFile(
   filename: string,
   mapping?: ClinicalEntryFieldMapping,
   template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ParseClinicalEntriesResult {
   const { headers, rows } = readSheet(buffer, filename);
   const effectiveMapping =
-    mapping ?? suggestClinicalEntryMapping(headers, template);
-  const fields = importableFields(template);
+    mapping ?? suggestClinicalEntryMapping(headers, template, enabledFields);
+  const fields = importableFields(template, enabledFields);
 
   const missingColumns: string[] = [];
   for (const field of REQUIRED_FIELDS) {

@@ -18,7 +18,6 @@ export const DEFAULT_ANTECEDENTE_TYPE_NAMES = [
   'Glaucoma',
   'Gastralgias',
   'Alergias ambientales',
-  'Alergias medicamentosas',
   'Cirugías',
   'Tumores',
   'Sordera',

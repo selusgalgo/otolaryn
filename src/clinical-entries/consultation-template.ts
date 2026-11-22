@@ -71,7 +71,18 @@ export const TEMPLATE_DEFINITIONS: Record<
   },
 };
 
-const ALL_FIELDS = Object.keys(DEFAULT_LABELS) as ConsultationField[];
+export const ALL_FIELDS = Object.keys(DEFAULT_LABELS) as ConsultationField[];
+
+// Campos que usa una clínica: los que superadmin marcó para ella
+// (Tenant.consultationFields) o, si no marcó ninguno (NULL), los de su
+// plantilla. chiefComplaint es obligatorio en toda consulta y siempre está.
+export function resolveFields(
+  template: ConsultationTemplate,
+  custom?: readonly string[] | null,
+): ConsultationField[] {
+  if (!custom) return TEMPLATE_DEFINITIONS[template].fields;
+  return ALL_FIELDS.filter((f) => f === 'chiefComplaint' || custom.includes(f));
+}
 
 export function fieldLabel(
   template: ConsultationTemplate,
@@ -89,8 +100,9 @@ export function fieldLabel(
 export function visibleFields(
   template: ConsultationTemplate,
   entry: Partial<Record<ConsultationField, string | null>>,
+  custom?: readonly string[] | null,
 ): ConsultationField[] {
-  const fields = TEMPLATE_DEFINITIONS[template].fields;
+  const fields = resolveFields(template, custom);
   const extra = ALL_FIELDS.filter(
     (field) => !fields.includes(field) && !!entry[field],
   );

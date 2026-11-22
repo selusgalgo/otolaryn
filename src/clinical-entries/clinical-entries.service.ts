@@ -25,8 +25,10 @@ import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
 import { draftCutoff, withDraftExpiry } from './clinical-entry-draft.util';
 import {
   CONSULTATION_TEMPLATES,
+  type ConsultationField,
   type ConsultationTemplate,
   DEFAULT_CONSULTATION_TEMPLATE,
+  resolveFields,
 } from './consultation-template';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { UpdateClinicalEntryDto } from './dto/update-clinical-entry.dto';
@@ -72,6 +74,22 @@ export class ClinicalEntriesService {
     return template && CONSULTATION_TEMPLATES.includes(template)
       ? template
       : DEFAULT_CONSULTATION_TEMPLATE;
+  }
+
+  // Plantilla + campos efectivos de la clínica (los marcados por superadmin
+  // o, sin marcar, los de la plantilla).
+  async getConsultationConfig(): Promise<{
+    template: ConsultationTemplate;
+    fields: ConsultationField[];
+  }> {
+    const template = await this.getConsultationTemplate();
+    const tenant = await this.tenants.findOne({
+      where: { id: this.tenancyContext.tenantId },
+    });
+    return {
+      template,
+      fields: resolveFields(template, tenant?.consultationFields),
+    };
   }
 
   private get repo() {

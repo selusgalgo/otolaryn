@@ -93,6 +93,14 @@ export class Patient {
   @Column({ name: 'holder_relationship', type: 'text', nullable: true })
   holderRelationship: HolderRelationship | null;
 
+  // Alergias medicamentosas y medicación actual: campos propios (no
+  // antecedentes) para que se vean de un vistazo en la ficha.
+  @Column({ name: 'drug_allergies', type: 'text', nullable: true })
+  drugAllergies: string | null;
+
+  @Column({ name: 'current_medications', type: 'text', nullable: true })
+  currentMedications: string | null;
+
   // PROFESION from the legacy app.
   @Column({ type: 'text', nullable: true })
   profession: string | null;
