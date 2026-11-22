@@ -5,14 +5,18 @@ import { getDeviceToken, getSessionToken } from "@/lib/session";
 // the binary straight back" shape as /patients/export's Route Handler —
 // apiFetch's JSON-only contract can't express a PDF download.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await params;
   const token = await getSessionToken();
   const deviceToken = await getDeviceToken();
 
-  const upstream = await fetch(`${API_URL}/patients/${id}/pdf`, {
+  // Bloques elegidos en el diálogo de "Imprimir" (?sections=datos,consultas...);
+  // la API ignora los desconocidos y sin ninguno imprime la ficha completa.
+  const sections = new URL(request.url).searchParams.get("sections");
+  const query = sections ? `?sections=${encodeURIComponent(sections)}` : "";
+  const upstream = await fetch(`${API_URL}/patients/${id}/pdf${query}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza

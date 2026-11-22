@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ClinicalEntryForm } from "@/components/clinical-entries/clinical-entry-form";
 import { updateClinicalEntryAction } from "@/lib/actions/clinical-entries";
-import type { ConsultationTemplate } from "@/lib/consultation-template";
+import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
 import type { ClinicalEntry } from "@/lib/types";
 
 // admin y profesional (el backend ya 403 a recepcion — ver
@@ -15,10 +15,12 @@ import type { ClinicalEntry } from "@/lib/types";
 export function EditClinicalEntryDialog({
   entry,
   template,
+  enabledFields,
   referringDoctorSuggestions,
 }: {
   entry: ClinicalEntry;
   template?: ConsultationTemplate;
+  enabledFields?: ConsultationField[];
   referringDoctorSuggestions?: string[];
 }) {
   const [open, setOpen] = useState(false);
@@ -38,6 +40,7 @@ export function EditClinicalEntryDialog({
         </DialogHeader>
         <ClinicalEntryForm
           template={template}
+          enabledFields={enabledFields}
           referringDoctorSuggestions={referringDoctorSuggestions}
           action={boundAction}
           initialValues={entry}

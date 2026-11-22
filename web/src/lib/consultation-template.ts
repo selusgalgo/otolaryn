@@ -71,8 +71,11 @@ export function fieldLabel(template: ConsultationTemplate, field: ConsultationFi
 export function visibleFields(
   template: ConsultationTemplate,
   entry?: Partial<Record<ConsultationField, string | null>>,
+  // Campos marcados para la clínica (GET /settings/consultation-template);
+  // sin ellos, los de la plantilla.
+  enabledFields?: ConsultationField[],
 ): ConsultationField[] {
-  const fields = TEMPLATE_DEFINITIONS[template].fields;
+  const fields = enabledFields ?? TEMPLATE_DEFINITIONS[template].fields;
   if (!entry) return fields;
   const extra = ALL_CONSULTATION_FIELDS.filter((field) => !fields.includes(field) && !!entry[field]);
   return [...fields, ...extra];

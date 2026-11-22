@@ -7,7 +7,7 @@ import {
   getReferringDoctorSuggestions,
   saveClinicalEntryDraftAction,
 } from "@/lib/actions/clinical-entries";
-import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { getClinicConsultationConfig } from "@/lib/clinic-consultation-template";
 import { visibleFields } from "@/lib/consultation-template";
 import type { Patient } from "@/lib/types";
 
@@ -25,8 +25,8 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
   }
 
   const boundAction = createClinicalEntryAction.bind(null, id);
-  const template = await getClinicConsultationTemplate();
-  const suggestions = visibleFields(template).includes("referringDoctor")
+  const { template, fields: enabledFields } = await getClinicConsultationConfig();
+  const suggestions = visibleFields(template, undefined, enabledFields).includes("referringDoctor")
     ? await getReferringDoctorSuggestions()
     : [];
 
@@ -44,6 +44,7 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
           consulta (finalize); sin borrador previo se crea directamente. */}
       <ClinicalEntryForm
         template={template}
+        enabledFields={enabledFields}
         referringDoctorSuggestions={suggestions}
         action={boundAction}
         draftKey={`clinical-entry-draft:new:${id}`}

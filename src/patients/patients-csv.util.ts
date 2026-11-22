@@ -39,6 +39,8 @@ const COLUMNS: { field: keyof CreatePatientDto; label: string }[] = [
   { field: 'postalCode', label: 'C.P.' },
   { field: 'notes', label: 'Notas' },
   { field: 'profession', label: 'Profesión' },
+  { field: 'drugAllergies', label: 'Alergias medicamentosas' },
+  { field: 'currentMedications', label: 'Medicación actual' },
   { field: 'insuranceNumber', label: 'Nº de seguro privado' },
   { field: 'legacyId', label: 'Nº de historia' },
   { field: 'firstConsultationOverride', label: 'Primera consulta' },
@@ -221,6 +223,26 @@ function applyHeaderAliases(
   // A legacy file's own second-phone column is usually called MOVIL.
   alias('phone2', ['movil', 'telefono movil', 'telefono 2']);
   alias('gender', ['sexo', 'genero']);
+  // Campos propios del paciente desde PatientAllergiesMedications1738600000000
+  // (antes "Alergias medicamentosas" era un antecedente): un fichero legado
+  // trae la columna con nombres variados.
+  alias('drugAllergies', [
+    'alergias',
+    'alergia',
+    'alergias a medicamentos',
+    'alergia a medicamentos',
+    'alergia medicamentosa',
+    'alergias farmacos',
+    'alergia farmacos',
+  ]);
+  alias('currentMedications', [
+    'medicacion',
+    'medicamentos',
+    'medicacion habitual',
+    'tratamiento habitual',
+    'tratamiento actual',
+    'farmacos',
+  ]);
   alias('insuranceNumber', [
     'poliza',
     'n poliza',
@@ -634,6 +656,8 @@ export const UPDATE_PATIENT_FIELDS = [
   'province',
   'postalCode',
   'profession',
+  'drugAllergies',
+  'currentMedications',
   'insuranceNumber',
 ] as const satisfies readonly (keyof CreatePatientDto)[];
 export type UpdatePatientField = (typeof UPDATE_PATIENT_FIELDS)[number];

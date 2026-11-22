@@ -5,14 +5,28 @@ import type {
   ClinicalEntriesImportPreview,
   ClinicalEntryColumnMapping,
 } from "@/lib/actions/clinical-entries-import";
+import {
+  CONSULTATION_TEMPLATES,
+  DEFAULT_CONSULTATION_TEMPLATE,
+  TEMPLATE_DEFINITIONS,
+  fieldLabel,
+  type ConsultationField,
+  type ConsultationTemplate,
+} from "@/lib/consultation-template";
 
-type PlainField = "chiefComplaint" | "examinationFindings" | "treatment";
-
-const PLAIN_FIELDS: { field: PlainField; label: string; required: boolean }[] = [
-  { field: "chiefComplaint", label: "Motivo", required: true },
-  { field: "examinationFindings", label: "Exploración", required: false },
-  { field: "treatment", label: "Tratamiento", required: false },
-];
+// Un selector por cada campo de la plantilla de la clínica, con su
+// etiqueta (en Cirugía "Enfermedad actual", "Informe", "Doctor que lo
+// envía"...). Motivo/Enfermedad actual es el único obligatorio.
+function plainFields(
+  template: ConsultationTemplate,
+  fields: ConsultationField[],
+): { field: ConsultationField; label: string; required: boolean }[] {
+  return fields.map((field) => ({
+    field,
+    label: fieldLabel(template, field),
+    required: field === "chiefComplaint",
+  }));
+}
 
 // One special select per field that isn't a straight column->field copy —
 // visitDate/patientLegacyId/insuranceEntityName/doctorName all need
@@ -40,7 +54,7 @@ const SPECIAL_FIELDS: {
   { field: "patientFirstName", label: "Nombre del paciente (comprobación)" },
   { field: "patientLastName", label: "Apellidos del paciente (comprobación)" },
   { field: "insuranceEntityName", label: "Aseguradora" },
-  { field: "doctorName", label: "Doctor" },
+  { field: "doctorName", label: "Doctor (quien atendió la consulta)" },
 ];
 
 function sampleFor(
@@ -71,11 +85,18 @@ export function ImportClinicalEntriesColumnMapping({
   onChange,
   disabled,
 }: ImportClinicalEntriesColumnMappingProps) {
+  const template = (CONSULTATION_TEMPLATES as readonly string[]).includes(preview.template)
+    ? preview.template
+    : DEFAULT_CONSULTATION_TEMPLATE;
   return (
     <div className="space-y-3 rounded-lg border p-3">
       <p className="text-sm font-medium">Relaciona cada columna del fichero con su campo</p>
+      <p className="text-xs text-muted-foreground">
+        Campos de la plantilla de consulta de la clínica:{" "}
+        {TEMPLATE_DEFINITIONS[template].name}.
+      </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {PLAIN_FIELDS.map(({ field, label, required }) => {
+        {plainFields(template, preview.fields ?? TEMPLATE_DEFINITIONS[template].fields).map(({ field, label, required }) => {
           const selected = mapping[field] ?? "";
           return (
             <div key={field} className="space-y-1">

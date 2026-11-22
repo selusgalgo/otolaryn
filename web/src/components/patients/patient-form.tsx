@@ -129,6 +129,24 @@ export function PatientForm({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="drugAllergies">Alergias medicamentosas</Label>
+            <Input
+              id="drugAllergies"
+              name="drugAllergies"
+              defaultValue={initialValues?.drugAllergies ?? ""}
+              disabled={pending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="currentMedications">Medicación actual</Label>
+            <Input
+              id="currentMedications"
+              name="currentMedications"
+              defaultValue={initialValues?.currentMedications ?? ""}
+              disabled={pending}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="insuranceEntityId">Aseguradora</Label>
             <select
               id="insuranceEntityId"

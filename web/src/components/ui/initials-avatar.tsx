@@ -4,6 +4,7 @@ const SIZE_CLASSES = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
   lg: "h-14 w-14 text-lg",
+  xl: "h-24 w-24 text-3xl",
 };
 
 // Pacientes (y cualquier persona que no sea médico) en azul de marca; los

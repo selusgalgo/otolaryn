@@ -31,6 +31,16 @@ export class Tenant {
   @Column({ name: 'consultation_template', type: 'text', default: 'orl' })
   consultationTemplate: ConsultationTemplate;
 
+  // Campos marcados por superadmin para esta clínica; NULL = los de su
+  // plantilla (ver resolveFields en consultation-template.ts).
+  @Column({
+    name: 'consultation_fields',
+    type: 'text',
+    array: true,
+    nullable: true,
+  })
+  consultationFields: string[] | null;
+
   // Clinic identity shown on exported PDFs (ficha de paciente, tratamiento)
   // — see PdfController/patient-record-pdf.util.ts. All optional: a clinic
   // that hasn't configured these yet still gets a PDF, just without a logo

@@ -1,4 +1,11 @@
 import {
+  type ConsultationField,
+  type ConsultationTemplate,
+  DEFAULT_CONSULTATION_TEMPLATE,
+  fieldLabel,
+  TEMPLATE_DEFINITIONS,
+} from './consultation-template';
+import {
   cellToDate,
   cellToText,
   isSupportedImportFile,
@@ -8,21 +15,50 @@ import {
 
 export { isSupportedImportFile };
 
-// Same shape of problem as patients-csv.util.ts's COLUMNS, scaled down:
-// three fields that copy straight across. visitDate/patientLegacyId/
-// insuranceEntityName/doctorName all need their own handling in
-// bulkImport (a date to parse, a NUMHISTORIA to resolve to a patient, a
-// name to resolve to an insurance_entity_id, a free-text doctor name to
-// resolve to a user id) instead of a plain column->field copy, so they're
-// modeled separately below rather than in this list.
-const COLUMNS: {
-  field: 'chiefComplaint' | 'examinationFindings' | 'treatment';
-  label: string;
-}[] = [
-  { field: 'chiefComplaint', label: 'Motivo' },
-  { field: 'examinationFindings', label: 'Exploración' },
-  { field: 'treatment', label: 'Tratamiento' },
-];
+// Campos de texto de la consulta que se copian tal cual de una columna.
+// Cuáles se ofrecen depende de la plantilla de la clínica
+// (consultation-template.ts): una clínica de Cirugía importa Enfermedad
+// actual/Evolución/Diagnóstico/Informe/Doctor que lo envía, una de ORL
+// Motivo/Exploración/Diagnóstico/Tratamiento/Notas de seguimiento. Un campo
+// que la plantilla no usa ni se sugiere ni se importa aunque venga mapeado.
+//
+// visitDate/patientLegacyId/insuranceEntityName/doctorName need their own
+// handling in bulkImport (a date to parse, a NUMHISTORIA to resolve to a
+// patient, a name to resolve to an insurance_entity_id, a free-text doctor
+// name to resolve to a user id) instead of a plain column->field copy, so
+// they're modeled separately below.
+//
+// ALIASES: cabeceras alternativas que también se reconocen al sugerir el
+// mapeo, además de la etiqueta de la plantilla y la etiqueta por defecto
+// (p. ej. "Motivo" a secas, o "Enfermedad actual" en un fichero de ORL).
+const ALIASES: Partial<Record<ConsultationField, string[]>> = {
+  chiefComplaint: ['Motivo', 'Motivo de consulta', 'Enfermedad actual'],
+  followUpNotes: ['Seguimiento'],
+  referringDoctor: [
+    'Médico que lo envía',
+    'Remitente',
+    'Derivado por',
+    'Médico remitente',
+  ],
+};
+
+export function importableFields(
+  template: ConsultationTemplate,
+  fields?: ConsultationField[],
+): ConsultationField[] {
+  return fields ?? TEMPLATE_DEFINITIONS[template].fields;
+}
+
+function candidateHeaders(
+  template: ConsultationTemplate,
+  field: ConsultationField,
+): string[] {
+  return [
+    fieldLabel(template, field),
+    fieldLabel(DEFAULT_CONSULTATION_TEMPLATE, field),
+    ...(ALIASES[field] ?? []),
+  ];
+}
 
 const VISIT_DATE_LABEL = 'Fecha';
 const PATIENT_LEGACY_ID_LABEL = 'Nº de historia';
@@ -36,17 +72,18 @@ const PATIENT_LAST_NAME_LABEL = 'Apellidos';
 const INSURANCE_NAME_LABEL = 'Aseguradora';
 const DOCTOR_NAME_LABEL = 'Doctor';
 
-// Motivo is the one thing a consulta can't be imported without — the rest
-// (paciente/médico/aseguradora resolution) is validated row by row in
-// ClinicalEntriesService.bulkImport instead, since those failures depend
-// on data outside this file (does that legacy_id/doctor mapping exist),
-// not on the file's own shape.
-const REQUIRED_FIELDS: (typeof COLUMNS)[number]['field'][] = ['chiefComplaint'];
+// Motivo/Enfermedad actual is the one thing a consulta can't be imported
+// without — the rest (paciente/médico/aseguradora resolution) is validated
+// row by row in ClinicalEntriesService.bulkImport instead, since those
+// failures depend on data outside this file (does that legacy_id/doctor
+// mapping exist), not on the file's own shape.
+const REQUIRED_FIELDS: ConsultationField[] = ['chiefComplaint'];
 
-export interface ClinicalEntryFieldMapping {
-  chiefComplaint?: string;
-  examinationFindings?: string;
-  treatment?: string;
+export type ClinicalEntryTextFields = Partial<
+  Record<ConsultationField, string>
+>;
+
+export interface ClinicalEntryFieldMapping extends ClinicalEntryTextFields {
   visitDate?: string;
   patientLegacyId?: string;
   patientFirstName?: string;
@@ -62,12 +99,22 @@ export interface ClinicalEntryFieldMapping {
 // someone confirm those by hand).
 export function suggestClinicalEntryMapping(
   headers: string[],
+  template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ClinicalEntryFieldMapping {
   const byNormalized = new Map(headers.map((h) => [normalizeHeader(h), h]));
   const mapping: ClinicalEntryFieldMapping = {};
-  for (const { field, label } of COLUMNS) {
-    const actual = byNormalized.get(normalizeHeader(label));
-    if (actual) mapping[field] = actual;
+  const used = new Set<string>();
+  for (const field of importableFields(template, enabledFields)) {
+    for (const candidate of candidateHeaders(template, field)) {
+      const actual = byNormalized.get(normalizeHeader(candidate));
+      // Una misma columna nunca se sugiere para dos campos.
+      if (actual && !used.has(actual)) {
+        mapping[field] = actual;
+        used.add(actual);
+        break;
+      }
+    }
   }
   const visitDateHeader = byNormalized.get(normalizeHeader(VISIT_DATE_LABEL));
   if (visitDateHeader) mapping.visitDate = visitDateHeader;
@@ -95,6 +142,12 @@ export function suggestClinicalEntryMapping(
 const PREVIEW_ROW_COUNT = 5;
 
 export interface ClinicalEntriesImportPreview {
+  // La plantilla de la clínica: el asistente pinta un selector por cada
+  // campo de esa plantilla, con sus etiquetas.
+  template: ConsultationTemplate;
+  // Campos que usa la clínica (los marcados por superadmin o los de su
+  // plantilla): el asistente pinta un selector por cada uno.
+  fields: ConsultationField[];
   headers: string[];
   sampleRows: Record<string, string>[];
   suggestedMapping: ClinicalEntryFieldMapping;
@@ -103,6 +156,8 @@ export interface ClinicalEntriesImportPreview {
 export function previewClinicalEntriesFile(
   buffer: Buffer,
   filename: string,
+  template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ClinicalEntriesImportPreview {
   const { headers, rows } = readSheet(buffer, filename);
   const sampleRows = rows.slice(0, PREVIEW_ROW_COUNT).map((row) => {
@@ -111,9 +166,15 @@ export function previewClinicalEntriesFile(
     return display;
   });
   return {
+    template,
+    fields: importableFields(template, enabledFields),
     headers,
     sampleRows,
-    suggestedMapping: suggestClinicalEntryMapping(headers),
+    suggestedMapping: suggestClinicalEntryMapping(
+      headers,
+      template,
+      enabledFields,
+    ),
   };
 }
 
@@ -136,10 +197,7 @@ export function distinctDoctorNames(
   return [...seen].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
-export interface ClinicalEntryImportRow {
-  chiefComplaint?: string;
-  examinationFindings?: string;
-  treatment?: string;
+export interface ClinicalEntryImportRow extends ClinicalEntryTextFields {
   visitDate?: string;
   patientLegacyId?: string;
   // The row's own patient name, kept purely as a sanity check against the
@@ -162,14 +220,18 @@ export function parseClinicalEntriesFile(
   buffer: Buffer,
   filename: string,
   mapping?: ClinicalEntryFieldMapping,
+  template: ConsultationTemplate = DEFAULT_CONSULTATION_TEMPLATE,
+  enabledFields?: ConsultationField[],
 ): ParseClinicalEntriesResult {
   const { headers, rows } = readSheet(buffer, filename);
-  const effectiveMapping = mapping ?? suggestClinicalEntryMapping(headers);
+  const effectiveMapping =
+    mapping ?? suggestClinicalEntryMapping(headers, template, enabledFields);
+  const fields = importableFields(template, enabledFields);
 
   const missingColumns: string[] = [];
-  for (const { field, label } of COLUMNS) {
-    if (REQUIRED_FIELDS.includes(field) && !effectiveMapping[field]) {
-      missingColumns.push(label);
+  for (const field of REQUIRED_FIELDS) {
+    if (!effectiveMapping[field]) {
+      missingColumns.push(fieldLabel(template, field));
     }
   }
   if (missingColumns.length > 0) {
@@ -178,7 +240,7 @@ export function parseClinicalEntriesFile(
 
   const mappedRows = rows.map((sourceRow) => {
     const row: ClinicalEntryImportRow = {};
-    for (const { field } of COLUMNS) {
+    for (const field of fields) {
       const header = effectiveMapping[field];
       if (!header) continue;
       const text = cellToText(sourceRow[header]);

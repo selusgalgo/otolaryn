@@ -162,17 +162,20 @@ export function PatientAntecedentesCard({
         ) : markedTypes.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin antecedentes marcados.</p>
         ) : (
-          <ul className="space-y-1.5">
-            {markedTypes.map((type) => {
+          // En línea y separados por comas: "Tabaco: 4-5 cigarrillos/día,
+          // Alcohol, HTA". El detalle va justo después del antecedente.
+          <p className="text-sm">
+            {markedTypes.map((type, i) => {
               const row = rows.get(type.id)!;
               return (
-                <li key={type.id} className="text-sm">
+                <span key={type.id}>
                   <span className="font-medium">{type.name}</span>
-                  {row.detalle && <span className="text-muted-foreground"> — {row.detalle}</span>}
-                </li>
+                  {row.detalle && <span className="text-muted-foreground">: {row.detalle}</span>}
+                  {i < markedTypes.length - 1 && ", "}
+                </span>
               );
             })}
-          </ul>
+          </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {saved && !error && <p className="text-sm text-success">Antecedentes guardados.</p>}

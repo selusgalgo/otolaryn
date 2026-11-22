@@ -60,6 +60,15 @@ function patientPayloadFromFormData(formData: FormData) {
     // Titular/parentesco solo si el formulario los pinta (la ficha): el
     // formulario de alta no los tiene, y mandar null ahí no debe borrar un
     // vínculo existente.
+    // Alergias/medicación solo si el formulario los pinta (el alta): la
+    // ficha los edita en sus propios bloques y guardar los datos del
+    // paciente no debe borrarlos.
+    ...(formData.has("drugAllergies")
+      ? {
+          drugAllergies: String(formData.get("drugAllergies") ?? "").trim() || null,
+          currentMedications: String(formData.get("currentMedications") ?? "").trim() || null,
+        }
+      : {}),
     ...(formData.has("holderPatientId")
       ? {
           holderPatientId: String(formData.get("holderPatientId") ?? "").trim() || null,
@@ -111,6 +120,35 @@ export async function updatePatientAction(
   }
 
   revalidatePath("/patients");
+  revalidatePath(`/patients/${id}`);
+  return { success: true };
+}
+
+export type PatientTextField = "drugAllergies" | "currentMedications";
+
+// Guarda un solo campo de texto libre de la ficha (alergias medicamentosas,
+// medicación actual) sin tocar el resto, como updatePatientNotesAction.
+export async function updatePatientTextFieldAction(
+  id: string,
+  field: PatientTextField,
+  _prevState: PatientFormState,
+  formData: FormData,
+): Promise<PatientFormState> {
+  if (field !== "drugAllergies" && field !== "currentMedications") {
+    return { error: "Campo no válido." };
+  }
+  const value = String(formData.get("value") ?? "").trim();
+  try {
+    await apiFetch<Patient>(`/patients/${id}`, {
+      method: "PATCH",
+      body: { [field]: value || null },
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { error: err.message };
+    }
+    return { error: "No se pudo guardar." };
+  }
   revalidatePath(`/patients/${id}`);
   return { success: true };
 }
@@ -234,6 +272,8 @@ export type ColumnMapping = Partial<
     | "postalCode"
     | "notes"
     | "profession"
+    | "drugAllergies"
+    | "currentMedications"
     | "insuranceNumber"
     | "legacyId"
     | "firstConsultationOverride",
@@ -350,6 +390,8 @@ export type UpdateColumnMapping = Partial<
     | "province"
     | "postalCode"
     | "profession"
+    | "drugAllergies"
+    | "currentMedications"
     | "insuranceNumber",
     string
   >

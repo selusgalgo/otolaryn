@@ -3,12 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Brackets, QueryFailedError } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Brackets, QueryFailedError, Repository } from 'typeorm';
 import type {
   ImportJobProgress,
   RowOutcome,
 } from '../import-jobs/import-jobs.service';
 import { ImportJobsService } from '../import-jobs/import-jobs.service';
+import { Tenant } from '../iam/entities/tenant.entity';
 import { type Honorific, User } from '../iam/entities/user.entity';
 import { InsuranceService } from '../insurance/insurance.service';
 import { Patient } from '../patients/entities/patient.entity';
@@ -21,6 +23,13 @@ import {
 import { TenancyContext } from '../tenancy/tenancy-context';
 import type { ClinicalEntryImportRow } from './clinical-entries-csv.util';
 import { draftCutoff, withDraftExpiry } from './clinical-entry-draft.util';
+import {
+  CONSULTATION_TEMPLATES,
+  type ConsultationField,
+  type ConsultationTemplate,
+  DEFAULT_CONSULTATION_TEMPLATE,
+  resolveFields,
+} from './consultation-template';
 import { CreateClinicalEntryDto } from './dto/create-clinical-entry.dto';
 import { UpdateClinicalEntryDto } from './dto/update-clinical-entry.dto';
 import { ClinicalEntry } from './entities/clinical-entry.entity';
@@ -50,7 +59,38 @@ export class ClinicalEntriesService {
     private readonly patients: PatientsService,
     private readonly insurance: InsuranceService,
     private readonly importJobs: ImportJobsService,
+    // iam.tenants carries no RLS (same as PdfController) — a direct repo,
+    // always filtered by this request's tenant explicitly.
+    @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
   ) {}
+
+  // Plantilla de consulta de la clínica de esta petición — el importador
+  // de Consultas solo ofrece/importa los campos que esa plantilla usa.
+  async getConsultationTemplate(): Promise<ConsultationTemplate> {
+    const tenant = await this.tenants.findOne({
+      where: { id: this.tenancyContext.tenantId },
+    });
+    const template = tenant?.consultationTemplate;
+    return template && CONSULTATION_TEMPLATES.includes(template)
+      ? template
+      : DEFAULT_CONSULTATION_TEMPLATE;
+  }
+
+  // Plantilla + campos efectivos de la clínica (los marcados por superadmin
+  // o, sin marcar, los de la plantilla).
+  async getConsultationConfig(): Promise<{
+    template: ConsultationTemplate;
+    fields: ConsultationField[];
+  }> {
+    const template = await this.getConsultationTemplate();
+    const tenant = await this.tenants.findOne({
+      where: { id: this.tenancyContext.tenantId },
+    });
+    return {
+      template,
+      fields: resolveFields(template, tenant?.consultationFields),
+    };
+  }
 
   private get repo() {
     // No explicit WHERE tenant_id here on purpose: RLS is what must filter
@@ -251,20 +291,27 @@ export class ClinicalEntriesService {
     // though nothing is wrong with them.
     await this.repo.query('SAVEPOINT row_import');
     try {
-      // consultas.xls cells are plain text, not the HTML the Motivo/
-      // Exploración/Tratamiento editors produce — converted here
-      // (newlines -> <br>) same as the Pacientes importer's own Notas.
+      // consultas.xls cells are plain text, not the HTML the rich-text
+      // editors (Motivo/Exploración/Tratamiento/Evolución/Informe) produce
+      // — converted here (newlines -> <br>) same as the Pacientes
+      // importer's own Notas. Diagnóstico/Notas de seguimiento son texto
+      // plano de varias líneas y Doctor que lo envía una sola línea: se
+      // guardan tal cual. Qué campos trae la fila ya lo decidió la
+      // plantilla de la clínica al leer el fichero (parseClinicalEntriesFile).
+      const rich = (text?: string) => (text ? plainTextToRichText(text) : null);
       const entry = this.repo.create({
         tenantId: this.tenancyContext.tenantId,
         patientId: patient.id,
         authorUserId,
         chiefComplaint: plainTextToRichText(row.chiefComplaint),
-        examinationFindings: row.examinationFindings
-          ? plainTextToRichText(row.examinationFindings)
-          : null,
-        diagnosis: null,
-        treatment: row.treatment ? plainTextToRichText(row.treatment) : null,
-        followUpNotes: null,
+        examinationFindings: rich(row.examinationFindings),
+        diagnosis: row.diagnosis?.trim() || null,
+        treatment: rich(row.treatment),
+        followUpNotes: row.followUpNotes?.trim() || null,
+        evolution: rich(row.evolution),
+        report: rich(row.report),
+        referringDoctor:
+          row.referringDoctor?.replace(/\s+/g, ' ').trim() || null,
         visitDate: row.visitDate ? toVisitDate(row.visitDate) : new Date(),
         insuranceEntityId: insuranceEntityId ?? null,
         legacyId: String(rowNumber),

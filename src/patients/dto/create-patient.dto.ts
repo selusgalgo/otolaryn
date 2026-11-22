@@ -104,6 +104,20 @@ export class CreatePatientDto {
   @MaxLength(20000)
   notes?: string;
 
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  // 5000: texto libre que también llega del importador desde ficheros
+  // legados, donde estos campos a veces arrastran bastante historia.
+  @MaxLength(5000)
+  drugAllergies?: string;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(5000)
+  currentMedications?: string;
+
   // PROFESION del programa legado — solo lo rellena el asistente de
   // importación de Pacientes; también editable a mano desde la ficha.
   @IsOptional()

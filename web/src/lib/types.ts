@@ -40,6 +40,8 @@ export interface Patient {
   postalCode: string | null;
   notes: string | null;
   profession: string | null;
+  drugAllergies: string | null;
+  currentMedications: string | null;
   legacyId: string | null;
   insuranceEntityId: string | null;
   // Nº de tarjeta/póliza en la aseguradora privada.

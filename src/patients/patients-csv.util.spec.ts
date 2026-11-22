@@ -160,3 +160,60 @@ describe('update mode (parsePatientsUpdateFile)', () => {
     expect(rows[0].fields).toBeUndefined();
   });
 });
+
+describe('alergias medicamentosas y medicación actual', () => {
+  it('suggests the legacy ALERGIAS MEDICAMENTOSAS column and medication aliases', () => {
+    expect(
+      suggestMapping(['NOMBRE', 'ALERGIAS MEDICAMENTOSAS', 'MEDICACIÓN']),
+    ).toMatchObject({
+      drugAllergies: 'ALERGIAS MEDICAMENTOSAS',
+      currentMedications: 'MEDICACIÓN',
+    });
+    expect(suggestMapping(['Alergias', 'Medicamentos'])).toMatchObject({
+      drugAllergies: 'Alergias',
+      currentMedications: 'Medicamentos',
+    });
+  });
+
+  it('round-trips through export and import', () => {
+    const patient = {
+      firstName: 'Ana',
+      lastName: 'López',
+      drugAllergies: 'Penicilina',
+      currentMedications: 'Omeprazol 20 mg',
+    } as Patient;
+    const { buffer } = buildPatientsExport([patient], 'csv');
+    const csv = buffer.toString('utf-8');
+    expect(csv).toContain('Alergias medicamentosas');
+    expect(csv).toContain('Medicación actual');
+
+    const { rows } = parsePatientsFile(buffer, 'pacientes.csv');
+    expect(rows[0]).toMatchObject({
+      drugAllergies: 'Penicilina',
+      currentMedications: 'Omeprazol 20 mg',
+    });
+  });
+
+  it('the update wizard can overwrite them', () => {
+    const file = Buffer.from(
+      'Nº de historia,Alergias medicamentosas,Medicación actual\n' +
+        '10,AAS,Sintrom\n',
+      'utf-8',
+    );
+    expect(
+      suggestUpdateMapping([
+        'Nº de historia',
+        'Alergias medicamentosas',
+        'Medicación actual',
+      ]),
+    ).toMatchObject({
+      drugAllergies: 'Alergias medicamentosas',
+      currentMedications: 'Medicación actual',
+    });
+    const { rows } = parsePatientsUpdateFile(file, 'u.csv');
+    expect(rows[0]).toEqual({
+      legacyId: '10',
+      fields: { drugAllergies: 'AAS', currentMedications: 'Sintrom' },
+    });
+  });
+});

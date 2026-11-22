@@ -6,7 +6,7 @@ import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { WhatsappPlatformForm } from "@/components/settings/whatsapp-booking-form";
 import { ConsultationTemplateForm } from "@/components/platform/consultation-template-form";
-import type { ConsultationTemplate } from "@/lib/consultation-template";
+import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
 import {
   updateTenantAppointmentDefaultsAction,
   updateTenantClinicProfileAction,
@@ -28,7 +28,7 @@ export default async function TenantSettingsPage({
     apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
     apiFetch<ClinicProfile>(`/platform/tenants/${id}/clinic-profile`),
     apiFetch<WhatsappBookingSettings>(`/platform/tenants/${id}/whatsapp-booking`),
-    apiFetch<{ template: ConsultationTemplate }>(`/platform/tenants/${id}/consultation-template`),
+    apiFetch<{ template: ConsultationTemplate; fields: ConsultationField[] }>(`/platform/tenants/${id}/consultation-template`),
   ]);
   const scheduleAction = updateTenantScheduleAction.bind(null, id);
   const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
@@ -63,6 +63,7 @@ export default async function TenantSettingsPage({
           <ConsultationTemplateForm
             action={updateTenantConsultationTemplateAction.bind(null, id)}
             initialTemplate={consultationTemplate.template}
+            initialFields={consultationTemplate.fields}
           />
         </CardContent>
       </Card>

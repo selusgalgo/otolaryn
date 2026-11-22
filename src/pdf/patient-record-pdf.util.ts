@@ -28,6 +28,10 @@ export interface PatientRecordPdfData {
   familiarAntecedentes: MarkedAntecedente[];
   entries: ClinicalEntry[];
   consultationTemplate: ConsultationTemplate;
+  // Campos marcados a medida para la clínica (NULL = los de la plantilla).
+  consultationFields?: string[] | null;
+  // Bloques a imprimir; sin él, todos.
+  sections?: Set<PatientRecordSection>;
   // Titular, si el paciente es familiar a cargo (PatientsService.findHolderLinks).
   holder?: {
     firstName: string;
@@ -166,6 +170,40 @@ function datosPacienteColumns(
 // whichever weren't marked. A flowing list of just the ones actually
 // marked is the natural equivalent, and reads fine for the short items
 // (antecedente names, occasionally a short detalle) this is ever made of.
+// Bloques que se pueden elegir al imprimir la ficha (el diálogo de
+// "Imprimir" de la web los manda en ?sections=). La cabecera de la clínica
+// sale siempre.
+export const PATIENT_RECORD_SECTIONS = [
+  'datos',
+  'alergias',
+  'antecedentesPersonales',
+  'antecedentesFamiliares',
+  'historia',
+  'consultas',
+] as const;
+export type PatientRecordSection = (typeof PATIENT_RECORD_SECTIONS)[number];
+
+// Sin parámetro (o sin ninguno válido) se imprime todo, como antes.
+export function parsePatientRecordSections(
+  raw: string | undefined,
+): Set<PatientRecordSection> {
+  const requested = (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s): s is PatientRecordSection =>
+      (PATIENT_RECORD_SECTIONS as readonly string[]).includes(s),
+    );
+  return new Set(requested.length > 0 ? requested : PATIENT_RECORD_SECTIONS);
+}
+
+function plainOrDash(label: string, value: string | null): Content {
+  return {
+    text: [{ text: `${label}: `, bold: true }, value || '—'],
+    fontSize: 9,
+    margin: [0, 0, 0, 4],
+  };
+}
+
 function antecedentesList(items: MarkedAntecedente[]): Content {
   if (items.length === 0) {
     return { text: 'Sin antecedentes marcados.', fontSize: 9, italics: true };
@@ -274,9 +312,12 @@ const ORL_BLOCK_FIELDS: ConsultationField[] = [
 function consultaBlock(
   entry: ClinicalEntry,
   template: ConsultationTemplate,
+  customFields?: string[] | null,
 ): Content[] {
-  const fields = visibleFields(template, entry);
-  if (template !== 'orl') {
+  const fields = visibleFields(template, entry, customFields);
+  // Con campos marcados a medida el bloque fijo de ORL no sirve: cada campo
+  // marcado sale con el formato genérico.
+  if (template !== 'orl' || customFields) {
     return [
       divider(),
       visitDateLine(entry),
@@ -335,11 +376,14 @@ function orlConsultaBlock(entry: ClinicalEntry): Content[] {
 function consultasList(
   entries: ClinicalEntry[],
   template: ConsultationTemplate,
+  customFields?: string[] | null,
 ): Content {
   if (entries.length === 0) {
     return { text: 'Sin consultas todavía.', fontSize: 9, italics: true };
   }
-  return { stack: entries.flatMap((e) => consultaBlock(e, template)) };
+  return {
+    stack: entries.flatMap((e) => consultaBlock(e, template, customFields)),
+  };
 }
 
 // The order here is exactly the one requested: Datos del paciente,
@@ -349,6 +393,8 @@ export function buildPatientRecordPdf(
   data: PatientRecordPdfData,
 ): TDocumentDefinitions {
   const { clinic, patient, insuranceName, entries } = data;
+  const show = (section: PatientRecordSection) =>
+    !data.sections || data.sections.has(section);
 
   return {
     info: {
@@ -357,23 +403,59 @@ export function buildPatientRecordPdf(
     content: [
       ...clinicHeader(clinic),
 
-      sectionTitle('Datos del paciente'),
-      datosPacienteColumns(patient, insuranceName, entries, data.holder),
-      divider(),
+      ...(show('datos')
+        ? [
+            sectionTitle('Datos del paciente'),
+            datosPacienteColumns(patient, insuranceName, entries, data.holder),
+            divider(),
+          ]
+        : []),
 
-      sectionTitle('Antecedentes personales'),
-      antecedentesList(data.personalAntecedentes),
+      ...(show('alergias')
+        ? [
+            sectionTitle('Alergias y medicación'),
+            plainOrDash('Alergias medicamentosas', patient.drugAllergies),
+            plainOrDash('Medicación actual', patient.currentMedications),
+          ]
+        : []),
 
-      sectionTitle('Antecedentes familiares'),
-      antecedentesList(data.familiarAntecedentes),
+      ...(show('antecedentesPersonales')
+        ? [
+            sectionTitle('Antecedentes personales'),
+            antecedentesList(data.personalAntecedentes),
+          ]
+        : []),
 
-      sectionTitle('Historia clínica'),
-      patient.notes
-        ? richTextToPdfContent(patient.notes)
-        : { text: 'Sin historia clínica todavía.', fontSize: 9, italics: true },
+      ...(show('antecedentesFamiliares')
+        ? [
+            sectionTitle('Antecedentes familiares'),
+            antecedentesList(data.familiarAntecedentes),
+          ]
+        : []),
 
-      sectionTitle('Consultas'),
-      consultasList(entries, data.consultationTemplate),
+      ...(show('historia')
+        ? [
+            sectionTitle('Historia clínica'),
+            patient.notes
+              ? richTextToPdfContent(patient.notes)
+              : {
+                  text: 'Sin historia clínica todavía.',
+                  fontSize: 9,
+                  italics: true,
+                },
+          ]
+        : []),
+
+      ...(show('consultas')
+        ? [
+            sectionTitle('Consultas'),
+            consultasList(
+              entries,
+              data.consultationTemplate,
+              data.consultationFields,
+            ),
+          ]
+        : []),
     ],
   };
 }

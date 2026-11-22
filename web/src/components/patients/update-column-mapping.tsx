@@ -18,6 +18,8 @@ const PATIENT_FIELDS: { field: Exclude<keyof UpdateColumnMapping, "legacyId" | "
   { field: "province", label: "Provincia" },
   { field: "postalCode", label: "C.P." },
   { field: "profession", label: "Profesión" },
+  { field: "drugAllergies", label: "Alergias medicamentosas" },
+  { field: "currentMedications", label: "Medicación actual" },
   { field: "insuranceEntityName", label: "Aseguradora" },
   { field: "insuranceNumber", label: "Nº de seguro privado" },
 ];

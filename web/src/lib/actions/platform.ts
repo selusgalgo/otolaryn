@@ -84,7 +84,8 @@ export async function updateTenantScheduleAction(
   return { success: true };
 }
 
-// superadmin, any clinic — which fields that clinic's consultas use (see
+// superadmin, any clinic — plantilla (punto de partida) y campos marcados que
+// usa esa clínica en sus consultas (see
 // lib/consultation-template.ts). Never touches any existing consulta's data.
 export async function updateTenantConsultationTemplateAction(
   tenantId: string,
@@ -94,7 +95,11 @@ export async function updateTenantConsultationTemplateAction(
   try {
     await apiFetch(`/platform/tenants/${tenantId}/consultation-template`, {
       method: "PATCH",
-      body: { template: String(formData.get("template") ?? "") },
+      body: {
+        template: String(formData.get("template") ?? ""),
+        // Casillas marcadas: los campos que usará la clínica.
+        fields: formData.getAll("fields").map(String),
+      },
     });
   } catch (err) {
     if (err instanceof ApiError) {

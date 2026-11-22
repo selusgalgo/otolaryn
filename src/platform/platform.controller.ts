@@ -115,7 +115,11 @@ export class PlatformController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateConsultationTemplateDto,
   ) {
-    return this.platform.updateConsultationTemplate(id, dto.template);
+    return this.platform.updateConsultationTemplate(
+      id,
+      dto.template,
+      dto.fields,
+    );
   }
 
   @Get(':id/clinic-profile')
