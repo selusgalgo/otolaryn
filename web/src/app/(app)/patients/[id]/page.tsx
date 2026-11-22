@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, PaperClipIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, PaperClipIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
