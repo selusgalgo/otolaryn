@@ -13,12 +13,16 @@ type Activity = {
     kind: 'booked' | 'cancelled' | 'rescheduled';
     occurredAt: string;
     unread: boolean;
+    patientId: string | null;
+    patientName: string | null;
   }[];
   reminders: {
     appointmentId: string;
     scheduledAt: string;
     attemptedAt: string;
     status: 'sending' | 'accepted' | 'failed' | 'uncertain';
+    patientId: string | null;
+    patientName: string | null;
   }[];
   deliveryIssues: {
     messageHash: string;
@@ -32,8 +36,8 @@ const eventLabels = {
   rescheduled: 'Cambio de cita',
 };
 const reminderLabels = {
-  sending: 'Pendiente de confirmación',
-  accepted: 'Aceptado por Meta',
+  sending: 'Envío en curso',
+  accepted: 'Solicitud de envío aceptada por Meta',
   failed: 'Rechazado',
   uncertain: 'Resultado sin confirmar',
 };
@@ -83,15 +87,18 @@ export default async function WhatsappActivityPage() {
               key={event.id}
               className="flex flex-wrap items-center gap-3 py-3 text-sm"
             >
-              <Link
-                href={`/appointments/${event.appointmentId}`}
-                className="font-medium underline"
-              >
-                {eventLabels[event.kind]}
-              </Link>
+              <span className="font-medium">{eventLabels[event.kind]}</span>
+              {event.patientId && (
+                <Link href={`/patients/${event.patientId}`} className="underline">
+                  {event.patientName || 'Ver paciente'}
+                </Link>
+              )}
               <time dateTime={event.occurredAt}>
                 {format(event.occurredAt)}
               </time>
+              <Link href={`/appointments/${event.appointmentId}`} className="font-medium underline">
+                Revisar cita →
+              </Link>
               {event.unread && (
                 <form action={acknowledge.bind(null, event.id)}>
                   <Button type="submit" variant="outline" size="sm">
@@ -116,14 +123,23 @@ export default async function WhatsappActivityPage() {
               key={`${reminder.appointmentId}-${reminder.scheduledAt}`}
               className="py-3 text-sm"
             >
-              <Link
-                href={`/appointments/${reminder.appointmentId}`}
-                className="underline"
-              >
-                Cita del {format(reminder.scheduledAt)}
-              </Link>
-              {' · '}
-              {reminderLabels[reminder.status]}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                {reminder.patientId && (
+                  <Link href={`/patients/${reminder.patientId}`} className="font-medium underline">
+                    {reminder.patientName || 'Ver paciente'}
+                  </Link>
+                )}
+                <span>Cita del {format(reminder.scheduledAt)}</span>
+                <span>· {reminderLabels[reminder.status]}</span>
+                <Link href={`/appointments/${reminder.appointmentId}`} className="font-medium underline">
+                  Revisar cita →
+                </Link>
+              </div>
+              {reminder.status === 'accepted' && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Meta aceptó la solicitud de envío; esto no confirma que el paciente haya recibido o confirmado la cita.
+                </p>
+              )}
             </li>
           ))}
         </ul>

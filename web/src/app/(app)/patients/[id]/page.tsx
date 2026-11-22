@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EyeIcon, PaperClipIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, PaperClipIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,13 +26,22 @@ import { stripHtml, truncateText } from "@/lib/utils";
 // pasado por stripHtml, Doctor es "Dr. "/"Dra. " + el nombre completo.
 const MOTIVO_MAX_CHARS = 60;
 const DOCTOR_NAME_MAX_CHARS = 12;
+const CLINICAL_ENTRIES_PAGE_SIZE = 50;
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
 }
 
-export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function PatientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ entriesPage?: string }>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const requestedPage = Number.parseInt(query.entriesPage ?? "1", 10);
+  const entriesPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   let patient: Patient;
   try {
@@ -50,7 +59,9 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
   // stays clinical-only, excluded for that role same as before.
   const [entries, practitioners, insuranceOptions, antecedentes, template] =
     await Promise.all([
-      apiFetch<Paginated<ClinicalEntry>>(`/patients/${id}/clinical-entries?pageSize=50`),
+      apiFetch<Paginated<ClinicalEntry>>(
+        `/patients/${id}/clinical-entries?page=${entriesPage}&pageSize=${CLINICAL_ENTRIES_PAGE_SIZE}`,
+      ),
       getPractitionerOptions(),
       getInsuranceOptions(),
       me.role === "recepcion"
@@ -63,6 +74,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     ]);
   const canCreateClinicalEntries = me.role !== "recepcion";
   const canDeleteClinicalEntries = me.role === "admin";
+  const totalEntryPages = Math.max(1, Math.ceil(entries.total / entries.pageSize));
   // Quién es el usuario actual, para saber qué borradores son suyos (los puede
   // continuar) frente a los de otros que solo ve un administrador. Se lee del
   // JWT de la cookie sin verificar la firma: es solo para decidir qué botón
@@ -133,7 +145,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
           <CardContent>
             {entries.data.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
-            ) : (
+      ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -228,6 +240,31 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                   })}
                 </TableBody>
               </Table>
+            )}
+            {entries.total > entries.pageSize && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                <span className="text-sm text-muted-foreground">
+                  Página {entries.page} de {totalEntryPages} · {entries.total} consultas
+                </span>
+                <div className="flex gap-2">
+                  {entries.page > 1 && (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/patients/${id}?entriesPage=${entries.page - 1}`}>
+                        <ChevronLeftIcon data-icon="inline-start" />
+                        Más recientes
+                      </Link>
+                    </Button>
+                  )}
+                  {entries.page < totalEntryPages && (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/patients/${id}?entriesPage=${entries.page + 1}`}>
+                        Ver consultas anteriores
+                        <ChevronRightIcon data-icon="inline-end" />
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>

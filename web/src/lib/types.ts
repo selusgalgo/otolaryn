@@ -80,6 +80,8 @@ export interface WhatsappBookingSettings {
     reschedule: boolean;
     notifyReception: boolean;
     reminderHours: number;
+    reminderTemplateName: string;
+    reminderTemplateLanguage: string;
     visitTypes: { id: string; name: string; durationMinutes: number; practitionerIds: string[] }[];
     restrictHours: boolean;
     hours: { weekday: number; start: string; end: string }[];

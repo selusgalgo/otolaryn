@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { CameraIcon, PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,13 @@ import { PrintPatientRecordDialog } from "@/components/patients/print-patient-re
 import { HOLDER_RELATIONSHIP_LABEL, PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
 import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
+import { focusFirstFieldError } from "@/lib/form-errors";
+import {
+  confirmDiscardUnsavedChanges,
+  useFormDirtyState,
+  useUnsavedChangesWarning,
+} from "@/lib/unsaved-changes";
+import { toast } from "sonner";
 
 interface PatientProfileSectionProps {
   patient: Patient;
@@ -64,15 +71,40 @@ function InfoGroup({ children }: { children: ReactNode }) {
   return <dl className="space-y-2.5 border-t pt-4 first:border-t-0 first:pt-0">{children}</dl>;
 }
 
-function EditField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+// El error de campo (si lo hay) se pinta debajo con id `profile-<id>-error`,
+// el que referencian aria-describedby y focusFirstFieldError.
+function EditField({
+  id,
+  label,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-1">
       <Label htmlFor={id} className="text-xs text-muted-foreground">
         {label}
       </Label>
       {children}
+      {error && (
+        <p id={`profile-${id}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
+}
+
+// Atributos de accesibilidad de un campo con posible error de servidor.
+function errorProps(id: string, error?: string) {
+  return {
+    "aria-invalid": !!error,
+    "aria-describedby": error ? `profile-${id}-error` : undefined,
+  };
 }
 
 // Migas de pan + acciones (Editar/Imprimir/Cita) y la ficha a dos columnas:
@@ -97,26 +129,44 @@ export function PatientProfileSection({
   const documentDisplay = formatDocumentId(patient.documentId);
   const boundUpdate = updatePatientAction.bind(null, patient.id);
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
+  const {
+    formRef,
+    isDirty,
+    dirtyRef,
+    captureBaseline,
+    onInputCapture,
+    onChangeCapture,
+    onClickCapture,
+  } = useFormDirtyState();
+  useUnsavedChangesWarning(editing && isDirty);
 
   useEffect(() => {
-    if (state.success) setEditing(false);
-  }, [state.success]);
+    if (editing) captureBaseline();
+  }, [editing, captureBaseline]);
+
+  useEffect(() => {
+    if (state.success) {
+      captureBaseline();
+      toast.success("Datos del paciente guardados.");
+      setEditing(false);
+    }
+  }, [state, captureBaseline]);
+
+  useEffect(() => {
+    focusFirstFieldError(formRef.current, state.fieldErrors);
+  }, [state, formRef]);
+
+  function cancelEditing() {
+    if (!confirmDiscardUnsavedChanges(dirtyRef.current)) return;
+    captureBaseline();
+    setEditing(false);
+  }
 
   const fullName = `${patient.firstName} ${patient.lastName}`;
 
   const avatar = (
     <div className="relative">
       <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="xl" />
-      {/* Sin backend de almacenamiento de fotos todavía — el hueco visual
-          ya está aquí para cuando lo haya. */}
-      <button
-        type="button"
-        aria-label="Añadir foto"
-        className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-xs hover:text-foreground"
-        disabled={pending}
-      >
-        <CameraIcon className="size-4" />
-      </button>
     </div>
   );
 
@@ -145,7 +195,11 @@ export function PatientProfileSection({
                 </Link>
               </Button>
             ) : (
-              <CreateAppointmentDialog patientId={patient.id} practitioners={practitionerOptions} />
+              <CreateAppointmentDialog
+                patientId={patient.id}
+                patientName={fullName}
+                practitioners={practitionerOptions}
+              />
             )}
           </div>
         )}
@@ -154,27 +208,36 @@ export function PatientProfileSection({
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)]">
         {/* ── Columna izquierda ── */}
         {editing ? (
-          <form onSubmit={keepValuesOnSubmit(formAction)} className="space-y-4">
+          <form
+            ref={formRef}
+            onSubmit={keepValuesOnSubmit(formAction)}
+            onInputCapture={onInputCapture}
+            onChangeCapture={onChangeCapture}
+            onClickCapture={onClickCapture}
+            className="space-y-4"
+          >
             <Card>
               <CardContent className="flex flex-col items-center gap-4 py-2 text-center">
                 {avatar}
                 <div className="grid w-full grid-cols-2 gap-2 text-left">
-                  <EditField id="firstName" label="Nombre">
+                  <EditField id="firstName" error={state.fieldErrors?.firstName} label="Nombre">
                     <Input
                       id="firstName"
                       name="firstName"
                       defaultValue={patient.firstName}
                       required
                       disabled={pending}
+                      {...errorProps("firstName", state.fieldErrors?.firstName)}
                     />
                   </EditField>
-                  <EditField id="lastName" label="Apellidos">
+                  <EditField id="lastName" error={state.fieldErrors?.lastName} label="Apellidos">
                     <Input
                       id="lastName"
                       name="lastName"
                       defaultValue={patient.lastName}
                       required
                       disabled={pending}
+                      {...errorProps("lastName", state.fieldErrors?.lastName)}
                     />
                   </EditField>
                 </div>
@@ -188,16 +251,17 @@ export function PatientProfileSection({
               {/* Una columna dentro de la columna estrecha (lg+); cuando
                   todo se apila en tablet hay sitio para dos. */}
               <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <EditField id="documentId" label="Documento (DNI/NIE)">
+                <EditField id="documentId" error={state.fieldErrors?.documentId} label="Documento (DNI/NIE)">
                   <Input
                     id="documentId"
                     name="documentId"
                     defaultValue={patient.documentId ?? ""}
                     maxLength={20}
                     disabled={pending}
+                    {...errorProps("documentId", state.fieldErrors?.documentId)}
                   />
                 </EditField>
-                <EditField id="dateOfBirth" label="Fecha de nacimiento">
+                <EditField id="dateOfBirth" error={state.fieldErrors?.dateOfBirth} label="Fecha de nacimiento">
                   <Input
                     id="dateOfBirth"
                     name="dateOfBirth"
@@ -208,6 +272,7 @@ export function PatientProfileSection({
                     // puede editar sin tener que inventarla.
                     required={!!patient.dateOfBirth}
                     disabled={pending}
+                    {...errorProps("dateOfBirth", state.fieldErrors?.dateOfBirth)}
                   />
                 </EditField>
                 <EditField id="gender" label="Género">
@@ -231,25 +296,27 @@ export function PatientProfileSection({
                     disabled={pending}
                   />
                 </EditField>
-                <EditField id="phone" label="Teléfono">
+                <EditField id="phone" error={state.fieldErrors?.phone} label="Teléfono">
                   <Input
                     id="phone"
                     name="phone"
                     defaultValue={patient.phone ?? ""}
                     required={!!patient.phone}
                     disabled={pending}
+                    {...errorProps("phone", state.fieldErrors?.phone)}
                   />
                 </EditField>
                 <EditField id="phone2" label="Teléfono 2">
                   <Input id="phone2" name="phone2" defaultValue={patient.phone2 ?? ""} disabled={pending} />
                 </EditField>
-                <EditField id="email" label="Email">
+                <EditField id="email" error={state.fieldErrors?.email} label="Email">
                   <Input
                     id="email"
                     name="email"
                     type="email"
                     defaultValue={patient.email ?? ""}
                     disabled={pending}
+                    {...errorProps("email", state.fieldErrors?.email)}
                   />
                 </EditField>
                 <EditField id="address" label="Dirección">
@@ -327,12 +394,16 @@ export function PatientProfileSection({
               </CardContent>
             </Card>
 
-            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {state.error}
+              </p>
+            )}
             <div className="flex gap-2">
               <Button type="submit" disabled={pending}>
                 {pending ? "Guardando..." : "Guardar cambios"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+              <Button type="button" data-ignore-dirty="true" variant="outline" onClick={cancelEditing} disabled={pending}>
                 Cancelar
               </Button>
             </div>

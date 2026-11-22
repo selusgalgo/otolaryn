@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { DraftScopeProvider } from "@/components/layout/draft-scope";
+import { HotjarSuppress } from "@/components/layout/hotjar-suppress";
 import { SessionGuard } from "@/components/layout/session-guard";
 import { Sidebar } from "@/components/layout/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { getCurrentUser } from "@/lib/auth";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getSessionToken } from "@/lib/session";
@@ -24,12 +26,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <DraftScopeProvider scope={draftScope}>
-      <div className="min-h-screen bg-surface">
+      {/* Hotjar: todo el texto de la zona autenticada se enmascara (datos de
+          pacientes). El div cubre el primer pintado; HotjarSuppress cubre
+          además los portales (diálogos, desplegables) fuera de este árbol. */}
+      <div className="min-h-screen bg-surface" data-hj-suppress="">
+        <HotjarSuppress />
         <Sidebar me={me} />
         <main className="pb-16 md:pb-0 md:pl-60">
           <div className="px-4 py-6">{children}</div>
         </main>
         <SessionGuard />
+        <Toaster position="top-center" />
       </div>
     </DraftScopeProvider>
   );

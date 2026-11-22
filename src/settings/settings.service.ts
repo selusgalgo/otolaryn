@@ -160,6 +160,14 @@ export class SettingsService {
           throw new BadRequestException(
             'Indica un teléfono de recepción válido',
           );
+        if (
+          dto.features.reminderHours > 0 &&
+          (!dto.features.reminderTemplateName?.trim() ||
+            !dto.features.reminderTemplateLanguage?.trim())
+        )
+          throw new BadRequestException(
+            'Indica la plantilla y el idioma de Meta para activar los recordatorios',
+          );
       }
       await this.tenants.manager.query(
         `INSERT INTO iam.whatsapp_booking_settings AS current_settings
@@ -172,7 +180,7 @@ export class SettingsService {
          practitioner_ids = EXCLUDED.practitioner_ids,
          cancellation_enabled = COALESCE($7::boolean,current_settings.cancellation_enabled),
          cancellation_notice_hours = COALESCE($8::integer,current_settings.cancellation_notice_hours),
-         features = COALESCE($9::jsonb,current_settings.features)`,
+         features = COALESCE(current_settings.features,'{}'::jsonb) || COALESCE($9::jsonb,'{}'::jsonb)`,
         [
           tenantId,
           dto.clinicEnabled,

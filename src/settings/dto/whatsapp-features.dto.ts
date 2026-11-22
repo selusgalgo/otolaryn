@@ -14,6 +14,7 @@ import {
   MaxLength,
   Min,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 
 export class WhatsappVisitTypeDto {
@@ -41,6 +42,10 @@ export class WhatsappFeaturesDto {
   @IsBoolean() reschedule: boolean;
   @IsBoolean() notifyReception: boolean;
   @IsInt() @Min(0) @Max(168) reminderHours: number;
+  @ValidateIf((_, value) => value !== undefined) @IsString() @MaxLength(128) @Matches(/^(?:[a-z][a-z0-9_]{0,127})?$/)
+  reminderTemplateName?: string;
+  @ValidateIf((_, value) => value !== undefined) @IsString() @Matches(/^(?:[a-z]{2,3}(?:_[A-Z]{2})?)?$/)
+  reminderTemplateLanguage?: string;
 
   @IsArray()
   @ArrayMaxSize(8)
@@ -66,6 +71,8 @@ export const defaultWhatsappFeatures: WhatsappFeaturesDto = {
   reschedule: false,
   notifyReception: false,
   reminderHours: 0,
+  reminderTemplateName: '',
+  reminderTemplateLanguage: 'es_ES',
   visitTypes: [],
   restrictHours: false,
   hours: [],

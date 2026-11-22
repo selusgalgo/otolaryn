@@ -232,9 +232,27 @@ export function WhatsappFeaturesFields({
           required
           defaultValue={settings.reminderHours}
         />
+        <Label htmlFor="reminderTemplateName">Plantilla de Meta</Label>
+        <Input
+          id="reminderTemplateName"
+          name="reminderTemplateName"
+          maxLength={128}
+          pattern="[a-z][a-z0-9_]{0,127}"
+          defaultValue={settings.reminderTemplateName}
+        />
+        <Label htmlFor="reminderTemplateLanguage">Idioma de la plantilla</Label>
+        <Input
+          id="reminderTemplateLanguage"
+          name="reminderTemplateLanguage"
+          maxLength={6}
+          pattern="[a-z]{2,3}(_[A-Z]{2})?"
+          placeholder="es_ES"
+          defaultValue={settings.reminderTemplateLanguage}
+        />
         <p className="text-xs text-muted-foreground">
-          Con 0 se desactiva. Para enviar avisos al paciente se necesita una
-          plantilla aprobada y una conexión de WhatsApp configurada.
+          Con 0 se desactiva. Configura el nombre e idioma de la plantilla de
+          esta clínica en Meta y una conexión de WhatsApp activa. Sin esos datos
+          no se enviarán recordatorios.
         </p>
       </fieldset>
     </>
