@@ -15,10 +15,12 @@ import { WhatsappTenantOnboardingController } from './whatsapp-tenant-onboarding
 import { WhatsappTenantOnboardingService } from './whatsapp-tenant-onboarding.service';
 import { WhatsappTenantRouterController, WhatsappTenantRouterGuard } from './whatsapp-tenant-router.controller';
 import { WhatsappTenantRouterService } from './whatsapp-tenant-router.service';
+import { WhatsappFlowController } from './whatsapp-flow.controller';
+import { WhatsappFlowService } from './whatsapp-flow.service';
 
 @Module({
   imports: [AppointmentsModule, PatientsModule, TenancyModule, IamModule],
-  controllers: [WhatsappBookingController, WhatsappDeliveryReviewController, WhatsappTenantOnboardingController, WhatsappTenantRouterController],
+  controllers: [WhatsappBookingController, WhatsappDeliveryReviewController, WhatsappTenantOnboardingController, WhatsappTenantRouterController, WhatsappFlowController],
   providers: [
     WhatsappBookingGuard,
     WhatsappBookingService,
@@ -29,6 +31,7 @@ import { WhatsappTenantRouterService } from './whatsapp-tenant-router.service';
     WhatsappTenantOnboardingService,
     WhatsappTenantRouterService,
     WhatsappTenantRouterGuard,
+    WhatsappFlowService,
   ],
 })
 export class WhatsappBookingModule {}

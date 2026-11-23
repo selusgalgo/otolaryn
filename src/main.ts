@@ -8,7 +8,10 @@ import {
 } from './shared/validation-messages.util';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // The WhatsApp Flows endpoint verifies Meta's HMAC over the exact bytes.
+    rawBody: true,
+  });
   app.useGlobalFilters(new SpanishExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
