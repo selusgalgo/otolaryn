@@ -100,7 +100,7 @@ export function WhatsappMetaConnect() {
           setMessage('Se ha interrumpido la respuesta. Comprueba el estado de la conexión antes de volver a intentarlo.');
         });
       }
-    }, { config_id: setup.configId, response_type: 'code', override_default_response_type: true, extras: { sessionInfoVersion: '3', version: 'v4' } });
+    }, { config_id: setup.configId, response_type: 'code', override_default_response_type: true, extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3', version: 'v4' } });
   };
 
   return <div className="grid gap-3">
