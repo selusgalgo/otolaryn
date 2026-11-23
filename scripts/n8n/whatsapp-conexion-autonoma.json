@@ -1,0 +1,209 @@
+{
+  "name": "Mederi · WhatsApp conexión autónoma (producción)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "41f0dfd1-be1c-466b-ac2d-bad16ad19795",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        -336
+      ],
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "F2tnWSWUjvoP7r25",
+          "name": "Mederi DEMO · Meta prueba"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function inboundText(message) {\n  if (message?.type === 'text' && typeof message.text?.body === 'string') {\n    return message.text.body.trim();\n  }\n  if (message?.type !== 'interactive') return '';\n  const selection = message.interactive?.type === 'list_reply'\n    ? message.interactive.list_reply?.id\n    : message.interactive?.type === 'button_reply'\n      ? message.interactive.button_reply?.id : undefined;\n  if (typeof selection !== 'string' || selection.length > 200) return '';\n  return /^(?:P:[0-9a-f-]{36}|S:[0-9a-f-]{36}:\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z|D:[0-9a-f-]{36}:\\d{4}-\\d{2}-\\d{2}|CONFIRMAR:[0-9a-f-]{36}:\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z|FECHASANTERIORES|MASFECHAS|MAS|FECHA|CANCELAR|CITA|CANCELAR CITA|CAMBIAR CITA|RECEPCIÓN)$/i.test(selection)\n    ? selection : '';\n}\nconst out=[]; for(const [i,item] of $input.all().entries()){const data=item.json;const phoneNumberId=data.__mederi_test===true?'1262575040283464':String(data.metadata?.phone_number_id||'');if(phoneNumberId!=='1262575040283464')continue;for(const m of data.messages||[]){const text=inboundText(m);if(!text)continue;const phone=String(m.from||'').replace(/^\\+/,'');if(!['34695853627','34626079025'].includes(phone))continue;if(typeof m.id!=='string'||!m.id||m.id.length>256||text.length>500)continue;out.push({json:{text,phone:'+'+phone,phoneNumberId,event_id:m.id,is_test:data.__mederi_test===true},pairedItem:{item:i}});}}return out;"
+      },
+      "id": "3e7575fc-7863-430d-818d-df8c815af1b8",
+      "name": "Normalizar mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:31093/integrations/whatsapp-tenant-router/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({phoneNumberId:$json.phoneNumberId,phone:$json.phone,messageId:$json.event_id,text:$json.text}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "bac37900-1fea-44f8-b306-be4787e69aea",
+      "name": "Mederi conversación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1024,
+        -192
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sTinEEQUJtpN9n6y",
+          "name": "Mederi DEMO · pasarela interna"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "61f5b266-1b91-4d56-b78c-000000000010",
+              "leftValue": "={{ $json.is_test }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3d27e1a2-31a1-4aeb-b38a-b0cba4b3d554",
+      "name": "¿Mensaje real?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -544,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{test:true,send:false},pairedItem:{item:0}}];"
+      },
+      "id": "b073547b-20d9-43bf-b614-e3b8cae920b6",
+      "name": "Resultado de prueba",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        -48
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "43b42417-04a9-41fc-82d2-9bb278dfcd9a",
+      "name": "Prueba manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1792,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{__mederi_test:true,messages:[{id:'ensayo-demo-'+Date.now(),from:'34695853627',type:'text',text:{body:'CANCELAR'}}]}}];"
+      },
+      "id": "38df5781-9c46-4aa5-8311-c7c11a4fb088",
+      "name": "Mensaje ficticio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        -32
+      ]
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalizar mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prueba manual": {
+      "main": [
+        [
+          {
+            "node": "Mensaje ficticio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje ficticio": {
+      "main": [
+        [
+          {
+            "node": "Normalizar mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar mensaje": {
+      "main": [
+        [
+          {
+            "node": "¿Mensaje real?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Mensaje real?": {
+      "main": [
+        [
+          {
+            "node": "Mederi conversación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resultado de prueba",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false
+  }
+}
