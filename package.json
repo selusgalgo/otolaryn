@@ -36,6 +36,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.3",
+    "@sentry/nestjs": "^11.17.0",
     "@signpdf/placeholder-pdf-lib": "^3.4.0",
     "@signpdf/signer-p12": "^3.4.0",
     "@signpdf/signpdf": "^3.4.0",

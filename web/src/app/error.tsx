@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 
 // Límite de error de toda la app. Sin él, cualquier excepción no controlada
@@ -14,6 +15,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
   const pathname = usePathname();
 
   useEffect(() => {
+    Sentry.captureException(error);
     console.error(error);
   }, [error]);
 

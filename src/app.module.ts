@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { AccountModule } from './account/account.module';
 import { AntecedentesModule } from './antecedentes/antecedentes.module';
 import { AppController } from './app.controller';
@@ -22,6 +24,7 @@ import { WhatsappBookingModule } from './whatsapp-booking/whatsapp-booking.modul
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     TenancyModule,
@@ -42,6 +45,6 @@ import { WhatsappBookingModule } from './whatsapp-booking/whatsapp-booking.modul
     WhatsappBookingModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_FILTER, useClass: SentryGlobalFilter }],
 })
 export class AppModule {}
