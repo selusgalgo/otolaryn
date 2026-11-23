@@ -1,6 +1,5 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { isUUID } from 'class-validator';
 import { from } from 'rxjs';
 import { DataSource } from 'typeorm';
 import { TenancyContext } from '../tenancy/tenancy-context';
@@ -9,6 +8,8 @@ import { WhatsappConversationService } from './whatsapp-conversation.service';
 import { WhatsappDeliveryService } from './whatsapp-delivery.service';
 import { WhatsappCredentialCrypto } from './whatsapp-credential-crypto';
 import { whatsappMetaPayload } from './whatsapp-meta-payload';
+import { resolvePatientPhone } from './whatsapp-demo-bindings';
+import { signFlowToken } from './whatsapp-flow-crypto';
 
 @Injectable()
 export class WhatsappTenantRouterService {
@@ -25,23 +26,21 @@ export class WhatsappTenantRouterService {
       { handle: () => from(operation()) }, { whatsappTenantConnection: true }) as T;
   }
 
+  private flowPayload(to: string, flowId: string, flowToken: string) {
+    const draft = this.config.get<string>('WHATSAPP_FLOW_MODE') === 'draft';
+    return {
+      messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'interactive',
+      interactive: {
+        type: 'flow',
+        body: { text: 'Reserva tu cita en unos pasos: elige profesional, día y hora.' },
+        footer: { text: 'Tus datos se usan solo para gestionar la cita.' },
+        action: { name: 'flow', parameters: { flow_message_version: '3', flow_token: flowToken, flow_id: flowId, flow_cta: 'Reservar cita', flow_action: 'data_exchange', ...(draft ? { mode: 'draft' } : {}) } },
+      },
+    };
+  }
+
   async process(input: { phoneNumberId: string; phone: string; messageId: string; text: string }) {
-    // Optional single-tenant routing is kept for isolated DEMO environments.
-    // Multi-tenant production resolves the clinic from the ready phone route.
-    const demoTenant = this.config.get<string>('WHATSAPP_ROUTER_DEMO_TENANT_ID')?.trim() ?? '';
-    const bindingsText = this.config.get<string>('WHATSAPP_ROUTER_DEMO_BINDINGS') ?? '';
-    let patientPhone = input.phone;
-    if (demoTenant || bindingsText) {
-      if (!isUUID(demoTenant) || !bindingsText) throw new ServiceUnavailableException();
-      let bindings: Record<string, string>;
-      try { bindings = JSON.parse(bindingsText) as Record<string, string>; } catch { throw new ServiceUnavailableException(); }
-      if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) throw new ServiceUnavailableException();
-      const pairs = Object.entries(bindings);
-      if (!pairs.length || pairs.length > 20 || pairs.some(([phone, alias]) => !/^\+[1-9]\d{7,14}$/.test(phone) || typeof alias !== 'string' || !/^\+[1-9]\d{7,14}$/.test(alias)) || new Set(pairs.map(([, alias]) => alias)).size !== pairs.length) throw new ServiceUnavailableException();
-      const alias = Object.hasOwn(bindings, input.phone) ? bindings[input.phone] : undefined;
-      if (typeof alias !== 'string' || !/^\+[1-9]\d{7,14}$/.test(alias)) throw new ForbiddenException();
-      patientPhone = alias;
-    }
+    const { patientPhone, demoTenant } = resolvePatientPhone(this.config, input.phone);
     const [route] = await this.database.query<{ tenant_id: string | null }[]>(
       'SELECT iam.whatsapp_connection_tenant($1) AS tenant_id', [input.phoneNumberId],
     );
@@ -57,16 +56,21 @@ export class WhatsappTenantRouterService {
          WHERE tenant_id=$1 AND phone_number_id=$2 AND status='ready'`, [tenantId, input.phoneNumberId],
       );
       if (!rows.length) throw new ForbiddenException();
-      const response = await this.conversation.process(body);
+      const flowId = this.config.get<string>('WHATSAPP_FLOW_ID')?.trim() ?? '';
+      const asFlow = /^\d{1,30}$/.test(flowId) && /^cita$/i.test(input.text.trim());
+      if (asFlow) await this.deliveries.prepareFlow(body);
+      const response = asFlow ? undefined : await this.conversation.process(body);
       const claim = await this.deliveries.claim(body);
       if (!claim.send || !claim.attempt) return { send: false as const };
-      return { send: true as const, attempt: claim.attempt, token: cipher.decrypt(tenantId, rows[0].encrypted_access_token), response };
+      return { send: true as const, attempt: claim.attempt, token: cipher.decrypt(tenantId, rows[0].encrypted_access_token), response, flowId: asFlow ? flowId : undefined };
     });
     if (!prepared.send) return { status: 'duplicate' as const };
 
     let result: 'sent' | 'uncertain' = 'uncertain';
     try {
-      const payload = whatsappMetaPayload(input.phone.slice(1), prepared.response.reply, prepared.response.menu);
+      const payload = prepared.flowId
+        ? this.flowPayload(input.phone.slice(1), prepared.flowId, signFlowToken(encryptedKey, { tenantId, phone: input.phone, phoneNumberId: input.phoneNumberId }))
+        : whatsappMetaPayload(input.phone.slice(1), prepared.response!.reply, prepared.response!.menu);
       const response = await fetch(`https://graph.facebook.com/v25.0/${input.phoneNumberId}/messages`, {
         method: 'POST', headers: { Authorization: `Bearer ${prepared.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), signal: AbortSignal.timeout(20_000),
