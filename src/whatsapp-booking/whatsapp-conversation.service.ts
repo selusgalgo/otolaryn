@@ -827,7 +827,7 @@ export class WhatsappConversationService {
       }
     } else if (state.step === 'reason' || state.step === 'reminder') {
       if (state.step === 'reminder' && !/^(si|no)$/.test(normalizedText)) {
-        reply = reminderPrompt;
+        reply = `No he entendido tu respuesta. ${reminderPrompt}`;
       } else if (state.step === 'reason' && text.length > 300) {
         reply =
           'Por favor, resume el motivo en un máximo de 300 caracteres o escribe OMITIR.';
