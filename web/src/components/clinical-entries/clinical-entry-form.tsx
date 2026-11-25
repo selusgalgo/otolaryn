@@ -74,6 +74,11 @@ interface ClinicalEntryFormProps {
       formData: FormData,
     ) => Promise<ClinicalEntryFormState>;
   };
+  // Ocupa todo el ancho disponible (panel lateral de la ficha) en vez del
+  // máximo de lectura cómoda que usa en página y en diálogo.
+  fullWidth?: boolean;
+  // Con él aparece "Cancelar" junto a guardar (panel lateral de la ficha).
+  onCancel?: () => void;
 }
 
 const initialState: ClinicalEntryFormState = {};
@@ -160,6 +165,8 @@ export function ClinicalEntryForm({
   draftKey,
   attachmentsPatientId,
   serverDraft,
+  fullWidth = false,
+  onCancel,
 }: ClinicalEntryFormProps) {
   // Id del borrador en el servidor: el de la página del borrador, o el que crea
   // el primer autoguardado de un alta. Con él, "Guardar entrada" firma ESE
@@ -439,7 +446,7 @@ export function ClinicalEntryForm({
   const fields = visibleFields(template, initialValues, enabledFields);
 
   return (
-    <form onSubmit={handleSubmit} className="grid max-w-2xl gap-4">
+    <form onSubmit={handleSubmit} className={fullWidth ? "grid gap-4" : "grid max-w-2xl gap-4"}>
       {autoAppliedDraft && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm">
           <span>
@@ -594,6 +601,11 @@ export function ClinicalEntryForm({
             }}
           >
             {savingDraft ? "Guardando borrador..." : "Guardar borrador"}
+          </Button>
+        )}
+        {onCancel && (
+          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+            Cancelar
           </Button>
         )}
       </div>

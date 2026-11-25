@@ -112,6 +112,11 @@ export default async function ClinicalEntryDetailPage({
             ← Volver a la ficha del paciente
           </Link>
           <h1 className="text-2xl font-bold">{formatDateTime(entry.visitDate)}</h1>
+          {entry.authorName && (
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {entry.authorHonorific ?? "Dr."} {entry.authorName}
+            </p>
+          )}
           {isDraft && (
             <div className="mt-1">
               <DraftBadge expiresAt={entry.draftExpiresAt} />
