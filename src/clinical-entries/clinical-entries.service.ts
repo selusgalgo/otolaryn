@@ -435,11 +435,19 @@ export class ClinicalEntriesService {
 
   // Lectura para el usuario que consulta (GET /clinical-entries/:id): un
   // borrador solo lo ve su autor o un administrador, y caducado ya no existe.
-  // Para cualquier otro, 404 — igual que si no existiera.
+  // Para cualquier otro, 404 — igual que si no existiera. Incluye el doctor
+  // (authorName/authorHonorific) igual que el listado, también si el usuario
+  // está desactivado, para mostrarlo en la página de la consulta.
   async findOneVisibleTo(
     id: string,
     viewer: { userId: string; role: string },
-  ): Promise<ClinicalEntry & { draftExpiresAt: Date | null }> {
+  ): Promise<
+    ClinicalEntry & {
+      draftExpiresAt: Date | null;
+      authorName: string | null;
+      authorHonorific: Honorific | null;
+    }
+  > {
     const entry = await this.findOne(id);
     if (entry.status === 'borrador') {
       const isAuthorOrAdmin =
@@ -450,7 +458,17 @@ export class ClinicalEntriesService {
         throw new NotFoundException('Consulta no encontrada');
       }
     }
-    return withDraftExpiry(entry);
+    const author = await this.tenancyContext.manager
+      .getRepository(User)
+      .findOne({ where: { id: entry.authorUserId } });
+    const authorName = author
+      ? `${author.firstName ?? ''} ${author.lastName ?? ''}`.trim() || null
+      : null;
+    return {
+      ...withDraftExpiry(entry),
+      authorName,
+      authorHonorific: author?.honorific ?? null,
+    };
   }
 
   private assertSigned(entry: ClinicalEntry): void {

@@ -66,6 +66,31 @@ describe("ClinicalEntryForm", () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
+  it("con actionsContainer pinta Guardar/Cancelar fuera del formulario y siguen funcionando", async () => {
+    const footer = document.createElement("footer");
+    document.body.appendChild(footer);
+    const action = vi.fn().mockResolvedValue({ success: true });
+    const onCancel = vi.fn();
+    render(
+      <DraftScopeProvider scope={SCOPE}>
+        <ClinicalEntryForm action={action} draftKey="new:p1" onCancel={onCancel} actionsContainer={footer} />
+      </DraftScopeProvider>,
+    );
+    fillAll();
+
+    const save = screen.getByRole("button", { name: "Guardar entrada" });
+    expect(footer).toContainElement(save);
+    expect(save.closest("form")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(onCancel).toHaveBeenCalled();
+
+    fireEvent.click(save);
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect((action.mock.calls[0][1] as FormData).get("diagnosis")).toBe("Otitis media");
+    footer.remove();
+  });
+
   it("no vuelve a escribir el borrador al desmontar tras guardar con éxito", async () => {
     const action = vi.fn().mockResolvedValue({ success: true, redirectTo: "/x" });
     const { unmount } = renderForm(action);

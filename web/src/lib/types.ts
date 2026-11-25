@@ -108,8 +108,8 @@ export interface ClinicalEntry {
   // current active status — unlike the "bookable" practitioner list used
   // for picking who to book a new appointment with, a past consulta's
   // author should keep showing correctly even once they're deactivated.
-  // Only present on GET /patients/:patientId/clinical-entries (list);
-  // null if the author's own row is somehow gone.
+  // Present on GET /patients/:patientId/clinical-entries (list) and on
+  // GET /clinical-entries/:id; null if the author's own row is somehow gone.
   authorName: string | null;
   // "Dr." o "Dra." del autor, resuelto junto a authorName (misma consulta,
   // mismo caso de null).

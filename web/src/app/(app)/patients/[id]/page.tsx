@@ -12,7 +12,8 @@ import { PatientNotesCard } from "@/components/patients/patient-notes-card";
 import { PatientProfileSection } from "@/components/patients/patient-profile-section";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { getClinicConsultationTemplate } from "@/lib/clinic-consultation-template";
+import { ConsultaWorkspace, OpenConsultaLink } from "@/components/clinical-entries/consulta-panel";
+import { getClinicConsultationConfig } from "@/lib/clinic-consultation-template";
 import { fieldLabel } from "@/lib/consultation-template";
 import { getInsuranceOptions } from "@/lib/insurance";
 import { decodeJwtClaims } from "@/lib/jwt";
@@ -27,6 +28,8 @@ import { stripHtml, truncateText } from "@/lib/utils";
 const MOTIVO_MAX_CHARS = 60;
 const DOCTOR_NAME_MAX_CHARS = 12;
 const CLINICAL_ENTRIES_PAGE_SIZE = 50;
+const DATE_PILL_CLASS =
+  "inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-button text-button font-medium text-sky-700 hover:bg-sky-200";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "medium" });
@@ -57,7 +60,7 @@ export default async function PatientDetailPage({
   // recepcion can now read Consultas (list + print the ficha/tratamiento
   // PDFs) but never create one — see ClinicalEntriesController. Antecedentes
   // stays clinical-only, excluded for that role same as before.
-  const [entries, practitioners, insuranceOptions, antecedentes, template] =
+  const [entries, practitioners, insuranceOptions, antecedentes, consultationConfig] =
     await Promise.all([
       apiFetch<Paginated<ClinicalEntry>>(
         `/patients/${id}/clinical-entries?page=${entriesPage}&pageSize=${CLINICAL_ENTRIES_PAGE_SIZE}`,
@@ -70,9 +73,12 @@ export default async function PatientDetailPage({
             apiFetch<AntecedenteType[]>("/antecedente-types"),
             apiFetch<PatientAntecedente[]>(`/patients/${id}/antecedentes`),
           ]),
-      getClinicConsultationTemplate(),
+      getClinicConsultationConfig(),
     ]);
+  const template = consultationConfig.template;
   const canCreateClinicalEntries = me.role !== "recepcion";
+  // Mismo criterio que la página de la consulta (el backend ya 403 a recepción).
+  const canEditClinicalEntries = me.role === "admin" || me.role === "profesional";
   const canDeleteClinicalEntries = me.role === "admin";
   const totalEntryPages = Math.max(1, Math.ceil(entries.total / entries.pageSize));
   // Quién es el usuario actual, para saber qué borradores son suyos (los puede
@@ -86,6 +92,16 @@ export default async function PatientDetailPage({
 
 
   return (
+    // Al abrir una consulta firmada se despliega su panel flotante a la
+    // derecha, sobre la ficha oscurecida (ver ConsultaWorkspace).
+    <ConsultaWorkspace
+      patientId={id}
+      entries={entries.data}
+      template={template}
+      enabledFields={consultationConfig.fields}
+      canEdit={canEditClinicalEntries}
+      canDelete={canDeleteClinicalEntries}
+    >
     <div className="space-y-4">
       <PatientProfileSection
         patient={patient}
@@ -165,14 +181,20 @@ export default async function PatientDetailPage({
                     const isDraft = entry.status === "borrador";
                     const isOwnDraft = isDraft && entry.authorUserId === meId;
                     return (
-                      <TableRow key={entry.id}>
+                      // Resaltada mientras su consulta está abierta en el panel.
+                      <TableRow key={entry.id} className="has-[[aria-current=true]]:bg-sky-50">
                         <TableCell className="align-top whitespace-nowrap">
-                          <Link
-                            href={`/patients/${id}/clinical-entries/${entry.id}`}
-                            className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 font-button text-button font-medium text-sky-700 hover:bg-sky-200"
-                          >
-                            {formatDate(entry.visitDate)}
-                          </Link>
+                          {/* Firmadas: se abren en el panel flotante. Borradores:
+                              siguen en su página (autoguardado en el servidor). */}
+                          {isDraft ? (
+                            <Link href={`/patients/${id}/clinical-entries/${entry.id}`} className={DATE_PILL_CLASS}>
+                              {formatDate(entry.visitDate)}
+                            </Link>
+                          ) : (
+                            <OpenConsultaLink patientId={id} entryId={entry.id} className={DATE_PILL_CLASS}>
+                              {formatDate(entry.visitDate)}
+                            </OpenConsultaLink>
+                          )}
                         </TableCell>
                         <TableCell className="align-top">
                           {isDraft && (
@@ -215,11 +237,17 @@ export default async function PatientDetailPage({
                             <Button asChild size="sm" variant="outline">
                               <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>Continuar</Link>
                             </Button>
-                          ) : (
-                            <Button asChild variant="ghost" size="icon-sm" aria-label="Ver esta consulta">
+                          ) : isDraft ? (
+                            <Button asChild variant="ghost" size="icon-sm" aria-label="Ver este borrador">
                               <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
                                 <EyeIcon />
                               </Link>
+                            </Button>
+                          ) : (
+                            <Button asChild variant="ghost" size="icon-sm">
+                              <OpenConsultaLink patientId={id} entryId={entry.id} aria-label="Ver esta consulta">
+                                <EyeIcon />
+                              </OpenConsultaLink>
                             </Button>
                           )}
                           {/* Las consultas firmadas ya no se eliminan desde la
@@ -272,5 +300,6 @@ export default async function PatientDetailPage({
         <PatientNotesCard patientId={id} notes={patient.notes} />
       </PatientProfileSection>
     </div>
+    </ConsultaWorkspace>
   );
 }
