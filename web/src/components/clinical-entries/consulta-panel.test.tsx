@@ -128,8 +128,6 @@ beforeEach(() => {
     original(...args);
     window.dispatchEvent(new Event("locationchange"));
   });
-  Element.prototype.scrollIntoView = vi.fn();
-  window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as unknown as typeof window.matchMedia;
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -148,7 +146,22 @@ describe("ConsultaWorkspace", () => {
     expect(within(panel()).getByText("Motivo e1")).toBeInTheDocument();
     expect(within(panel()).getByText("Diagnóstico e1")).toBeInTheDocument();
     expect(screen.getByText("Abrir e1").closest("a")).toHaveAttribute("aria-current", "true");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("flota sobre la ficha: la deja inerte y sin scroll, y un clic en el fondo oscuro lo cierra", () => {
+    const { container } = renderWorkspace();
+    fireEvent.click(screen.getByText("Abrir e1"));
+
+    const ficha = screen.getByText("Abrir e1").closest("table")!.parentElement!;
+    expect(ficha).toHaveAttribute("inert");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.click(container.querySelector("[aria-hidden].fixed")!);
+
+    expect(consultaParam()).toBeNull();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    expect(ficha).not.toHaveAttribute("inert");
+    expect(document.body.style.overflow).toBe("");
   });
 
   it("Ctrl/Cmd+clic sigue yendo a la página de la consulta (no abre el panel)", () => {

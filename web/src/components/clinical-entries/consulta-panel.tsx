@@ -36,9 +36,9 @@ import {
 } from "@/lib/consultation-template";
 import type { ClinicalEntry } from "@/lib/types";
 import { confirmDiscardUnsavedChanges, useUnsavedChangesWarning } from "@/lib/unsaved-changes";
-import { cn } from "@/lib/utils";
 
-// Panel lateral de la ficha para ver y editar una consulta sin salir de la
+// Panel flotante a la derecha de la ficha (sobre ella, con el fondo
+// oscurecido) para ver y editar una consulta sin salir de la
 // ficha (a petición de los médicos: les resulta más natural que una página
 // por consulta). La consulta abierta vive en la URL (?consulta=<id>) para que
 // recargar, el botón atrás y compartir el enlace sigan funcionando; se cambia
@@ -84,8 +84,7 @@ interface ConsultaWorkspaceProps {
   enabledFields: ConsultationField[];
   canEdit: boolean;
   canDelete: boolean;
-  // La ficha completa: queda a la izquierda del panel (al lado, no debajo)
-  // en pantallas anchas.
+  // La ficha completa: queda detrás del panel, oscurecida.
   children: ReactNode;
 }
 
@@ -113,61 +112,65 @@ export function ConsultaWorkspace({
   const open = useCallback((entryId: string) => navigate(entryId), [navigate]);
   const close = useCallback(() => navigate(null), [navigate]);
 
-  // Con el panel al lado (xl+) la ficha se queda con la mitad del ancho y se
-  // apila en una columna, así que la tabla de Consultas baja mucho: se lleva
-  // la fila abierta a la vista para no perder el sitio (también al pasar a
-  // la anterior/siguiente desde el panel).
+  // Mientras el panel está abierto la ficha de detrás no se desplaza: la
+  // rueda y el scroll táctil se quedan en el panel.
+  const isOpen = openId !== null;
   useEffect(() => {
-    if (!openId || !window.matchMedia("(min-width: 80rem)").matches) return;
-    const link = document.querySelector<HTMLElement>(`[data-consulta-link="${CSS.escape(openId)}"]`);
-    link?.closest("tr")?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [openId]);
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
 
   const signed = entries.filter((e) => e.status !== "borrador");
   const index = openId ? signed.findIndex((e) => e.id === openId) : -1;
   const entry = index >= 0 ? signed[index] : null;
-  const isOpen = openId !== null;
 
   return (
     <ConsultaPanelContext.Provider value={{ openId, open }}>
-      <div className={cn(isOpen && "xl:flex xl:items-start xl:gap-4")}>
-        <div className="@container/ficha min-w-0 flex-1">{children}</div>
-        {isOpen && (
-          <>
-            {/* Por debajo de xl no hay sitio para tenerlo al lado: se superpone
-                a la ficha, con fondo para cerrarlo con un clic fuera. */}
-            <div className="fixed inset-0 z-40 bg-black/40 xl:hidden" aria-hidden onClick={close} />
-            <aside
-              aria-label="Consulta"
-              className={cn(
-                "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-background shadow-xl sm:max-w-2xl",
-                "xl:sticky xl:top-6 xl:z-auto xl:h-[calc(100vh-3rem)] xl:w-1/2 xl:max-w-none xl:shrink-0 xl:rounded-xl xl:border xl:shadow-none",
-              )}
-            >
-              {entry ? (
-                <ConsultaPanelBody
-                  // Remontar al cambiar de consulta: sale del modo edición y
-                  // vuelve arriba del todo.
-                  key={entry.id}
-                  patientId={patientId}
-                  entry={entry}
-                  template={template}
-                  enabledFields={enabledFields}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  newer={index > 0 ? signed[index - 1] : null}
-                  older={index < signed.length - 1 ? signed[index + 1] : null}
-                  onNavigate={open}
-                  onClose={close}
-                  dirtyRef={dirtyRef}
-                />
-              ) : (
-                <MissingEntry patientId={patientId} entryId={openId} onClose={close} />
-              )}
-            </aside>
-          </>
-        )}
+      {/* inert: con el panel abierto la ficha de detrás no recibe foco ni
+          clics (el tabulador se queda en el panel). */}
+      <div inert={isOpen}>
+        {children}
       </div>
+      {isOpen && (
+        <>
+          {/* Panel flotante a la derecha sobre la ficha oscurecida; un clic
+              en el fondo lo cierra. */}
+          <div
+            className="fixed inset-0 z-40 bg-black/50 duration-200 animate-in fade-in-0"
+            aria-hidden
+            onClick={close}
+          />
+          <aside
+            aria-label="Consulta"
+            className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-background shadow-2xl duration-300 animate-in slide-in-from-right sm:max-w-2xl lg:max-w-3xl"
+          >
+            {entry ? (
+              <ConsultaPanelBody
+                // Remontar al cambiar de consulta: sale del modo edición y
+                // vuelve arriba del todo.
+                key={entry.id}
+                patientId={patientId}
+                entry={entry}
+                template={template}
+                enabledFields={enabledFields}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                newer={index > 0 ? signed[index - 1] : null}
+                older={index < signed.length - 1 ? signed[index + 1] : null}
+                onNavigate={open}
+                onClose={close}
+                dirtyRef={dirtyRef}
+              />
+            ) : (
+              <MissingEntry patientId={patientId} entryId={openId} onClose={close} />
+            )}
+          </aside>
+        </>
+      )}
     </ConsultaPanelContext.Provider>
   );
 }

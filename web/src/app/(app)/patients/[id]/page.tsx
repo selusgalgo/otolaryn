@@ -92,9 +92,8 @@ export default async function PatientDetailPage({
 
 
   return (
-    // Al abrir una consulta, su panel queda a la derecha de toda la ficha
-    // (ver ConsultaWorkspace); la ficha se reorganiza por el ancho que le
-    // queda (container queries), no por el de la pantalla.
+    // Al abrir una consulta firmada se despliega su panel flotante a la
+    // derecha, sobre la ficha oscurecida (ver ConsultaWorkspace).
     <ConsultaWorkspace
       patientId={id}
       entries={entries.data}
@@ -119,7 +118,7 @@ export default async function PatientDetailPage({
             sitio), Consultas (visible para los tres roles desde que
             recepción puede leerlas, aunque no crearlas) y, cerrando,
             Historia clínica (texto libre). */}
-        <div className="grid grid-cols-1 items-start gap-4 @md/col:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
           <PatientTextFieldCard
             patientId={id}
             field="drugAllergies"
@@ -137,7 +136,7 @@ export default async function PatientDetailPage({
           />
         </div>
         {antecedentes !== null && (
-          <div className="grid grid-cols-1 items-start gap-4 @4xl/col:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 2xl:grid-cols-2">
             <PatientAntecedentesCard
               patientId={id}
               category="personal"
@@ -170,7 +169,7 @@ export default async function PatientDetailPage({
                     {/* "Motivo" (corto, como siempre) en ORL; en otra
                         plantilla, su propio nombre ("Enfermedad actual"). */}
                     <TableHead>{template === "orl" ? "Motivo" : fieldLabel(template, "chiefComplaint")}</TableHead>
-                    <TableHead className="hidden @md/col:table-cell">Doctor</TableHead>
+                    <TableHead className="hidden md:table-cell">Doctor</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -185,7 +184,7 @@ export default async function PatientDetailPage({
                       // Resaltada mientras su consulta está abierta en el panel.
                       <TableRow key={entry.id} className="has-[[aria-current=true]]:bg-sky-50">
                         <TableCell className="align-top whitespace-nowrap">
-                          {/* Firmadas: se abren en el panel lateral. Borradores:
+                          {/* Firmadas: se abren en el panel flotante. Borradores:
                               siguen en su página (autoguardado en el servidor). */}
                           {isDraft ? (
                             <Link href={`/patients/${id}/clinical-entries/${entry.id}`} className={DATE_PILL_CLASS}>
@@ -224,12 +223,12 @@ export default async function PatientDetailPage({
                               oculta, se muestra aquí debajo para no
                               perder el dato. */}
                           {authorName && (
-                            <div className="text-left text-xs font-bold text-muted-foreground @md/col:hidden">
+                            <div className="text-left text-xs font-bold text-muted-foreground md:hidden">
                               {authorHonorific} {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="align-top hidden font-bold @md/col:table-cell">
+                        <TableCell className="align-top hidden font-bold md:table-cell">
                           {authorName ? `${authorHonorific} ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
                         </TableCell>
                         <TableCell className="align-top whitespace-nowrap">

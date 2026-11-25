@@ -112,11 +112,8 @@ function errorProps(id: string, error?: string) {
 // nombre, nº de historia y edad) y debajo los datos del paciente; a la
 // derecha, ancha, lo que pase la página como children. "Editar" no abre un
 // modal: las dos tarjetas de la izquierda se quedan donde están y cada valor
-// pasa a ser su campo, con Guardar/Cancelar debajo. Con poco ancho todo se
-// apila en una columna: identidad, datos y luego la columna derecha. El ancho
-// que cuenta es el de la ficha (container queries `ficha`/`col`, ver
-// ConsultaWorkspace), no el de la pantalla: con el panel de una consulta
-// abierto al lado, la ficha se queda con la mitad.
+// pasa a ser su campo, con Guardar/Cancelar debajo. Por debajo de lg todo se
+// apila en una columna: identidad, datos y luego la columna derecha.
 export function PatientProfileSection({
   patient,
   insuranceOptions,
@@ -208,7 +205,7 @@ export function PatientProfileSection({
         )}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 @3xl/ficha:grid-cols-[19rem_minmax(0,1fr)] @5xl/ficha:grid-cols-[21rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)]">
         {/* ── Columna izquierda ── */}
         {editing ? (
           <form
@@ -251,9 +248,9 @@ export function PatientProfileSection({
               <CardHeader>
                 <CardTitle className="text-base">Datos del paciente</CardTitle>
               </CardHeader>
-              {/* Una columna dentro de la columna estrecha; cuando todo se
-                  apila (ficha estrecha) hay sitio para dos. */}
-              <CardContent className="grid grid-cols-1 gap-3 @xl/ficha:grid-cols-2 @3xl/ficha:grid-cols-1">
+              {/* Una columna dentro de la columna estrecha (lg+); cuando
+                  todo se apila en tablet hay sitio para dos. */}
+              <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <EditField id="documentId" error={state.fieldErrors?.documentId} label="Documento (DNI/NIE)">
                   <Input
                     id="documentId"
@@ -385,7 +382,7 @@ export function PatientProfileSection({
                     Solo si la primera consulta no se registró en Historia clínica.
                   </p>
                 </div>
-                <div className="@xl/ficha:col-span-2 @3xl/ficha:col-span-1">
+                <div className="sm:col-span-2 lg:col-span-1">
                   <HolderPicker
                     patientId={patient.id}
                     initialHolder={patient.holder ?? null}
@@ -511,7 +508,7 @@ export function PatientProfileSection({
         )}
 
         {/* ── Columna derecha ── */}
-        <div className="@container/col min-w-0 space-y-4">{children}</div>
+        <div className="min-w-0 space-y-4">{children}</div>
       </div>
     </>
   );
