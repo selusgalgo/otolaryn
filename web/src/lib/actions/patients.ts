@@ -82,7 +82,10 @@ function patientPayloadFromFormData(formData: FormData) {
     city: city || null,
     province: province || null,
     postalCode: postalCode || null,
-    notes: notes || null,
+    // Historia clínica solo si el formulario la pinta (alta y edición desde
+    // el listado): la ficha la edita en su propia tarjeta y su formulario
+    // de "Editar" no lleva el campo, así que mandar null ahí la borraba.
+    ...(formData.has("notes") ? { notes: notes || null } : {}),
     profession: profession || null,
     insuranceEntityId: insuranceEntityId || null,
     insuranceNumber: insuranceNumber || null,
