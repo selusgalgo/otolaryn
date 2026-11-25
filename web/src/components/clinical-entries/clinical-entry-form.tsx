@@ -1,7 +1,8 @@
 "use client";
 
 import { AttachmentsPanel } from "@/components/clinical-entries/attachments-panel";
-import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useDraftScope } from "@/components/layout/draft-scope";
@@ -79,6 +80,11 @@ interface ClinicalEntryFormProps {
   fullWidth?: boolean;
   // Con él aparece "Cancelar" junto a guardar (panel lateral de la ficha).
   onCancel?: () => void;
+  // Dónde pintar los botones (guardar/cancelar) en vez de al final del
+  // formulario: el pie fijo del panel de la consulta. null mientras ese
+  // contenedor aún no está montado. El botón de guardar sigue enviando este
+  // formulario por su atributo `form`.
+  actionsContainer?: HTMLElement | null;
 }
 
 const initialState: ClinicalEntryFormState = {};
@@ -167,7 +173,9 @@ export function ClinicalEntryForm({
   serverDraft,
   fullWidth = false,
   onCancel,
+  actionsContainer,
 }: ClinicalEntryFormProps) {
+  const formId = useId();
   // Id del borrador en el servidor: el de la página del borrador, o el que crea
   // el primer autoguardado de un alta. Con él, "Guardar entrada" firma ESE
   // borrador en vez de crear una consulta aparte y dejarlo huérfano.
@@ -445,8 +453,34 @@ export function ClinicalEntryForm({
   // escribe.
   const fields = visibleFields(template, initialValues, enabledFields);
 
+  const actionsBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="submit" form={formId} disabled={pending} className="w-fit">
+        {pending ? "Guardando..." : submitLabel}
+      </Button>
+      {serverDraft && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending || savingDraft}
+          onClick={() => {
+            saveDraftNow();
+            void syncToServer();
+          }}
+        >
+          {savingDraft ? "Guardando borrador..." : "Guardar borrador"}
+        </Button>
+      )}
+      {onCancel && (
+        <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+          Cancelar
+        </Button>
+      )}
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} className={fullWidth ? "grid gap-4" : "grid max-w-2xl gap-4"}>
+    <form id={formId} onSubmit={handleSubmit} className={fullWidth ? "grid gap-4" : "grid max-w-2xl gap-4"}>
       {autoAppliedDraft && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm">
           <span>
@@ -586,29 +620,9 @@ export function ClinicalEntryForm({
           canManage
         />
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={pending} className="w-fit">
-          {pending ? "Guardando..." : submitLabel}
-        </Button>
-        {serverDraft && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending || savingDraft}
-            onClick={() => {
-              saveDraftNow();
-              void syncToServer();
-            }}
-          >
-            {savingDraft ? "Guardando borrador..." : "Guardar borrador"}
-          </Button>
-        )}
-        {onCancel && (
-          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
-            Cancelar
-          </Button>
-        )}
-      </div>
+      {actionsContainer === undefined
+        ? actionsBar
+        : actionsContainer && createPortal(actionsBar, actionsContainer)}
     </form>
   );
 }

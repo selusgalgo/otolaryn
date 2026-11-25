@@ -267,6 +267,9 @@ function ConsultaPanelBody({
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  // Pie fijo del panel: en vista lleva Editar/Eliminar y al editar recibe
+  // los botones del formulario (Guardar cambios/Cancelar).
+  const [footer, setFooter] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useUnsavedChangesWarning(editing && dirty);
 
@@ -373,21 +376,11 @@ function ConsultaPanelBody({
               draftKey={`clinical-entry-draft:edit:${entry.id}`}
               attachmentsPatientId={patientId}
               fullWidth
+              actionsContainer={footer}
             />
           </div>
         ) : (
           <div className="space-y-5">
-            {(canEdit || canDelete) && (
-              <div className="flex flex-wrap gap-2">
-                {canEdit && (
-                  <Button variant="outline" size="sm" onClick={startEditing}>
-                    <PencilIcon data-icon="inline-start" />
-                    Editar
-                  </Button>
-                )}
-                {canDelete && <DeleteClinicalEntryButton patientId={patientId} entryId={entry.id} />}
-              </div>
-            )}
             {/* Mismos campos que la página de la consulta: los de la plantilla
                 de la clínica, en su orden; el primero sale siempre y el resto
                 solo si tiene texto. */}
@@ -420,6 +413,22 @@ function ConsultaPanelBody({
           </div>
         )}
       </div>
+
+      {(editing || canEdit || canDelete) && (
+        <footer ref={setFooter} className="flex flex-wrap items-center gap-2 border-t px-5 py-4">
+          {!editing && (
+            <>
+              {canEdit && (
+                <Button variant="outline" size="sm" onClick={startEditing}>
+                  <PencilIcon data-icon="inline-start" />
+                  Editar
+                </Button>
+              )}
+              {canDelete && <DeleteClinicalEntryButton patientId={patientId} entryId={entry.id} />}
+            </>
+          )}
+        </footer>
+      )}
     </>
   );
 }

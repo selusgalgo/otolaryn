@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { createPortal } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClinicalEntry } from "@/lib/types";
 import { ConsultaWorkspace, OpenConsultaLink } from "./consulta-panel";
@@ -41,22 +42,31 @@ vi.mock("@/components/clinical-entries/clinical-entry-form", () => ({
     onSuccess,
     onCancel,
     fullWidth,
+    actionsContainer,
   }: {
     initialValues: ClinicalEntry;
     onSuccess: () => void;
     onCancel: () => void;
     fullWidth?: boolean;
-  }) => (
-    <form aria-label="Formulario de consulta" data-full-width={fullWidth ? "true" : "false"}>
-      <input aria-label="Diagnóstico" defaultValue={initialValues.diagnosis ?? ""} />
-      <button type="button" onClick={onSuccess}>
-        Guardar cambios
-      </button>
-      <button type="button" onClick={onCancel}>
-        Cancelar
-      </button>
-    </form>
-  ),
+    actionsContainer?: HTMLElement | null;
+  }) => {
+    const actions = (
+      <>
+        <button type="button" onClick={onSuccess}>
+          Guardar cambios
+        </button>
+        <button type="button" onClick={onCancel}>
+          Cancelar
+        </button>
+      </>
+    );
+    return (
+      <form aria-label="Formulario de consulta" data-full-width={fullWidth ? "true" : "false"}>
+        <input aria-label="Diagnóstico" defaultValue={initialValues.diagnosis ?? ""} />
+        {actionsContainer === undefined ? actions : actionsContainer && createPortal(actions, actionsContainer)}
+      </form>
+    );
+  },
 }));
 
 function entry(id: string, overrides: Partial<ClinicalEntry> = {}): ClinicalEntry {
@@ -202,13 +212,19 @@ describe("ConsultaWorkspace", () => {
     expect(consultaParam()).toBe("e2");
   });
 
-  it("Editar muestra el formulario a ancho completo y al guardar vuelve a la vista", () => {
+  it("Editar (en el pie fijo) muestra el formulario a ancho completo, con guardar en el pie, y al guardar vuelve a la vista", () => {
     window.history.replaceState(null, "", "/patients/p1?consulta=e1");
     renderWorkspace();
 
+    // Editar va en el pie fijo del panel, como la cabecera arriba.
+    const footer = within(panel()).getByRole("button", { name: "Editar" }).closest("footer")!;
+    expect(footer).not.toBeNull();
     fireEvent.click(within(panel()).getByRole("button", { name: "Editar" }));
     const form = within(panel()).getByRole("form", { name: "Formulario de consulta" });
     expect(form).toHaveAttribute("data-full-width", "true");
+    // Y al editar, ese mismo pie recibe Guardar cambios/Cancelar.
+    expect(footer).toContainElement(within(panel()).getByRole("button", { name: "Guardar cambios" }));
+    expect(footer).toContainElement(within(panel()).getByRole("button", { name: "Cancelar" }));
 
     fireEvent.click(within(panel()).getByRole("button", { name: "Guardar cambios" }));
     expect(within(panel()).queryByRole("form")).not.toBeInTheDocument();
@@ -219,6 +235,8 @@ describe("ConsultaWorkspace", () => {
     window.history.replaceState(null, "", "/patients/p1?consulta=e1");
     renderWorkspace({ canEdit: false });
     expect(within(panel()).queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    // Sin acciones no queda un pie vacío.
+    expect(panel().querySelector("footer")).toBeNull();
   });
 
   it("cerrar con cambios sin guardar pide confirmación y, si se cancela, no cierra", () => {
