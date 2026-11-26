@@ -1,15 +1,44 @@
 import { ConfigService } from '@nestjs/config';
-import { S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { DataSource } from 'typeorm';
 import { BackupConfigurationService } from './backup-configuration.service';
 
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(),
-  ListObjectsV2Command: jest.fn(),
-}));
+jest.mock('@aws-sdk/client-s3', () => {
+  class Command {
+    constructor(readonly input: Record<string, unknown>) {}
+  }
+  return {
+    S3Client: jest.fn(),
+    ListObjectsV2Command: class ListObjectsV2Command extends Command {},
+    PutObjectCommand: class PutObjectCommand extends Command {},
+    GetObjectCommand: class GetObjectCommand extends Command {},
+    DeleteObjectCommand: class DeleteObjectCommand extends Command {},
+  };
+});
+
+// Fake bucket: GetObject returns whatever PutObject stored under the same key,
+// so the write/read-back connection check behaves like a real bucket.
+const fakeBucket = (objects = new Map<string, Buffer>()) =>
+  jest.fn((command: { input: { Key?: string; Body?: Buffer } }) => {
+    if (command instanceof PutObjectCommand) {
+      objects.set(command.input.Key!, Buffer.from(command.input.Body!));
+    } else if (command instanceof GetObjectCommand) {
+      const stored = objects.get(command.input.Key!);
+      return Promise.resolve({
+        Body: stored && {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(stored)),
+        },
+      });
+    }
+    return Promise.resolve({});
+  });
 
 describe('BackupConfigurationService', () => {
-  const send = jest.fn();
+  let send: jest.Mock;
   const destroy = jest.fn();
   const query = jest.fn();
   const dto = {
@@ -25,8 +54,8 @@ describe('BackupConfigurationService', () => {
     );
   beforeEach(() => {
     jest.clearAllMocks();
+    send = fakeBucket();
     (S3Client as jest.Mock).mockImplementation(() => ({ send, destroy }));
-    send.mockResolvedValue({});
   });
 
   it('reports no stored configuration', async () => {
@@ -63,6 +92,18 @@ describe('BackupConfigurationService', () => {
 
   it('does not replace existing credentials if connection fails', async () => {
     send.mockRejectedValueOnce(new Error('sensitive provider error'));
+    await expect(service().save(dto, 'user-id')).rejects.toThrow(
+      'No se ha podido conectar',
+    );
+    expect(query).not.toHaveBeenCalled();
+    expect(destroy).toHaveBeenCalled();
+  });
+
+  it('does not save credentials when the bucket returns different content', async () => {
+    send = fakeBucket({
+      set: () => undefined,
+      get: () => Buffer.from('tampered'),
+    } as unknown as Map<string, Buffer>);
     await expect(service().save(dto, 'user-id')).rejects.toThrow(
       'No se ha podido conectar',
     );

@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { RolesGuard } from '../iam/roles.guard';
 import { BackupConfigurationService } from './backup-configuration.service';
 import { BackupsController } from './backups.controller';
+import { BackupsService } from './backups.service';
 
 describe('backup configuration authorization', () => {
   let app: INestApplication;
@@ -17,6 +18,10 @@ describe('backup configuration authorization', () => {
         {
           provide: BackupConfigurationService,
           useValue: { save, connection: jest.fn() },
+        },
+        {
+          provide: BackupsService,
+          useValue: { list: jest.fn(), runNow: jest.fn(), restore: jest.fn() },
         },
       ],
     })
