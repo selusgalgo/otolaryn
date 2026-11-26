@@ -106,6 +106,18 @@ async function samplePdf(): Promise<Buffer> {
   return Buffer.from(await doc.save({ useObjectStreams: false }));
 }
 
+// Total size (header + body) of the DER element at the start of `bytes`.
+function derLength(bytes: string): number {
+  const first = bytes.charCodeAt(1);
+  if (first < 0x80) return 2 + first;
+  const lengthBytes = first & 0x7f;
+  let length = 0;
+  for (let i = 0; i < lengthBytes; i++) {
+    length = length * 256 + bytes.charCodeAt(2 + i);
+  }
+  return 2 + lengthBytes + length;
+}
+
 // Checks the signature for real: the digest of the signed byte ranges must
 // equal the one inside the PKCS#7, and the RSA signature over its signed
 // attributes must verify against the certificate. Flipping any signed byte
@@ -121,10 +133,14 @@ function signatureIsValid(pdf: Buffer): boolean {
     pdf.subarray(a, a + b),
     pdf.subarray(c, c + d),
   ]);
-  const hex = raw.slice(a + b + 1, c - 1).replace(/0+$/, '');
-  const der = forge.util.hexToBytes(hex.length % 2 ? `${hex}0` : hex);
+  // /Contents is the DER signature followed by zero padding up to the
+  // reserved size. Cut it at the length the DER header declares: stripping
+  // trailing zeros instead would also eat the signature's own last byte
+  // whenever it happens to be 0x00 (about 1 in 256 signatures).
+  const contents = forge.util.hexToBytes(raw.slice(a + b + 1, c - 1));
+  const der = contents.slice(0, derLength(contents));
   const message = forge.pkcs7.messageFromAsn1(
-    forge.asn1.fromDer(der, false),
+    forge.asn1.fromDer(der),
   ) as forge.pkcs7.PkcsSignedData & {
     rawCapture: {
       authenticatedAttributes: forge.asn1.Asn1[];

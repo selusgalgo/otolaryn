@@ -33,6 +33,23 @@ const SUPERADMIN_PASSWORD = 'Templates-Superadmin1!';
 
 // Plantillas de consulta por clínica + campos nuevos (Evolución, Informe,
 // Doctor que lo envía) + Género / Nº de seguro privado del paciente.
+// The fields each built-in template shows when the clinic has not customised
+// them: GET/PATCH return them alongside the template name.
+const ORL_FIELDS = [
+  'chiefComplaint',
+  'examinationFindings',
+  'diagnosis',
+  'treatment',
+  'followUpNotes',
+];
+const CIRUGIA_FIELDS = [
+  'chiefComplaint',
+  'evolution',
+  'diagnosis',
+  'report',
+  'referringDoctor',
+];
+
 describe('Consultation templates and new patient/consulta fields', () => {
   let app: INestApplication;
   let server: Server;
@@ -90,7 +107,7 @@ describe('Consultation templates and new patient/consulta fields', () => {
         .get('/settings/consultation-template')
         .set('Authorization', `Bearer ${tokenA}`);
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ template: 'orl' });
+      expect(res.body).toEqual({ template: 'orl', fields: ORL_FIELDS });
     });
 
     it('cannot be changed by a clinic admin', async () => {
@@ -115,7 +132,10 @@ describe('Consultation templates and new patient/consulta fields', () => {
         .set('Authorization', `Bearer ${tokenSuperadmin}`)
         .send({ template: 'cirugia' });
       expect(patch.status).toBe(200);
-      expect(patch.body).toEqual({ template: 'cirugia' });
+      expect(patch.body).toEqual({
+        template: 'cirugia',
+        fields: CIRUGIA_FIELDS,
+      });
 
       const a = await request(server)
         .get('/settings/consultation-template')
@@ -123,8 +143,8 @@ describe('Consultation templates and new patient/consulta fields', () => {
       const b = await request(server)
         .get('/settings/consultation-template')
         .set('Authorization', `Bearer ${tokenB}`);
-      expect(a.body).toEqual({ template: 'cirugia' });
-      expect(b.body).toEqual({ template: 'orl' });
+      expect(a.body).toEqual({ template: 'cirugia', fields: CIRUGIA_FIELDS });
+      expect(b.body).toEqual({ template: 'orl', fields: ORL_FIELDS });
     });
   });
 
