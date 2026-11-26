@@ -46,7 +46,7 @@ describe('Antecedentes', () => {
 
     // createTestTenants inserts tenants with raw SQL, bypassing
     // PlatformService.createTenant — so unlike a real tenant created
-    // through the app, it doesn't get the 13 default antecedente_types
+    // through the app, it doesn't get the default antecedente_types
     // seeded automatically. Seed them here the same way the historical
     // migration and createTenant both do: set_config first, since this
     // table has FORCE ROW LEVEL SECURITY.
@@ -107,17 +107,16 @@ describe('Antecedentes', () => {
     await owner.end();
   });
 
-  it('lists the 13 seeded legacy antecedente types', async () => {
+  it('lists the seeded default antecedente types', async () => {
     const res = await request(server)
       .get('/antecedente-types')
       .set('Authorization', `Bearer ${tokenA}`);
     expect(res.status).toBe(200);
     const names = (res.body as AntecedenteTypeResponse[]).map((t) => t.name);
-    expect(names).toContain('Tabaco');
-    expect(names).toContain('Alergias medicamentosas');
-    expect(
-      (res.body as AntecedenteTypeResponse[]).length,
-    ).toBeGreaterThanOrEqual(13);
+    expect(names).toEqual(DEFAULT_ANTECEDENTE_TYPE_NAMES);
+    // Drug allergies are a field of the patient record now, not an
+    // antecedente (migration 1738600000000-PatientAllergiesMedications).
+    expect(names).not.toContain('Alergias medicamentosas');
   });
 
   it('creates, deactivates and isolates a custom antecedente type', async () => {

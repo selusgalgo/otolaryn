@@ -135,7 +135,7 @@ const CSV_HEADER =
 
 // What GET /patients/export actually writes now that patients-csv.util's
 // COLUMNS also carries profession/legacyId/firstConsultationDate.
-const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Género,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Nº de seguro privado,Nº de historia,Primera consulta`;
+const EXPORT_CSV_HEADER = `Nombre,Apellidos,Documento,Fecha de nacimiento,Género,Teléfono,Teléfono 2,Email,Dirección,Ciudad/Población,Provincia,C.P.,Notas,Profesión,Alergias medicamentosas,Medicación actual,Nº de seguro privado,Nº de historia,Primera consulta`;
 
 function csvRow(fields: {
   firstName: string;
