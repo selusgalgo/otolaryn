@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    ignores: ['eslint.config.mjs', 'dist/**', 'web/**', 'coverage/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -29,7 +29,12 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // Falso positivo con genéricos inferidos por contexto: en
+      // `(await dataSource.query(sql)) as Tenant[]` la aserción es la que fija
+      // el genérico `T` de `query<T>()`. El autofix la borra y el resultado
+      // vuelve a ser `any`, así que la regla queda desactivada.
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
 );
