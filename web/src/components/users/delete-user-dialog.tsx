@@ -28,7 +28,12 @@ interface DeleteUserDialogProps {
 // to delete your own account, the clinic's last admin, or anyone with
 // appointments/clinical entries already tied to them — those errors show
 // up here as-is, already written for the person reading them.
-export function DeleteUserDialog({ user, deleteAction, open, onOpenChange }: DeleteUserDialogProps) {
+export function DeleteUserDialog({
+  user,
+  deleteAction,
+  open,
+  onOpenChange,
+}: DeleteUserDialogProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -54,20 +59,26 @@ export function DeleteUserDialog({ user, deleteAction, open, onOpenChange }: Del
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            ¿Eliminar a {userDisplayName(user)}?
-          </DialogTitle>
+          <DialogTitle>¿Eliminar a {userDisplayName(user)}?</DialogTitle>
           <DialogDescription>
-            Esta acción no se puede deshacer. La persona perderá acceso a la plataforma de
-            inmediato.
+            Esta acción no se puede deshacer. La persona perderá acceso a la
+            plataforma de inmediato.
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
             Cancelar
           </Button>
-          <Button variant="destructive" disabled={pending} onClick={confirmDelete}>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={confirmDelete}
+          >
             {pending ? "Eliminando..." : "Eliminar usuario"}
           </Button>
         </DialogFooter>

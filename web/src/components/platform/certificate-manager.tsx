@@ -19,7 +19,10 @@ const initialState: CertificateFormState = {};
 // only if everything checks out — passphrase, validity, able to sign, issued to
 // the creditor's NIF — and answers with the reason when it doesn't.
 function InstallForm({ replacing }: { replacing: boolean }) {
-  const [state, formAction, pending] = useActionState(installCertificateAction, initialState);
+  const [state, formAction, pending] = useActionState(
+    installCertificateAction,
+    initialState,
+  );
   // Remounting the form is what empties the file and the passphrase afterwards:
   // the passphrase shouldn't linger in a field once it has been used.
   const [formKey, setFormKey] = useState(0);
@@ -28,7 +31,11 @@ function InstallForm({ replacing }: { replacing: boolean }) {
   }, [state.success]);
 
   return (
-    <form key={formKey} onSubmit={keepValuesOnSubmit(formAction)} className="grid gap-4">
+    <form
+      key={formKey}
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid gap-4"
+    >
       <FileDropzone
         name="file"
         accept=".p12,.pfx,application/x-pkcs12"
@@ -39,7 +46,9 @@ function InstallForm({ replacing }: { replacing: boolean }) {
       />
 
       <div className="space-y-2">
-        <Label htmlFor="certificate-passphrase">Contraseña del certificado</Label>
+        <Label htmlFor="certificate-passphrase">
+          Contraseña del certificado
+        </Label>
         <Input
           id="certificate-passphrase"
           name="passphrase"
@@ -58,14 +67,20 @@ function InstallForm({ replacing }: { replacing: boolean }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Comprobando e instalando..." : replacing ? "Sustituir certificado" : "Instalar certificado"}
+          {pending
+            ? "Comprobando e instalando..."
+            : replacing
+              ? "Sustituir certificado"
+              : "Instalar certificado"}
         </Button>
         {state.error && (
           <p role="alert" className="text-sm text-destructive">
             {state.error}
           </p>
         )}
-        {state.success && <p className="text-sm text-success">Certificado instalado.</p>}
+        {state.success && (
+          <p className="text-sm text-success">Certificado instalado.</p>
+        )}
       </div>
     </form>
   );
@@ -93,11 +108,23 @@ function RemoveButton() {
   }
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span>A partir de ahora las órdenes se generarán sin tu firma. ¿Quitarlo?</span>
-      <Button size="sm" variant="destructive" onClick={remove} disabled={pending}>
+      <span>
+        A partir de ahora las órdenes se generarán sin tu firma. ¿Quitarlo?
+      </span>
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={remove}
+        disabled={pending}
+      >
         {pending ? "Quitando..." : "Sí, quitar"}
       </Button>
-      <Button size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={pending}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setConfirming(false)}
+        disabled={pending}
+      >
         No
       </Button>
       {error && <p className="w-full text-destructive">{error}</p>}
@@ -113,7 +140,10 @@ interface CertificateManagerProps {
   expanded: boolean;
 }
 
-export function CertificateManager({ source, expanded }: CertificateManagerProps) {
+export function CertificateManager({
+  source,
+  expanded,
+}: CertificateManagerProps) {
   const replacing = source !== null;
 
   return (
@@ -122,7 +152,9 @@ export function CertificateManager({ source, expanded }: CertificateManagerProps
         <InstallForm replacing={replacing} />
       ) : (
         <details className="group rounded-md border p-3">
-          <summary className="cursor-pointer text-sm font-medium">Sustituir el certificado</summary>
+          <summary className="cursor-pointer text-sm font-medium">
+            Sustituir el certificado
+          </summary>
           <div className="pt-4">
             <InstallForm replacing />
           </div>
@@ -131,7 +163,8 @@ export function CertificateManager({ source, expanded }: CertificateManagerProps
 
       {source === "env" && (
         <p className="text-xs text-muted-foreground">
-          El certificado actual viene de la configuración del servidor. Si subes uno aquí, tendrá prioridad sobre ese.
+          El certificado actual viene de la configuración del servidor. Si subes
+          uno aquí, tendrá prioridad sobre ese.
         </p>
       )}
       {source === "upload" && <RemoveButton />}

@@ -8,18 +8,27 @@ import { keepValuesOnSubmit } from "@/lib/form-submit";
 import type { CreditorProfile } from "@/lib/types";
 
 interface CreditorProfileFormProps {
-  action: (prevState: SepaFormState, formData: FormData) => Promise<SepaFormState>;
+  action: (
+    prevState: SepaFormState,
+    formData: FormData,
+  ) => Promise<SepaFormState>;
   initialProfile: CreditorProfile;
 }
 
 const initialState: SepaFormState = {};
 
 // Who collects Mederi's fees — printed as "Acreedor" on every SEPA mandate.
-export function CreditorProfileForm({ action, initialProfile: p }: CreditorProfileFormProps) {
+export function CreditorProfileForm({
+  action,
+  initialProfile: p,
+}: CreditorProfileFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid gap-4 sm:grid-cols-6">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid gap-4 sm:grid-cols-6"
+    >
       <SepaFormField
         name="name"
         label="Nombre o razón social"
@@ -118,7 +127,9 @@ export function CreditorProfileForm({ action, initialProfile: p }: CreditorProfi
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar"}
         </Button>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
         {state.success && <p className="text-sm text-success">Guardado.</p>}
       </div>
     </form>

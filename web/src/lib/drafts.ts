@@ -19,12 +19,19 @@ export function buildDraftKey(scope: string, key: string): string {
   return `${DRAFT_PREFIX}${scope}:${key}`;
 }
 
-export function readDraft<T>(key: string, ttlMs: number): StoredDraft<T> | null {
+export function readDraft<T>(
+  key: string,
+  ttlMs: number,
+): StoredDraft<T> | null {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredDraft<T>;
-    if (!parsed.savedAt || !parsed.fields || Date.now() - parsed.savedAt > ttlMs) {
+    if (
+      !parsed.savedAt ||
+      !parsed.fields ||
+      Date.now() - parsed.savedAt > ttlMs
+    ) {
       localStorage.removeItem(key);
       return null;
     }
@@ -56,17 +63,28 @@ export function removeDraft(key: string | undefined): void {
   }
 }
 
-function removeWhere(predicate: (key: string, savedAt: number | null) => boolean): void {
+function removeWhere(
+  predicate: (key: string, savedAt: number | null) => boolean,
+): void {
   try {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith(DRAFT_PREFIX) || key.startsWith(LEGACY_PREFIX))) keys.push(key);
+      if (
+        key &&
+        (key.startsWith(DRAFT_PREFIX) || key.startsWith(LEGACY_PREFIX))
+      )
+        keys.push(key);
     }
     for (const key of keys) {
       let savedAt: number | null = null;
       try {
-        savedAt = (JSON.parse(localStorage.getItem(key) ?? "null") as StoredDraft<unknown> | null)?.savedAt ?? null;
+        savedAt =
+          (
+            JSON.parse(
+              localStorage.getItem(key) ?? "null",
+            ) as StoredDraft<unknown> | null
+          )?.savedAt ?? null;
       } catch {
         savedAt = null;
       }
@@ -86,5 +104,10 @@ export function clearAllDrafts(): void {
 // Barrido al abrir un formulario: borradores caducados, corruptos o de la
 // versión anterior de las claves.
 export function purgeStaleDrafts(ttlMs: number): void {
-  removeWhere((key, savedAt) => key.startsWith(LEGACY_PREFIX) || savedAt === null || Date.now() - savedAt > ttlMs);
+  removeWhere(
+    (key, savedAt) =>
+      key.startsWith(LEGACY_PREFIX) ||
+      savedAt === null ||
+      Date.now() - savedAt > ttlMs,
+  );
 }

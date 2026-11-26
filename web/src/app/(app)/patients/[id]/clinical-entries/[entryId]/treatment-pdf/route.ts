@@ -12,15 +12,18 @@ export async function GET(
   const token = await getSessionToken();
   const deviceToken = await getDeviceToken();
 
-  const upstream = await fetch(`${API_URL}/clinical-entries/${entryId}/treatment-pdf`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
-      // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
-      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+  const upstream = await fetch(
+    `${API_URL}/clinical-entries/${entryId}/treatment-pdf`,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
+        // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
+        ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
+  );
 
   if (!upstream.ok || !upstream.body) {
     return new Response("No se pudo generar el PDF del tratamiento.", {
@@ -31,7 +34,8 @@ export async function GET(
   return new Response(upstream.body, {
     headers: {
       "Content-Type": upstream.headers.get("content-type") ?? "application/pdf",
-      "Content-Disposition": upstream.headers.get("content-disposition") ?? "attachment",
+      "Content-Disposition":
+        upstream.headers.get("content-disposition") ?? "attachment",
     },
   });
 }

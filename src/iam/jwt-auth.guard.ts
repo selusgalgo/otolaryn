@@ -9,7 +9,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   // caducó (volver a entrar basta) o es otra cosa. Un error lanzado por
   // JwtStrategy.validate() (dispositivo bloqueado, cuenta desactivada) llega
   // como `err` ya con su propio código: se relanza tal cual.
-  handleRequest<TUser>(err: unknown, user: TUser | false, info: unknown): TUser {
+  handleRequest<TUser>(
+    err: unknown,
+    user: TUser | false,
+    info: unknown,
+  ): TUser {
     if (err) {
       throw err;
     }

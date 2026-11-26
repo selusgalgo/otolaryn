@@ -1,7 +1,14 @@
 "use client";
 
 import { AttachmentsPanel } from "@/components/clinical-entries/attachments-panel";
-import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useDraftScope } from "@/components/layout/draft-scope";
@@ -10,7 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Textarea } from "@/components/ui/textarea";
-import type { ClinicalEntryFormState, DraftSaveResult, DraftValues } from "@/lib/actions/clinical-entries";
+import type {
+  ClinicalEntryFormState,
+  DraftSaveResult,
+  DraftValues,
+} from "@/lib/actions/clinical-entries";
 import {
   buildDraftKey,
   purgeStaleDrafts,
@@ -38,7 +49,10 @@ interface ClinicalEntryFormProps {
   enabledFields?: ConsultationField[];
   // Nombres ya usados en "Doctor que lo envía", para sugerirlos al escribir.
   referringDoctorSuggestions?: string[];
-  action: (prevState: ClinicalEntryFormState, formData: FormData) => Promise<ClinicalEntryFormState>;
+  action: (
+    prevState: ClinicalEntryFormState,
+    formData: FormData,
+  ) => Promise<ClinicalEntryFormState>;
   // Presente = modo edición (PATCH, ver EditClinicalEntryDialog); ausente
   // = modo creación, igual que antes.
   initialValues?: ClinicalEntry;
@@ -65,7 +79,10 @@ interface ClinicalEntryFormProps {
     // Id de un borrador ya existente (página del borrador). En el alta no hay:
     // el primer autoguardado lo crea.
     draftId?: string;
-    save: (draftId: string | null, values: DraftValues) => Promise<DraftSaveResult>;
+    save: (
+      draftId: string | null,
+      values: DraftValues,
+    ) => Promise<DraftSaveResult>;
     // Firma el borrador creado mientras se escribía el alta. Mientras no exista
     // borrador se usa `action`, que crea la consulta directamente.
     finalize?: (
@@ -106,11 +123,12 @@ type ClinicalEntryDraft = StoredDraft<Partial<FormValues>>;
 
 const TEXT_FIELDS = ALL_CONSULTATION_FIELDS;
 
-function initialTexts(initialValues?: ClinicalEntry): Omit<FormValues, "visitDate"> {
-  return Object.fromEntries(TEXT_FIELDS.map((field) => [field, initialValues?.[field] ?? ""])) as Omit<
-    FormValues,
-    "visitDate"
-  >;
+function initialTexts(
+  initialValues?: ClinicalEntry,
+): Omit<FormValues, "visitDate"> {
+  return Object.fromEntries(
+    TEXT_FIELDS.map((field) => [field, initialValues?.[field] ?? ""]),
+  ) as Omit<FormValues, "visitDate">;
 }
 
 const FIELD_ORDER = ["visitDate", ...TEXT_FIELDS] as const;
@@ -128,8 +146,13 @@ function normalizeText(value: string): string {
 // Sin nada escrito que valga la pena guardar (solo la fecha por defecto, o
 // lo mismo que ya hay guardado en el servidor): no se crea ni se pisa ningún
 // borrador.
-function isPristine(values: FormValues, initial: Omit<FormValues, "visitDate">): boolean {
-  return TEXT_FIELDS.every((name) => normalizeText(values[name]) === normalizeText(initial[name]));
+function isPristine(
+  values: FormValues,
+  initial: Omit<FormValues, "visitDate">,
+): boolean {
+  return TEXT_FIELDS.every(
+    (name) => normalizeText(values[name]) === normalizeText(initial[name]),
+  );
 }
 
 function formatDraftTime(savedAt: number): string {
@@ -173,24 +196,33 @@ export function ClinicalEntryForm({
     async (prevState: ClinicalEntryFormState, formData: FormData) => {
       const id = draftIdRef.current;
       const finalize = serverDraftRef.current?.finalize;
-      return id && finalize ? finalize(id, prevState, formData) : action(prevState, formData);
+      return id && finalize
+        ? finalize(id, prevState, formData)
+        : action(prevState, formData);
     },
     [action],
   );
-  const [state, formAction, pending] = useActionState(submitAction, initialState);
+  const [state, formAction, pending] = useActionState(
+    submitAction,
+    initialState,
+  );
   const pathname = usePathname();
   const router = useRouter();
   const scope = useDraftScope();
   // Sin usuario identificado no hay autoguardado: mejor ninguno que uno cuya
   // clave pueda mezclar a dos personas en el mismo ordenador.
-  const storageKey = draftKey && scope ? buildDraftKey(scope, draftKey) : undefined;
+  const storageKey =
+    draftKey && scope ? buildDraftKey(scope, draftKey) : undefined;
 
   // Todos los campos son controlados. Con campos no controlados (defaultValue)
   // React 19 los vaciaba al terminar la acción de guardado, también cuando
   // fallaba — sesión caducada incluida — y además no se podían leer del
   // FormData mientras el formulario estaba deshabilitado (pending). Con
   // estado propio, ni el reset ni `disabled` pueden perder lo escrito.
-  const [values, setValues] = useState<FormValues>(() => ({ visitDate: "", ...initialTexts(initialValues) }));
+  const [values, setValues] = useState<FormValues>(() => ({
+    visitDate: "",
+    ...initialTexts(initialValues),
+  }));
   const valuesRef = useRef(values);
   useEffect(() => {
     valuesRef.current = values;
@@ -198,7 +230,8 @@ export function ClinicalEntryForm({
   const initialRef = useRef(initialTexts(initialValues));
 
   const setField = useCallback(
-    (name: keyof FormValues, value: string) => setValues((v) => ({ ...v, [name]: value })),
+    (name: keyof FormValues, value: string) =>
+      setValues((v) => ({ ...v, [name]: value })),
     [],
   );
 
@@ -207,7 +240,9 @@ export function ClinicalEntryForm({
   // los dos sentidos) o si nunca hubo ninguno. Solo para borradores con
   // más de AUTO_APPLY_THRESHOLD_MS; uno más reciente va directo a
   // autoAppliedDraft sin pasar por aquí.
-  const [pendingDraft, setPendingDraft] = useState<ClinicalEntryDraft | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<ClinicalEntryDraft | null>(
+    null,
+  );
   // Mientras haya un borrador pendiente de decidir, el autoguardado NO
   // escribe: el formulario aún está vacío y pisaría justo el borrador que se
   // está ofreciendo (y le renovaría la fecha).
@@ -216,7 +251,8 @@ export function ClinicalEntryForm({
   // pendingDraft en que el formulario ya tiene este contenido ahora mismo;
   // "Descartar" aquí significa deshacerlo y volver a initialValues, no
   // simplemente ignorar una oferta.
-  const [autoAppliedDraft, setAutoAppliedDraft] = useState<ClinicalEntryDraft | null>(null);
+  const [autoAppliedDraft, setAutoAppliedDraft] =
+    useState<ClinicalEntryDraft | null>(null);
   // La consulta ya se guardó bien: el borrador sobra y nada debe volver a
   // escribirlo (ni el intervalo ni la limpieza al desmontar).
   const settledRef = useRef(false);
@@ -245,13 +281,15 @@ export function ClinicalEntryForm({
 
   const syncToServer = useCallback((): Promise<void> => {
     const sd = serverDraftRef.current;
-    if (!sd || settledRef.current || pendingDraftRef.current) return Promise.resolve();
+    if (!sd || settledRef.current || pendingDraftRef.current)
+      return Promise.resolve();
     if (syncRef.current) return syncRef.current;
     const values = valuesRef.current;
     const snap = snapshot(values);
     if (snap === lastSyncedRef.current) return Promise.resolve();
     // Un alta sin borrador todavía no crea uno vacío: espera a que haya algo escrito.
-    if (!draftIdRef.current && isPristine(values, initialRef.current)) return Promise.resolve();
+    if (!draftIdRef.current && isPristine(values, initialRef.current))
+      return Promise.resolve();
 
     setSavingDraft(true);
     const run = sd
@@ -273,7 +311,9 @@ export function ClinicalEntryForm({
           );
         }
       })
-      .catch(() => setSyncError("No se pudo guardar el borrador en el servidor."))
+      .catch(() =>
+        setSyncError("No se pudo guardar el borrador en el servidor."),
+      )
       .finally(() => {
         syncRef.current = null;
         setSavingDraft(false);
@@ -305,7 +345,9 @@ export function ClinicalEntryForm({
   function resetToInitialValues() {
     setValues({
       ...initialTexts(initialValues),
-      visitDate: toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date()),
+      visitDate: toDateTimeInputValue(
+        initialValues ? new Date(initialValues.visitDate) : new Date(),
+      ),
     });
   }
 
@@ -354,13 +396,18 @@ export function ClinicalEntryForm({
   // computed during the server render without risking a hydration
   // mismatch against whatever the client then computes a moment later.
   useEffect(() => {
-    const initialDate = toDateTimeInputValue(initialValues ? new Date(initialValues.visitDate) : new Date());
+    const initialDate = toDateTimeInputValue(
+      initialValues ? new Date(initialValues.visitDate) : new Date(),
+    );
     setValues((v) => (v.visitDate ? v : { ...v, visitDate: initialDate }));
     // En la página de un borrador existente, lo que se acaba de cargar YA está
     // en el servidor: sin esto, abrirlo lo reenviaría y renovaría su caducidad
     // sin que nadie haya escrito nada.
     if (serverDraftRef.current?.draftId && lastSyncedRef.current === null) {
-      lastSyncedRef.current = snapshot({ visitDate: initialDate, ...initialTexts(initialValues) });
+      lastSyncedRef.current = snapshot({
+        visitDate: initialDate,
+        ...initialTexts(initialValues),
+      });
     }
   }, [initialValues]);
 
@@ -443,19 +490,33 @@ export function ClinicalEntryForm({
       {autoAppliedDraft && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm">
           <span>
-            Se recuperó tu borrador autoguardado de las {formatDraftTime(autoAppliedDraft.savedAt)} — puedes
-            seguir editándolo.
+            Se recuperó tu borrador autoguardado de las{" "}
+            {formatDraftTime(autoAppliedDraft.savedAt)} — puedes seguir
+            editándolo.
           </span>
-          <Button type="button" size="sm" variant="outline" onClick={discardAutoApplied}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={discardAutoApplied}
+          >
             Descartar y empezar de nuevo
           </Button>
         </div>
       )}
       {pendingDraft && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm">
-          <span>Hay un borrador autoguardado de las {formatDraftTime(pendingDraft.savedAt)}.</span>
+          <span>
+            Hay un borrador autoguardado de las{" "}
+            {formatDraftTime(pendingDraft.savedAt)}.
+          </span>
           <div className="flex gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={discardPendingDraft}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={discardPendingDraft}
+            >
               Descartar
             </Button>
             <Button type="button" size="sm" onClick={acceptPendingDraft}>
@@ -465,9 +526,13 @@ export function ClinicalEntryForm({
         </div>
       )}
       {draftFailed && (
-        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          No se puede guardar una copia automática en este dispositivo (almacenamiento lleno o bloqueado). Guarda
-          la consulta cuanto antes o copia el texto antes de salir de esta página.
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          No se puede guardar una copia automática en este dispositivo
+          (almacenamiento lleno o bloqueado). Guarda la consulta cuanto antes o
+          copia el texto antes de salir de esta página.
         </p>
       )}
       {serverDraft && (
@@ -481,7 +546,9 @@ export function ClinicalEntryForm({
         >
           {syncError ??
             (serverSavedAt
-              ? `Borrador guardado a las ${new Date(serverSavedAt).toLocaleTimeString("es-ES", {
+              ? `Borrador guardado a las ${new Date(
+                  serverSavedAt,
+                ).toLocaleTimeString("es-ES", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}. Aparece en la ficha del paciente como «Borrador» y se borra solo a los 10 días si nadie lo toca.`
@@ -499,7 +566,8 @@ export function ClinicalEntryForm({
           disabled={pending}
         />
         <p className="text-xs text-muted-foreground">
-          Se rellena con la fecha y hora actuales — edítala si la consulta fue en otro momento.
+          Se rellena con la fecha y hora actuales — edítala si la consulta fue
+          en otro momento.
         </p>
       </div>
       {fields.map((field) => {
@@ -510,7 +578,11 @@ export function ClinicalEntryForm({
             <div key={field} className="space-y-2">
               <Label>{label}</Label>
               <input type="hidden" name={field} value={values[field]} />
-              <RichTextEditor value={values[field]} onChange={(html) => setField(field, html)} disabled={pending} />
+              <RichTextEditor
+                value={values[field]}
+                onChange={(html) => setField(field, html)}
+                disabled={pending}
+              />
             </div>
           );
         }
@@ -540,15 +612,21 @@ export function ClinicalEntryForm({
               disabled={pending}
               maxLength={200}
               autoComplete="off"
-              list={field === "referringDoctor" && referringDoctorSuggestions.length > 0 ? "referringDoctor-options" : undefined}
+              list={
+                field === "referringDoctor" &&
+                referringDoctorSuggestions.length > 0
+                  ? "referringDoctor-options"
+                  : undefined
+              }
             />
-            {field === "referringDoctor" && referringDoctorSuggestions.length > 0 && (
-              <datalist id="referringDoctor-options">
-                {referringDoctorSuggestions.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
+            {field === "referringDoctor" &&
+              referringDoctorSuggestions.length > 0 && (
+                <datalist id="referringDoctor-options">
+                  {referringDoctorSuggestions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              )}
           </div>
         );
       })}
@@ -574,7 +652,11 @@ export function ClinicalEntryForm({
       {attachmentsPatientId && (serverDraft || initialValues?.id) && (
         <AttachmentsPanel
           patientId={attachmentsPatientId}
-          entryId={serverDraft ? (serverDraft.draftId ?? null) : (initialValues?.id ?? null)}
+          entryId={
+            serverDraft
+              ? (serverDraft.draftId ?? null)
+              : (initialValues?.id ?? null)
+          }
           ensureEntryId={serverDraft ? ensureDraftId : undefined}
           canManage
         />

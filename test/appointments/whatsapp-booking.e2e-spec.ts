@@ -498,8 +498,9 @@ describe('WhatsApp booking isolation and booking', () => {
     const slotReply = await send(naturalDateText);
     expect(slotReply.reply).toContain('Elige un horario');
     expect(slotReply.menu?.options[0].title).toMatch(/^\d{2}:\d{2}$/);
-    expect(new Set(slotReply.menu?.options.map(option => option.title)).size)
-      .toBe(slotReply.menu?.options.length);
+    expect(
+      new Set(slotReply.menu?.options.map((option) => option.title)).size,
+    ).toBe(slotReply.menu?.options.length);
     const slot = slotReply.menu?.options[0].id;
     expect(slot).toBeDefined();
     const wrongProfessional = slot!.replace(
@@ -518,7 +519,9 @@ describe('WhatsApp booking isolation and booking', () => {
     }).format(new Date(scheduledAt));
     expect((await send(`a las ${time}`)).reply).toContain('nombre');
     expect((await send('Nombre')).reply).toContain('nombre y apellidos juntos');
-    expect((await send('Nombre Ficticio')).reply).toContain('fecha de nacimiento');
+    expect((await send('Nombre Ficticio')).reply).toContain(
+      'fecha de nacimiento',
+    );
     expect((await send('29/02/1988')).reply).toContain('motivo');
     const confirmation = await send('Revisión de prueba');
     expect(confirmation.reply).toContain('¿Te viene bien');
@@ -581,28 +584,39 @@ describe('WhatsApp booking isolation and booking', () => {
     const another = await send('OTRA_MISMA');
     expect(another.menu?.kind).toBe('professionals');
     const nextDates = await send(`P:${practitioner}`);
-    expect(nextDates.menu?.options.map(o => o.id)).toContain(dateId);
+    expect(nextDates.menu?.options.map((o) => o.id)).toContain(dateId);
     const nextSlots = await send(dateId);
     expect(nextSlots.menu?.kind).toBe('slots');
     const nextStep = await send(nextSlots.menu!.options[0].id);
     expect(nextStep.reply).toContain('motivo');
     const nextConfirm = await send('Otra revisión');
     expect(nextConfirm.menu?.kind).toBe('confirm');
-    expect((await send(nextConfirm.menu!.options[0].id)).reply).toContain('está reservada');
+    expect((await send(nextConfirm.menu!.options[0].id)).reply).toContain(
+      'está reservada',
+    );
     const verifyReuse = await owner.connect();
     try {
       await verifyReuse.query('BEGIN');
-      await verifyReuse.query("SELECT set_config('app.tenant_id', $1, true)", [tenants[0].id]);
-      const rows = await verifyReuse.query('SELECT p.id, count(a.id)::int AS appointments FROM public.patients p JOIN public.appointments a ON a.patient_id = p.id WHERE p.phone = $1 GROUP BY p.id', [phone]);
+      await verifyReuse.query("SELECT set_config('app.tenant_id', $1, true)", [
+        tenants[0].id,
+      ]);
+      const rows = await verifyReuse.query(
+        'SELECT p.id, count(a.id)::int AS appointments FROM public.patients p JOIN public.appointments a ON a.patient_id = p.id WHERE p.phone = $1 GROUP BY p.id',
+        [phone],
+      );
       expect(rows.rows).toHaveLength(1);
       expect(rows.rows[0].appointments).toBe(2);
       await verifyReuse.query('ROLLBACK');
-    } finally { verifyReuse.release(); }
+    } finally {
+      verifyReuse.release();
+    }
     const otherPerson = await send('OTRA_PERSONA');
     expect(otherPerson.menu?.kind).toBe('professionals');
     await send(`P:${practitioner}`);
     const otherSlots = await send(dateId);
-    expect((await send(otherSlots.menu!.options[0].id)).reply).toContain('nombre y apellidos');
+    expect((await send(otherSlots.menu!.options[0].id)).reply).toContain(
+      'nombre y apellidos',
+    );
     await send('CANCELAR');
     expect((await send('CANCELAR CITA')).reply).toContain(
       'fecha de nacimiento',
@@ -1298,18 +1312,31 @@ describe('WhatsApp booking isolation and booking', () => {
     const phone = '+34600000000';
     process.env.WHATSAPP_BOOKING_DEMO_SHARED_PHONE = phone;
     let sequence = 0;
-    const send = async (text: string): Promise<MessageReply> => (await request(server).post(`${prefix}/messages`).set('Authorization', `Bearer ${token}`).send({ phone, text, messageId: `another-person-${++sequence}` }).expect(201)).body as MessageReply;
+    const send = async (text: string): Promise<MessageReply> =>
+      (
+        await request(server)
+          .post(`${prefix}/messages`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ phone, text, messageId: `another-person-${++sequence}` })
+          .expect(201)
+      ).body as MessageReply;
     try {
       const book = async (name: string, dob: string) => {
         const dates = await send(`P:${practitioner}`);
         const chosenDate = `D:${practitioner}:${date}`;
-        expect(dates.menu!.options.map(option => option.id)).toContain(chosenDate);
+        expect(dates.menu!.options.map((option) => option.id)).toContain(
+          chosenDate,
+        );
         const slots = await send(chosenDate);
-        expect((await send(slots.menu!.options[0].id)).reply).toContain('nombre y apellidos');
+        expect((await send(slots.menu!.options[0].id)).reply).toContain(
+          'nombre y apellidos',
+        );
         await send(name);
         await send(dob);
         const confirmation = await send('Motivo ficticio');
-        expect((await send(confirmation.menu!.options[0].id)).reply).toContain('está reservada');
+        expect((await send(confirmation.menu!.options[0].id)).reply).toContain(
+          'está reservada',
+        );
       };
       await send('CITA');
       await book('Primera Persona', '01/01/1990');
@@ -1318,13 +1345,20 @@ describe('WhatsApp booking isolation and booking', () => {
       const client = await owner.connect();
       try {
         await client.query('BEGIN');
-        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenants[0].id]);
-        const result = await client.query("SELECT count(DISTINCT p.id)::int AS patients, count(a.id)::int AS appointments FROM public.patients p JOIN public.appointments a ON a.patient_id = p.id WHERE p.phone = $1 AND p.first_name IN ('Primera', 'Segunda') AND p.last_name = 'Persona'", [phone]);
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [
+          tenants[0].id,
+        ]);
+        const result = await client.query(
+          "SELECT count(DISTINCT p.id)::int AS patients, count(a.id)::int AS appointments FROM public.patients p JOIN public.appointments a ON a.patient_id = p.id WHERE p.phone = $1 AND p.first_name IN ('Primera', 'Segunda') AND p.last_name = 'Persona'",
+          [phone],
+        );
         expect(result.rows[0]).toEqual({ patients: 2, appointments: 2 });
         await client.query('ROLLBACK');
-      } finally { client.release(); }
-    } finally { delete process.env.WHATSAPP_BOOKING_DEMO_SHARED_PHONE; }
+      } finally {
+        client.release();
+      }
+    } finally {
+      delete process.env.WHATSAPP_BOOKING_DEMO_SHARED_PHONE;
+    }
   });
-
-
 });

@@ -19,7 +19,9 @@ export const getCurrentUser = cache(async (): Promise<Me> => {
     return await apiFetch<Me>("/auth/me");
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      const params = new URLSearchParams({ reason: err.code ?? "SESSION_EXPIRED" });
+      const params = new URLSearchParams({
+        reason: err.code ?? "SESSION_EXPIRED",
+      });
       const path = (await headers()).get("x-pathname");
       if (path && path !== "/") params.set("redirect", path);
       redirect(`/session/expired?${params.toString()}`);

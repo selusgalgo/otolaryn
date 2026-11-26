@@ -6,7 +6,11 @@ import { apiFetch } from "@/lib/api";
 // Shared shell for every Configuración section: the section menu stays on
 // screen (left column on desktop, pills on mobile) while only the right
 // side changes, so switching sections never goes through an index page.
-export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
+export default async function SettingsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const me = await getCurrentUser();
   // Not in the sidebar for anyone else, but guard the routes themselves
   // too — each section 403s at the backend anyway for a non-admin, this
@@ -14,7 +18,9 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   if (me.role !== "admin") {
     redirect("/dashboard");
   }
-  const whatsapp = await apiFetch<{ platformEnabled: boolean }>("/settings/whatsapp-booking");
+  const whatsapp = await apiFetch<{ platformEnabled: boolean }>(
+    "/settings/whatsapp-booking",
+  );
 
   return (
     <div className="space-y-6">

@@ -79,7 +79,10 @@ const NAV_ITEMS: {
 function NavLinks({ me }: { me: Me }) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter(
-    (item) => item.roles.includes(me.role) && !item.hideFromDesktopNav && !item.hidden?.(me),
+    (item) =>
+      item.roles.includes(me.role) &&
+      !item.hideFromDesktopNav &&
+      !item.hidden?.(me),
   );
 
   return (
@@ -109,7 +112,9 @@ function NavLinks({ me }: { me: Me }) {
 // Bottom tab bar, mobile only — icon-over-label, native-app style.
 function MobileBottomNav({ me }: { me: Me }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(me.role) && !item.hidden?.(me));
+  const items = NAV_ITEMS.filter(
+    (item) => item.roles.includes(me.role) && !item.hidden?.(me),
+  );
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-nav-foreground/10 bg-nav pb-[env(safe-area-inset-bottom)] md:hidden">
@@ -124,7 +129,12 @@ function MobileBottomNav({ me }: { me: Me }) {
               active ? "text-nav-foreground" : "text-nav-foreground/70",
             )}
           >
-            <span className={cn("rounded-full px-3 py-0.5", active && "bg-white/10")}>
+            <span
+              className={cn(
+                "rounded-full px-3 py-0.5",
+                active && "bg-white/10",
+              )}
+            >
               <Icon className="size-5" />
             </span>
             {label}
@@ -154,10 +164,18 @@ function UserMenu({ me }: { me: Me }) {
             aria-label="Menú de cuenta"
             className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-white/10"
           >
-            <Avatar firstName={me.firstName} lastName={me.lastName} variant={isDoctor(me) ? "doctor" : "patient"} />
+            <Avatar
+              firstName={me.firstName}
+              lastName={me.lastName}
+              variant={isDoctor(me) ? "doctor" : "patient"}
+            />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-nav-foreground">{userDisplayName(me)}</p>
-              <p className="truncate text-xs text-nav-foreground/60">{ROLE_LABELS[me.role]}</p>
+              <p className="truncate text-sm font-medium text-nav-foreground">
+                {userDisplayName(me)}
+              </p>
+              <p className="truncate text-xs text-nav-foreground/60">
+                {ROLE_LABELS[me.role]}
+              </p>
             </div>
             <EllipsisVerticalIcon className="size-4 shrink-0 text-nav-foreground/70" />
           </button>
@@ -193,7 +211,10 @@ export function Sidebar({ me }: { me: Me }) {
     <>
       {/* Desktop: fixed sidebar, always visible */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-nav md:flex">
-        <Link href="/dashboard" className="flex items-center border-b border-nav-foreground/10 px-4 py-4">
+        <Link
+          href="/dashboard"
+          className="flex items-center border-b border-nav-foreground/10 px-4 py-4"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
           <img src="/logo-on-dark.svg" alt="Mederi" className="h-9 w-auto" />
         </Link>

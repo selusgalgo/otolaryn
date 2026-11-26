@@ -4,7 +4,13 @@ import { draftExpiryText, isDraftExpiringSoon } from "@/lib/draft-expiry";
 // cuándo se borrará sola (10 días sin tocarla). Pasa a tono de alerta en los
 // últimos días para que se termine a tiempo. Sin estado ni hooks: sirve tanto
 // en páginas de servidor (ficha, panel) como dentro de componentes de cliente.
-export function DraftBadge({ expiresAt, showExpiry = true }: { expiresAt: string | null; showExpiry?: boolean }) {
+export function DraftBadge({
+  expiresAt,
+  showExpiry = true,
+}: {
+  expiresAt: string | null;
+  showExpiry?: boolean;
+}) {
   const soon = isDraftExpiringSoon(expiresAt);
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -12,7 +18,9 @@ export function DraftBadge({ expiresAt, showExpiry = true }: { expiresAt: string
         Borrador
       </span>
       {showExpiry && expiresAt && (
-        <span className={`text-xs ${soon ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+        <span
+          className={`text-xs ${soon ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+        >
           {draftExpiryText(expiresAt)}
         </span>
       )}

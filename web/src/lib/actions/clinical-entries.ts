@@ -35,7 +35,10 @@ function clinicalEntryErrorState(err: unknown): ClinicalEntryFormState {
         return { error: "Tu sesión ha caducado.", sessionExpired: true };
       }
       if (err.code === "ACCOUNT_DISABLED") {
-        return { error: "Tu cuenta está desactivada. Contacta con el administrador de la clínica." };
+        return {
+          error:
+            "Tu cuenta está desactivada. Contacta con el administrador de la clínica.",
+        };
       }
       return { error: err.message };
     }
@@ -83,16 +86,22 @@ export async function createClinicalEntryAction(
 
   let entry: ClinicalEntry;
   try {
-    entry = await apiFetch<ClinicalEntry>(`/patients/${patientId}/clinical-entries`, {
-      method: "POST",
-      body,
-    });
+    entry = await apiFetch<ClinicalEntry>(
+      `/patients/${patientId}/clinical-entries`,
+      {
+        method: "POST",
+        body,
+      },
+    );
   } catch (err) {
     return clinicalEntryErrorState(err);
   }
 
   revalidatePath(`/patients/${patientId}`);
-  return { success: true, redirectTo: `/patients/${patientId}/clinical-entries/${entry.id}` };
+  return {
+    success: true,
+    redirectTo: `/patients/${patientId}/clinical-entries/${entry.id}`,
+  };
 }
 
 // admin/profesional (ver ClinicalEntriesController) — a diferencia de
@@ -116,7 +125,8 @@ export async function updateClinicalEntryAction(
   // plantilla de la clínica y está vacío) no se toca, en vez de mandarse
   // como "" y borrarse.
   for (const field of OPTIONAL_FIELDS) {
-    if (formData.has(field)) body[field] = String(formData.get(field) ?? "").trim();
+    if (formData.has(field))
+      body[field] = String(formData.get(field) ?? "").trim();
   }
 
   try {
@@ -193,7 +203,9 @@ export async function saveClinicalEntryDraftAction(
   values: DraftValues,
 ): Promise<DraftSaveResult> {
   const body = {
-    ...(values.visitDate ? { visitDate: new Date(values.visitDate).toISOString() } : {}),
+    ...(values.visitDate
+      ? { visitDate: new Date(values.visitDate).toISOString() }
+      : {}),
     chiefComplaint: values.chiefComplaint,
     examinationFindings: values.examinationFindings,
     diagnosis: values.diagnosis,
@@ -205,15 +217,24 @@ export async function saveClinicalEntryDraftAction(
   };
   try {
     const draft = draftId
-      ? await apiFetch<ClinicalEntry>(`/clinical-entry-drafts/${draftId}`, { method: "PATCH", body })
-      : await apiFetch<ClinicalEntry>(`/patients/${patientId}/clinical-entry-drafts`, {
-          method: "POST",
+      ? await apiFetch<ClinicalEntry>(`/clinical-entry-drafts/${draftId}`, {
+          method: "PATCH",
           body,
-        });
+        })
+      : await apiFetch<ClinicalEntry>(
+          `/patients/${patientId}/clinical-entry-drafts`,
+          {
+            method: "POST",
+            body,
+          },
+        );
     return { id: draft.id, savedAt: new Date().toISOString() };
   } catch (err) {
     if (err instanceof ApiError) {
-      if (err.status === 401 && (isSessionEnded(err) || err.code === undefined)) {
+      if (
+        err.status === 401 &&
+        (isSessionEnded(err) || err.code === undefined)
+      ) {
         return { error: "Tu sesión ha caducado.", sessionExpired: true };
       }
       if (err.status === 404) {
@@ -234,16 +255,22 @@ export async function finalizeClinicalEntryDraftAction(
   formData: FormData,
 ): Promise<ClinicalEntryFormState> {
   try {
-    await apiFetch<ClinicalEntry>(`/clinical-entry-drafts/${draftId}/finalize`, {
-      method: "POST",
-      body: entryBodyFromForm(formData),
-    });
+    await apiFetch<ClinicalEntry>(
+      `/clinical-entry-drafts/${draftId}/finalize`,
+      {
+        method: "POST",
+        body: entryBodyFromForm(formData),
+      },
+    );
   } catch (err) {
     return clinicalEntryErrorState(err);
   }
 
   revalidatePath(`/patients/${patientId}`);
-  return { success: true, redirectTo: `/patients/${patientId}/clinical-entries/${draftId}` };
+  return {
+    success: true,
+    redirectTo: `/patients/${patientId}/clinical-entries/${draftId}`,
+  };
 }
 
 // Borrado real del borrador (no es historia clínica). Lo pueden hacer su autor
@@ -255,7 +282,12 @@ export async function discardClinicalEntryDraftAction(
   try {
     await apiFetch(`/clinical-entry-drafts/${draftId}`, { method: "DELETE" });
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : "No se pudo descartar el borrador." };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo descartar el borrador.",
+    };
   }
   revalidatePath(`/patients/${patientId}`);
   return {};

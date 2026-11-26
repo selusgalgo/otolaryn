@@ -1,12 +1,21 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import type { UpdateColumnMapping, UpdateImportPreview } from "@/lib/actions/patients";
+import type {
+  UpdateColumnMapping,
+  UpdateImportPreview,
+} from "@/lib/actions/patients";
 import type { AntecedenteType } from "@/lib/types";
 
 // Campos simples que el fichero puede sobrescribir. "Aseguradora" es el
 // nombre (el backend lo resuelve a la aseguradora, creándola si es nueva).
-const PATIENT_FIELDS: { field: Exclude<keyof UpdateColumnMapping, "legacyId" | "firstConsultationOverride" | "notes" | "antecedentes">; label: string }[] = [
+const PATIENT_FIELDS: {
+  field: Exclude<
+    keyof UpdateColumnMapping,
+    "legacyId" | "firstConsultationOverride" | "notes" | "antecedentes"
+  >;
+  label: string;
+}[] = [
   { field: "documentId", label: "Documento" },
   { field: "dateOfBirth", label: "Fecha de nacimiento" },
   { field: "gender", label: "Género" },
@@ -24,7 +33,10 @@ const PATIENT_FIELDS: { field: Exclude<keyof UpdateColumnMapping, "legacyId" | "
   { field: "insuranceNumber", label: "Nº de seguro privado" },
 ];
 
-function sampleFor(preview: UpdateImportPreview, header: string | undefined): string {
+function sampleFor(
+  preview: UpdateImportPreview,
+  header: string | undefined,
+): string {
   if (!header) return "";
   const values = preview.sampleRows
     .map((row) => row[header])
@@ -82,7 +94,9 @@ export function UpdateColumnMappingForm({
             id="mapping-legacyId"
             value={mapping.legacyId ?? ""}
             disabled={disabled}
-            onChange={(e) => onChange({ ...mapping, legacyId: e.target.value || undefined })}
+            onChange={(e) =>
+              onChange({ ...mapping, legacyId: e.target.value || undefined })
+            }
             className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             <option value="">Selecciona una columna…</option>
@@ -98,13 +112,18 @@ export function UpdateColumnMappingForm({
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="mapping-firstConsultationOverride">Primera consulta</Label>
+          <Label htmlFor="mapping-firstConsultationOverride">
+            Primera consulta
+          </Label>
           <select
             id="mapping-firstConsultationOverride"
             value={mapping.firstConsultationOverride ?? ""}
             disabled={disabled}
             onChange={(e) =>
-              onChange({ ...mapping, firstConsultationOverride: e.target.value || undefined })
+              onChange({
+                ...mapping,
+                firstConsultationOverride: e.target.value || undefined,
+              })
             }
             className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
@@ -126,7 +145,9 @@ export function UpdateColumnMappingForm({
             id="mapping-notes"
             value={mapping.notes ?? ""}
             disabled={disabled}
-            onChange={(e) => onChange({ ...mapping, notes: e.target.value || undefined })}
+            onChange={(e) =>
+              onChange({ ...mapping, notes: e.target.value || undefined })
+            }
             className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
           >
             <option value="">No importar</option>
@@ -154,7 +175,9 @@ export function UpdateColumnMappingForm({
                 id={`mapping-${field}`}
                 value={mapping[field] ?? ""}
                 disabled={disabled}
-                onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
+                onChange={(e) =>
+                  onChange({ ...mapping, [field]: e.target.value || undefined })
+                }
                 className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
               >
                 <option value="">No importar</option>
@@ -182,12 +205,16 @@ export function UpdateColumnMappingForm({
               const selected = mapping.antecedentes?.[type.id] ?? "";
               return (
                 <div key={type.id} className="space-y-1">
-                  <Label htmlFor={`mapping-antecedente-${type.id}`}>{antecedenteLabel(type)}</Label>
+                  <Label htmlFor={`mapping-antecedente-${type.id}`}>
+                    {antecedenteLabel(type)}
+                  </Label>
                   <select
                     id={`mapping-antecedente-${type.id}`}
                     value={selected}
                     disabled={disabled}
-                    onChange={(e) => setAntecedenteColumn(type.id, e.target.value)}
+                    onChange={(e) =>
+                      setAntecedenteColumn(type.id, e.target.value)
+                    }
                     className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                   >
                     <option value="">No importar</option>

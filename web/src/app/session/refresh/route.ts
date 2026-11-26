@@ -11,7 +11,10 @@ import { setSessionToken } from "@/lib/session";
 // el techo absoluto de la sesión (session_end).
 export async function POST(): Promise<Response> {
   try {
-    const { accessToken } = await apiFetch<{ accessToken: string }>("/auth/refresh", { method: "POST" });
+    const { accessToken } = await apiFetch<{ accessToken: string }>(
+      "/auth/refresh",
+      { method: "POST" },
+    );
     await setSessionToken(accessToken);
     const claims = decodeJwtClaims(accessToken);
     return NextResponse.json({
@@ -20,7 +23,10 @@ export async function POST(): Promise<Response> {
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      return NextResponse.json({ error: err.code ?? "SESSION_EXPIRED" }, { status: 401 });
+      return NextResponse.json(
+        { error: err.code ?? "SESSION_EXPIRED" },
+        { status: 401 },
+      );
     }
     return NextResponse.json({ error: "REFRESH_FAILED" }, { status: 502 });
   }

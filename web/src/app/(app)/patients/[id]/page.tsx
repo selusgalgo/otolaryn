@@ -1,9 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, PaperClipIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EyeIcon,
+  PaperClipIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ClinicalEntryRowActions } from "@/components/clinical-entries/clinical-entry-row-actions";
 import { DraftBadge } from "@/components/clinical-entries/draft-badge";
 import { PatientTextFieldCard } from "@/components/patients/patient-text-field-card";
@@ -18,7 +30,13 @@ import { getInsuranceOptions } from "@/lib/insurance";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import { getSessionToken } from "@/lib/session";
-import type { AntecedenteType, ClinicalEntry, Paginated, Patient, PatientAntecedente } from "@/lib/types";
+import type {
+  AntecedenteType,
+  ClinicalEntry,
+  Paginated,
+  Patient,
+  PatientAntecedente,
+} from "@/lib/types";
 import { stripHtml, truncateText } from "@/lib/utils";
 
 // Topes de caracteres para que Fecha | Motivo | Doctor | Acciones quepan
@@ -41,7 +59,8 @@ export default async function PatientDetailPage({
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const requestedPage = Number.parseInt(query.entriesPage ?? "1", 10);
-  const entriesPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const entriesPage =
+    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   let patient: Patient;
   try {
@@ -74,16 +93,22 @@ export default async function PatientDetailPage({
     ]);
   const canCreateClinicalEntries = me.role !== "recepcion";
   const canDeleteClinicalEntries = me.role === "admin";
-  const totalEntryPages = Math.max(1, Math.ceil(entries.total / entries.pageSize));
+  const totalEntryPages = Math.max(
+    1,
+    Math.ceil(entries.total / entries.pageSize),
+  );
   // Quién es el usuario actual, para saber qué borradores son suyos (los puede
   // continuar) frente a los de otros que solo ve un administrador. Se lee del
   // JWT de la cookie sin verificar la firma: es solo para decidir qué botón
   // mostrar — la API es la que impide editar un borrador ajeno.
   const meId = decodeJwtClaims(await getSessionToken())?.sub;
 
-  const insuranceName = insuranceOptions.find((o) => o.id === patient.insuranceEntityId)?.label;
-  const whatsappEnabled = (await apiFetch<{ enabled: boolean }>('/whatsapp-booking/feature-status')).enabled;
-
+  const insuranceName = insuranceOptions.find(
+    (o) => o.id === patient.insuranceEntityId,
+  )?.label;
+  const whatsappEnabled = (
+    await apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status")
+  ).enabled;
 
   return (
     <div className="space-y-4">
@@ -144,16 +169,24 @@ export default async function PatientDetailPage({
           </CardHeader>
           <CardContent>
             {entries.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin entradas todavía.</p>
-      ) : (
+              <p className="text-sm text-muted-foreground">
+                Sin entradas todavía.
+              </p>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha</TableHead>
                     {/* "Motivo" (corto, como siempre) en ORL; en otra
                         plantilla, su propio nombre ("Enfermedad actual"). */}
-                    <TableHead>{template === "orl" ? "Motivo" : fieldLabel(template, "chiefComplaint")}</TableHead>
-                    <TableHead className="hidden md:table-cell">Doctor</TableHead>
+                    <TableHead>
+                      {template === "orl"
+                        ? "Motivo"
+                        : fieldLabel(template, "chiefComplaint")}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Doctor
+                    </TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -181,11 +214,16 @@ export default async function PatientDetailPage({
                             </div>
                           )}
                           <div>
-                            {entry.chiefComplaint ? (
-                              truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)
-                            ) : (
-                              isDraft && <span className="text-muted-foreground">Sin motivo todavía</span>
-                            )}
+                            {entry.chiefComplaint
+                              ? truncateText(
+                                  stripHtml(entry.chiefComplaint),
+                                  MOTIVO_MAX_CHARS,
+                                )
+                              : isDraft && (
+                                  <span className="text-muted-foreground">
+                                    Sin motivo todavía
+                                  </span>
+                                )}
                           </div>
                           {(entry.attachmentCount ?? 0) > 0 && (
                             <div
@@ -202,37 +240,53 @@ export default async function PatientDetailPage({
                               perder el dato. */}
                           {authorName && (
                             <div className="text-left text-xs font-bold text-muted-foreground md:hidden">
-                              {authorHonorific} {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
+                              {authorHonorific}{" "}
+                              {truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}
                             </div>
                           )}
                         </TableCell>
                         <TableCell className="align-top hidden font-bold md:table-cell">
-                          {authorName ? `${authorHonorific} ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}` : "—"}
+                          {authorName
+                            ? `${authorHonorific} ${truncateText(authorName, DOCTOR_NAME_MAX_CHARS)}`
+                            : "—"}
                         </TableCell>
                         <TableCell className="align-top whitespace-nowrap">
                           <div className="-mt-[3px] flex items-start justify-end">
-                          {isOwnDraft ? (
-                            <Button asChild size="sm" variant="outline">
-                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>Continuar</Link>
-                            </Button>
-                          ) : (
-                            <Button asChild variant="ghost" size="icon-sm" aria-label="Ver esta consulta">
-                              <Link href={`/patients/${id}/clinical-entries/${entry.id}`}>
-                                <EyeIcon />
-                              </Link>
-                            </Button>
-                          )}
-                          {/* Las consultas firmadas ya no se eliminan desde la
+                            {isOwnDraft ? (
+                              <Button asChild size="sm" variant="outline">
+                                <Link
+                                  href={`/patients/${id}/clinical-entries/${entry.id}`}
+                                >
+                                  Continuar
+                                </Link>
+                              </Button>
+                            ) : (
+                              <Button
+                                asChild
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Ver esta consulta"
+                              >
+                                <Link
+                                  href={`/patients/${id}/clinical-entries/${entry.id}`}
+                                >
+                                  <EyeIcon />
+                                </Link>
+                              </Button>
+                            )}
+                            {/* Las consultas firmadas ya no se eliminan desde la
                               lista; solo los borradores conservan "Descartar". */}
-                          {isDraft && (
-                            <ClinicalEntryRowActions
-                              patientId={id}
-                              entryId={entry.id}
-                              canDelete={false}
-                              isDraft
-                              canDiscard={isOwnDraft || canDeleteClinicalEntries}
-                            />
-                          )}
+                            {isDraft && (
+                              <ClinicalEntryRowActions
+                                patientId={id}
+                                entryId={entry.id}
+                                canDelete={false}
+                                isDraft
+                                canDiscard={
+                                  isOwnDraft || canDeleteClinicalEntries
+                                }
+                              />
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -244,12 +298,15 @@ export default async function PatientDetailPage({
             {entries.total > entries.pageSize && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
                 <span className="text-sm text-muted-foreground">
-                  Página {entries.page} de {totalEntryPages} · {entries.total} consultas
+                  Página {entries.page} de {totalEntryPages} · {entries.total}{" "}
+                  consultas
                 </span>
                 <div className="flex gap-2">
                   {entries.page > 1 && (
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/patients/${id}?entriesPage=${entries.page - 1}`}>
+                      <Link
+                        href={`/patients/${id}?entriesPage=${entries.page - 1}`}
+                      >
                         <ChevronLeftIcon data-icon="inline-start" />
                         Más recientes
                       </Link>
@@ -257,7 +314,9 @@ export default async function PatientDetailPage({
                   )}
                   {entries.page < totalEntryPages && (
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/patients/${id}?entriesPage=${entries.page + 1}`}>
+                      <Link
+                        href={`/patients/${id}?entriesPage=${entries.page + 1}`}
+                      >
                         Ver consultas anteriores
                         <ChevronRightIcon data-icon="inline-end" />
                       </Link>

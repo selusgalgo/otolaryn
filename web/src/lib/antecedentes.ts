@@ -9,7 +9,9 @@ import type { AntecedenteType } from "@/lib/types";
 // import-mapping target or a checklist item — it stays visible on a
 // patient that already has it marked (see PatientAntecedentesCard), but
 // that's a different, narrower concern than this list.
-export async function getActiveAntecedenteTypes(): Promise<AntecedenteType[] | null> {
+export async function getActiveAntecedenteTypes(): Promise<
+  AntecedenteType[] | null
+> {
   const me = await getCurrentUser();
   if (me.role === "recepcion") return null;
   const types = await apiFetch<AntecedenteType[]>("/antecedente-types");

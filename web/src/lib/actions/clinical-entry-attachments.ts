@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiFetch, apiFetchMultipart, ApiError, isSessionEnded } from "@/lib/api";
+import {
+  apiFetch,
+  apiFetchMultipart,
+  ApiError,
+  isSessionEnded,
+} from "@/lib/api";
 import type { ClinicalEntryAttachment } from "@/lib/types";
 
 export interface AttachmentActionResult {
@@ -24,7 +29,9 @@ export async function listAttachmentsAction(
   entryId: string,
 ): Promise<{ error?: string; attachments?: ClinicalEntryAttachment[] }> {
   try {
-    const attachments = await apiFetch<ClinicalEntryAttachment[]>(`/clinical-entries/${entryId}/attachments`);
+    const attachments = await apiFetch<ClinicalEntryAttachment[]>(
+      `/clinical-entries/${entryId}/attachments`,
+    );
     return { attachments };
   } catch (err) {
     return { error: errorText(err, "No se pudieron cargar los archivos.") };
@@ -37,7 +44,8 @@ export async function uploadAttachmentAction(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un archivo." };
+  if (!(file instanceof File) || file.size === 0)
+    return { error: "Selecciona un archivo." };
   const upstream = new FormData();
   upstream.set("file", file, file.name);
   try {
@@ -59,7 +67,9 @@ export async function deleteAttachmentAction(
   attachmentId: string,
 ): Promise<{ error?: string }> {
   try {
-    await apiFetch(`/clinical-entry-attachments/${attachmentId}`, { method: "DELETE" });
+    await apiFetch(`/clinical-entry-attachments/${attachmentId}`, {
+      method: "DELETE",
+    });
   } catch (err) {
     return { error: errorText(err, "No se pudo quitar el archivo.") };
   }

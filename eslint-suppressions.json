@@ -1,0 +1,81 @@
+{
+  "src/backups/backup-configuration.service.spec.ts": {
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 1
+    }
+  },
+  "src/iam/jwt-auth.guard.ts": {
+    "@typescript-eslint/only-throw-error": {
+      "count": 1
+    }
+  },
+  "src/settings/settings.service.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 4
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 5
+    }
+  },
+  "src/whatsapp-booking/meta-embedded-signup.spec.ts": {
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 3
+    }
+  },
+  "src/whatsapp-booking/whatsapp-booking.service.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/whatsapp-booking/whatsapp-delivery-review.controller.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 4
+    }
+  },
+  "src/whatsapp-booking/whatsapp-tenant-onboarding.service.spec.ts": {
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 3
+    }
+  },
+  "src/whatsapp-booking/whatsapp-tenant-router.service.ts": {
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 2
+    }
+  },
+  "test/account/account.e2e-spec.ts": {
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 4
+    }
+  },
+  "test/appointments/whatsapp-booking.e2e-spec.ts": {
+    "@typescript-eslint/no-base-to-string": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 10
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 35
+    }
+  },
+  "test/appointments/whatsapp-onboarding.e2e-spec.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 6
+    }
+  }
+}

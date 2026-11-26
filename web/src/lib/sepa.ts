@@ -10,14 +10,26 @@ export interface SepaAmounts {
   totalCents: number;
 }
 
-export function computeSepaAmounts(monthlyBase: number, vatPercent: number, irpfPercent: number): SepaAmounts {
+export function computeSepaAmounts(
+  monthlyBase: number,
+  vatPercent: number,
+  irpfPercent: number,
+): SepaAmounts {
   const baseCents = Math.round(monthlyBase * 100);
   const vatCents = Math.round((baseCents * vatPercent) / 100);
   const irpfCents = Math.round((baseCents * irpfPercent) / 100);
-  return { baseCents, vatCents, irpfCents, totalCents: baseCents + vatCents - irpfCents };
+  return {
+    baseCents,
+    vatCents,
+    irpfCents,
+    totalCents: baseCents + vatCents - irpfCents,
+  };
 }
 
-const EURO = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+const EURO = new Intl.NumberFormat("es-ES", {
+  style: "currency",
+  currency: "EUR",
+});
 
 export function formatCents(cents: number): string {
   return EURO.format(cents / 100);

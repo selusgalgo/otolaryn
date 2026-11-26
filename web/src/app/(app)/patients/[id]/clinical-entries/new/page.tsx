@@ -11,7 +11,11 @@ import { getClinicConsultationConfig } from "@/lib/clinic-consultation-template"
 import { visibleFields } from "@/lib/consultation-template";
 import type { Patient } from "@/lib/types";
 
-export default async function NewClinicalEntryPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function NewClinicalEntryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
 
   let patient: Patient;
@@ -25,15 +29,22 @@ export default async function NewClinicalEntryPage({ params }: { params: Promise
   }
 
   const boundAction = createClinicalEntryAction.bind(null, id);
-  const { template, fields: enabledFields } = await getClinicConsultationConfig();
-  const suggestions = visibleFields(template, undefined, enabledFields).includes("referringDoctor")
+  const { template, fields: enabledFields } =
+    await getClinicConsultationConfig();
+  const suggestions = visibleFields(
+    template,
+    undefined,
+    enabledFields,
+  ).includes("referringDoctor")
     ? await getReferringDoctorSuggestions()
     : [];
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Nueva entrada de historia clínica</h1>
+        <h1 className="text-2xl font-bold">
+          Nueva entrada de historia clínica
+        </h1>
         <p className="text-sm text-muted-foreground">
           {patient.firstName} {patient.lastName}
         </p>

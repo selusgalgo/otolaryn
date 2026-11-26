@@ -16,7 +16,9 @@ interface InsuranceEntitiesFormProps {
   initialEntities: InsuranceEntity[];
 }
 
-export function InsuranceEntitiesForm({ initialEntities }: InsuranceEntitiesFormProps) {
+export function InsuranceEntitiesForm({
+  initialEntities,
+}: InsuranceEntitiesFormProps) {
   const [entities, setEntities] = useState(
     [...initialEntities].sort((a, b) => a.name.localeCompare(b.name, "es")),
   );
@@ -71,7 +73,9 @@ export function InsuranceEntitiesForm({ initialEntities }: InsuranceEntitiesForm
     <div className="space-y-3">
       <div className="divide-y rounded-md border">
         {entities.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">Sin aseguradoras todavía.</p>
+          <p className="p-4 text-sm text-muted-foreground">
+            Sin aseguradoras todavía.
+          </p>
         )}
         {entities.map((entity) => (
           <div key={entity.id} className="flex items-center gap-2 p-2">
@@ -99,7 +103,10 @@ export function InsuranceEntitiesForm({ initialEntities }: InsuranceEntitiesForm
 
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
-          <Label htmlFor="new-insurance" className="text-xs text-muted-foreground">
+          <Label
+            htmlFor="new-insurance"
+            className="text-xs text-muted-foreground"
+          >
             Nueva aseguradora
           </Label>
           <Input
@@ -116,7 +123,11 @@ export function InsuranceEntitiesForm({ initialEntities }: InsuranceEntitiesForm
             placeholder="p. ej. Sanitas"
           />
         </div>
-        <Button type="button" onClick={addEntity} disabled={pending || !newName.trim()}>
+        <Button
+          type="button"
+          onClick={addEntity}
+          disabled={pending || !newName.trim()}
+        >
           <PlusIcon data-icon="inline-start" />
           Añadir
         </Button>

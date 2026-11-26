@@ -30,7 +30,10 @@ export default function RootLayout({
         {/* Google Tag Manager (GTM-PVW9FTLQ) */}
         {/* Etiquetas planas (no next/script) para que salgan en el HTML del
             servidor y el verificador de Google las detecte. */}
-        <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-PVW9FTLQ" />
+        <script
+          async
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-PVW9FTLQ"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `window.dataLayer = window.dataLayer || [];

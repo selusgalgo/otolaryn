@@ -9,8 +9,14 @@ const LAST_ID = SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id;
 // Configuración is one scrolling page of blocks (each saves on its own);
 // this menu jumps to a block and highlights whichever one is being read —
 // a vertical list on desktop, a sticky row of pills on mobile.
-export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: boolean }) {
-  const sections = SETTINGS_SECTIONS.filter((section) => whatsappEnabled || section.id !== "whatsapp-booking");
+export function SettingsNav({
+  whatsappEnabled = true,
+}: {
+  whatsappEnabled?: boolean;
+}) {
+  const sections = SETTINGS_SECTIONS.filter(
+    (section) => whatsappEnabled || section.id !== "whatsapp-booking",
+  );
   const [activeId, setActiveId] = useState(SETTINGS_SECTIONS[0].id);
   const pillsRef = useRef<HTMLUListElement>(null);
 
@@ -26,7 +32,8 @@ export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: bool
         if (el && el.getBoundingClientRect().top <= line) current = id;
       }
       const atBottom =
-        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
       setActiveId(atBottom ? LAST_ID : current);
     }
     update();
@@ -42,7 +49,9 @@ export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: bool
   // row horizontally, never the page.
   useEffect(() => {
     const row = pillsRef.current;
-    const pill = row?.querySelector<HTMLElement>(`[data-section="${activeId}"]`);
+    const pill = row?.querySelector<HTMLElement>(
+      `[data-section="${activeId}"]`,
+    );
     if (row && pill) {
       row.scrollTo({ left: pill.offsetLeft - 16, behavior: "smooth" });
     }
@@ -52,8 +61,13 @@ export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: bool
     const el = document.getElementById(id);
     if (!el) return;
     event.preventDefault();
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    el.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
     history.replaceState(null, "", `#${id}`);
     setActiveId(id);
   }
@@ -63,7 +77,10 @@ export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: bool
     // on an inner wrapper — sticky only holds within its parent's box.
     // min-w-0: as a grid item, the pill row's full width would otherwise
     // stretch the single mobile column past the viewport.
-    <nav aria-label="Secciones de configuración" className="sticky top-0 z-30 min-w-0 lg:top-6">
+    <nav
+      aria-label="Secciones de configuración"
+      className="sticky top-0 z-30 min-w-0 lg:top-6"
+    >
       {/* Mobile / tablet: row of pills */}
       <div className="-mx-4 bg-surface/95 px-4 py-2 backdrop-blur lg:hidden">
         <ul ref={pillsRef} className="flex gap-2 overflow-x-auto">
@@ -109,7 +126,12 @@ export function SettingsNav({ whatsappEnabled = true }: { whatsappEnabled?: bool
                     : "text-foreground hover:bg-muted/60",
                 )}
               >
-                <Icon className={cn("size-5 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                <Icon
+                  className={cn(
+                    "size-5 shrink-0",
+                    active ? "text-primary" : "text-muted-foreground",
+                  )}
+                />
                 {title}
               </a>
             </li>

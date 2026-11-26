@@ -4,13 +4,19 @@ import { useActionState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updatePasswordAction, type PasswordFormState } from "@/lib/actions/account";
+import {
+  updatePasswordAction,
+  type PasswordFormState,
+} from "@/lib/actions/account";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 const initialState: PasswordFormState = {};
 
 export function PasswordForm() {
-  const [state, formAction, pending] = useActionState(updatePasswordAction, initialState);
+  const [state, formAction, pending] = useActionState(
+    updatePasswordAction,
+    initialState,
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -18,7 +24,11 @@ export function PasswordForm() {
   }, [state.success]);
 
   return (
-    <form ref={formRef} onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-sm gap-4">
+    <form
+      ref={formRef}
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-sm gap-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="currentPassword">Contraseña actual</Label>
         <Input
@@ -55,7 +65,9 @@ export function PasswordForm() {
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state.success && <p className="text-sm text-success">Contraseña actualizada.</p>}
+      {state.success && (
+        <p className="text-sm text-success">Contraseña actualizada.</p>
+      )}
       <Button type="submit" disabled={pending} className="w-fit">
         {pending ? "Guardando..." : "Cambiar contraseña"}
       </Button>

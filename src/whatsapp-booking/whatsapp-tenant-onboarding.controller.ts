@@ -1,6 +1,16 @@
-import { Body, Controller, Get, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { IsString, Length, Matches } from 'class-validator';
-import { CurrentUser, type CurrentUserPayload } from '../iam/current-user.decorator';
+import {
+  CurrentUser,
+  type CurrentUserPayload,
+} from '../iam/current-user.decorator';
 import { JwtAuthGuard } from '../iam/jwt-auth.guard';
 import { Roles } from '../iam/roles.decorator';
 import { RolesGuard } from '../iam/roles.guard';
@@ -22,7 +32,9 @@ export class WhatsappTenantOnboardingController {
   constructor(private readonly onboarding: WhatsappTenantOnboardingService) {}
 
   @Get()
-  status() { return this.onboarding.status(); }
+  status() {
+    return this.onboarding.status();
+  }
 
   @Post('begin')
   begin(@CurrentUser() user: CurrentUserPayload) {
@@ -30,10 +42,15 @@ export class WhatsappTenantOnboardingController {
   }
 
   @Post('complete')
-  complete(@CurrentUser() user: CurrentUserPayload, @Body() body: CompleteSignupDto) {
+  complete(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() body: CompleteSignupDto,
+  ) {
     return this.onboarding.finish(user.userId, body.state, body);
   }
 
   @Post('activate')
-  activate() { return this.onboarding.activate(); }
+  activate() {
+    return this.onboarding.activate();
+  }
 }

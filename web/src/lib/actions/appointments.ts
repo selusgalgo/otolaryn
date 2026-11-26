@@ -1,12 +1,12 @@
-'use server';
+"use server";
 
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { apiFetch, ApiError } from '@/lib/api';
-import { toDateKey } from '@/lib/calendar-grid';
-import { clinicDateInputValue, clinicLocalToUtcIso } from '@/lib/clinic-time';
-import { findNextFreeSlots } from '@/lib/occupancy';
-import { mapFormError } from '@/lib/form-errors';
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { apiFetch, ApiError } from "@/lib/api";
+import { toDateKey } from "@/lib/calendar-grid";
+import { clinicDateInputValue, clinicLocalToUtcIso } from "@/lib/clinic-time";
+import { findNextFreeSlots } from "@/lib/occupancy";
+import { mapFormError } from "@/lib/form-errors";
 import type {
   Appointment,
   AppointmentDefaults,
@@ -14,7 +14,7 @@ import type {
   Paginated,
   Patient,
   Schedule,
-} from '@/lib/types';
+} from "@/lib/types";
 
 export interface AppointmentFormState {
   error?: string;
@@ -22,12 +22,14 @@ export interface AppointmentFormState {
   success?: boolean;
 }
 
-function appointmentFormError(message: string): Pick<AppointmentFormState, 'error' | 'fieldErrors'> {
+function appointmentFormError(
+  message: string,
+): Pick<AppointmentFormState, "error" | "fieldErrors"> {
   if (/scheduledAt|fecha y hora|fecha, hora/i.test(message)) {
     return {
       fieldErrors: {
-        date: 'Revisa la fecha y la hora de la cita.',
-        time: 'Revisa la fecha y la hora de la cita.',
+        date: "Revisa la fecha y la hora de la cita.",
+        time: "Revisa la fecha y la hora de la cita.",
       },
     };
   }
@@ -36,35 +38,42 @@ function appointmentFormError(message: string): Pick<AppointmentFormState, 'erro
     {
       date: [],
       time: [],
-      durationMinutes: ['duración', 'duracion'],
-      practitionerId: ['profesional'],
-      status: ['estado'],
-      notes: ['notas'],
-      patientFirstName: ['firstName', 'nombre'],
-      patientLastName: ['lastName', 'apellidos'],
-      patientDocumentId: ['documentId', 'documento', 'número de documento', 'numero de documento'],
-      patientDateOfBirth: ['dateOfBirth', 'fecha de nacimiento'],
-      patientPhone: ['phone', 'teléfono', 'telefono'],
-      patientEmail: ['email', 'correo electrónico', 'correo electronico'],
+      durationMinutes: ["duración", "duracion"],
+      practitionerId: ["profesional"],
+      status: ["estado"],
+      notes: ["notas"],
+      patientFirstName: ["firstName", "nombre"],
+      patientLastName: ["lastName", "apellidos"],
+      patientDocumentId: [
+        "documentId",
+        "documento",
+        "número de documento",
+        "numero de documento",
+      ],
+      patientDateOfBirth: ["dateOfBirth", "fecha de nacimiento"],
+      patientPhone: ["phone", "teléfono", "telefono"],
+      patientEmail: ["email", "correo electrónico", "correo electronico"],
     },
     { patientDocumentId: /documento/i },
     {
-      date: 'Fecha',
-      time: 'Hora',
-      durationMinutes: 'Duración',
-      practitionerId: 'Profesional',
-      status: 'Estado',
-      notes: 'Notas',
-      patientFirstName: 'Nombre',
-      patientLastName: 'Apellidos',
-      patientDocumentId: 'Documento',
-      patientDateOfBirth: 'Fecha de nacimiento',
-      patientPhone: 'Teléfono',
-      patientEmail: 'Email',
+      date: "Fecha",
+      time: "Hora",
+      durationMinutes: "Duración",
+      practitionerId: "Profesional",
+      status: "Estado",
+      notes: "Notas",
+      patientFirstName: "Nombre",
+      patientLastName: "Apellidos",
+      patientDocumentId: "Documento",
+      patientDateOfBirth: "Fecha de nacimiento",
+      patientPhone: "Teléfono",
+      patientEmail: "Email",
     },
   );
   return {
-    ...(Object.keys(mapped.fieldErrors).length ? { fieldErrors: mapped.fieldErrors } : {}),
+    ...(Object.keys(mapped.fieldErrors).length
+      ? { fieldErrors: mapped.fieldErrors }
+      : {}),
     ...(mapped.formError ? { error: mapped.formError } : {}),
   };
 }
@@ -72,8 +81,8 @@ function appointmentFormError(message: string): Pick<AppointmentFormState, 'erro
 function missingDateTimeError(): AppointmentFormState {
   return {
     fieldErrors: {
-      date: 'Indica la fecha de la cita.',
-      time: 'Indica la hora de la cita.',
+      date: "Indica la fecha de la cita.",
+      time: "Indica la hora de la cita.",
     },
   };
 }
@@ -105,15 +114,15 @@ export async function getMonthAppointmentsAction(
 ): Promise<CalendarAppointment[]> {
   const from = clinicLocalToUtcIso(
     toDateKey(new Date(year, month, 1)),
-    '00:00',
+    "00:00",
   );
   const lastDay = toDateKey(new Date(year, month + 1, 0));
-  const end = new Date(clinicLocalToUtcIso(lastDay, '23:59'));
+  const end = new Date(clinicLocalToUtcIso(lastDay, "23:59"));
   end.setUTCSeconds(59, 999);
   const to = end.toISOString();
 
   const result = await apiFetch<Paginated<Appointment>>(
-    `/appointments?from=${from}&to=${to}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ''}`,
+    `/appointments?from=${from}&to=${to}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ""}`,
   );
 
   // Same name-resolution pattern as the rest of Escritorio: the API only
@@ -136,7 +145,7 @@ export async function getMonthAppointmentsAction(
       durationMinutes: a.durationMinutes,
       status: a.status,
       patientId: a.patientId,
-      patientName: patient ? `${patient.firstName} ${patient.lastName}` : '—',
+      patientName: patient ? `${patient.firstName} ${patient.lastName}` : "—",
       practitionerId: a.practitionerId,
     };
   });
@@ -166,7 +175,7 @@ export async function getNextFreeSlotsAction(
 ): Promise<string[]> {
   const now = new Date();
   const anchorFromKey = fromDateKey
-    ? new Date(clinicLocalToUtcIso(fromDateKey, '00:00'))
+    ? new Date(clinicLocalToUtcIso(fromDateKey, "00:00"))
     : now;
   const from = anchorFromKey > now ? anchorFromKey : now;
 
@@ -175,13 +184,13 @@ export async function getNextFreeSlotsAction(
   to.setDate(to.getDate() + daysAhead);
 
   const [schedule, result] = await Promise.all([
-    apiFetch<Schedule>('/settings/schedule'),
+    apiFetch<Schedule>("/settings/schedule"),
     apiFetch<Paginated<Appointment>>(
       // 100 is the API's max pageSize (see ListAppointmentsQueryDto) — same
       // cap and same "good enough at realistic volume" acceptance as
       // getMonthAppointmentsAction above, just over 14 days instead of a
       // whole month.
-      `/appointments?from=${from.toISOString()}&to=${to.toISOString()}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ''}`,
+      `/appointments?from=${from.toISOString()}&to=${to.toISOString()}&pageSize=100${practitionerId ? `&practitionerId=${practitionerId}` : ""}`,
     ),
   ]);
 
@@ -212,7 +221,7 @@ export async function getNextFreeSlotsAction(
 export async function getAppointmentDefaultDurationAction(): Promise<number> {
   try {
     const defaults = await apiFetch<AppointmentDefaults>(
-      '/settings/appointment-defaults',
+      "/settings/appointment-defaults",
     );
     return defaults.defaultDurationMinutes;
   } catch {
@@ -220,21 +229,19 @@ export async function getAppointmentDefaultDurationAction(): Promise<number> {
   }
 }
 
-function newAppointmentBody(
-  formData: FormData,
-): {
+function newAppointmentBody(formData: FormData): {
   scheduledAt: string;
   durationMinutes?: number;
   notes?: string;
   practitionerId?: string;
 } | null {
-  const date = String(formData.get('date') ?? '').trim();
-  const time = String(formData.get('time') ?? '').trim();
-  const durationMinutes = String(formData.get('durationMinutes') ?? '').trim();
-  const notes = String(formData.get('notes') ?? '').trim();
+  const date = String(formData.get("date") ?? "").trim();
+  const time = String(formData.get("time") ?? "").trim();
+  const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
   // Absent entirely for a profesional (the field isn't rendered — the
   // backend auto-assigns them); present and required for admin/recepcion.
-  const practitionerId = String(formData.get('practitionerId') ?? '').trim();
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return null;
@@ -263,18 +270,18 @@ export async function createAppointmentAction(
 
   try {
     await apiFetch<Appointment>(`/patients/${patientId}/appointments`, {
-      method: 'POST',
+      method: "POST",
       body,
     });
   } catch (err) {
     if (err instanceof ApiError) {
       return appointmentFormError(err.message);
     }
-    return { error: 'No se pudo crear la cita.' };
+    return { error: "No se pudo crear la cita." };
   }
 
   revalidatePath(`/patients/${patientId}`);
-  revalidatePath('/appointments');
+  revalidatePath("/appointments");
   return { success: true };
 }
 
@@ -291,19 +298,20 @@ export async function createAppointmentAction(
 async function createPatientAndAppointment(
   formData: FormData,
 ): Promise<
-  { patientId: string; appointment: Appointment } | { error?: string; fieldErrors?: Record<string, string> }
+  | { patientId: string; appointment: Appointment }
+  | { error?: string; fieldErrors?: Record<string, string> }
 > {
-  const mode = String(formData.get('mode') ?? 'existing');
+  const mode = String(formData.get("mode") ?? "existing");
   let patientId: string;
 
-  if (mode === 'new') {
-    const documentId = String(formData.get('patientDocumentId') ?? '').trim();
-    const email = String(formData.get('patientEmail') ?? '').trim();
+  if (mode === "new") {
+    const documentId = String(formData.get("patientDocumentId") ?? "").trim();
+    const email = String(formData.get("patientEmail") ?? "").trim();
     const patientBody = {
-      firstName: String(formData.get('patientFirstName') ?? '').trim(),
-      lastName: String(formData.get('patientLastName') ?? '').trim(),
-      dateOfBirth: String(formData.get('patientDateOfBirth') ?? ''),
-      phone: String(formData.get('patientPhone') ?? '').trim(),
+      firstName: String(formData.get("patientFirstName") ?? "").trim(),
+      lastName: String(formData.get("patientLastName") ?? "").trim(),
+      dateOfBirth: String(formData.get("patientDateOfBirth") ?? ""),
+      phone: String(formData.get("patientPhone") ?? "").trim(),
       // Documento is optional — omitted (not sent as "") when blank, same
       // as every other optional field here: an empty string would still
       // fail @MinLength(1) on the backend even though @IsOptional() lets
@@ -313,8 +321,8 @@ async function createPatientAndAppointment(
     };
 
     try {
-      const patient = await apiFetch<{ id: string }>('/patients', {
-        method: 'POST',
+      const patient = await apiFetch<{ id: string }>("/patients", {
+        method: "POST",
         body: patientBody,
       });
       patientId = patient.id;
@@ -323,12 +331,14 @@ async function createPatientAndAppointment(
         const mapped = appointmentFormError(err.message);
         return Object.keys(mapped.fieldErrors ?? {}).length
           ? mapped
-          : { error: `No se pudo crear el paciente: ${mapped.error ?? err.message}` };
+          : {
+              error: `No se pudo crear el paciente: ${mapped.error ?? err.message}`,
+            };
       }
-      return { error: 'No se pudo crear el paciente.' };
+      return { error: "No se pudo crear el paciente." };
     }
   } else {
-    patientId = String(formData.get('patientId') ?? '').trim();
+    patientId = String(formData.get("patientId") ?? "").trim();
     if (!patientId) {
       return { error: 'Selecciona un paciente o cambia a "Paciente nuevo".' };
     }
@@ -343,7 +353,7 @@ async function createPatientAndAppointment(
     const appointment = await apiFetch<Appointment>(
       `/patients/${patientId}/appointments`,
       {
-        method: 'POST',
+        method: "POST",
         body,
       },
     );
@@ -352,7 +362,7 @@ async function createPatientAndAppointment(
     if (err instanceof ApiError) {
       return appointmentFormError(err.message);
     }
-    return { error: 'No se pudo crear la cita.' };
+    return { error: "No se pudo crear la cita." };
   }
 }
 
@@ -365,12 +375,12 @@ export async function createAppointmentForPatientAction(
   formData: FormData,
 ): Promise<AppointmentFormState> {
   const result = await createPatientAndAppointment(formData);
-  if (!('patientId' in result)) {
+  if (!("patientId" in result)) {
     return result;
   }
 
   revalidatePath(`/patients/${result.patientId}`);
-  revalidatePath('/appointments');
+  revalidatePath("/appointments");
   redirect(`/appointments/${result.appointment.id}`);
 }
 
@@ -383,12 +393,12 @@ export async function createAppointmentFromAgendaAction(
   formData: FormData,
 ): Promise<AppointmentFormState> {
   const result = await createPatientAndAppointment(formData);
-  if (!('patientId' in result)) {
+  if (!("patientId" in result)) {
     return result;
   }
 
   revalidatePath(`/patients/${result.patientId}`);
-  revalidatePath('/appointments');
+  revalidatePath("/appointments");
   return { success: true };
 }
 
@@ -401,20 +411,31 @@ export async function rescheduleAppointmentAction(
   time: string,
   durationMinutes: number,
 ): Promise<AppointmentFormState> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || !Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 480) {
-    return { error: 'Indica una fecha, hora y duración válidas.' };
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) ||
+    !Number.isInteger(durationMinutes) ||
+    durationMinutes < 5 ||
+    durationMinutes > 480
+  ) {
+    return { error: "Indica una fecha, hora y duración válidas." };
   }
   try {
     const appointment = await apiFetch<Appointment>(`/appointments/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: { scheduledAt: clinicLocalToUtcIso(date, time), durationMinutes },
     });
-    revalidatePath('/appointments');
+    revalidatePath("/appointments");
     revalidatePath(`/appointments/${id}`);
     revalidatePath(`/patients/${appointment.patientId}`);
     return { success: true };
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : 'No se pudo actualizar la cita.' };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo actualizar la cita.",
+    };
   }
 }
 
@@ -423,14 +444,14 @@ export async function updateAppointmentAction(
   _prevState: AppointmentFormState,
   formData: FormData,
 ): Promise<AppointmentFormState> {
-  const date = String(formData.get('date') ?? '').trim();
-  const time = String(formData.get('time') ?? '').trim();
-  const durationMinutes = String(formData.get('durationMinutes') ?? '').trim();
-  const notes = String(formData.get('notes') ?? '').trim();
-  const status = String(formData.get('status') ?? '').trim();
+  const date = String(formData.get("date") ?? "").trim();
+  const time = String(formData.get("time") ?? "").trim();
+  const durationMinutes = String(formData.get("durationMinutes") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim();
   // Absent for profesional (field not rendered) — a profesional can't
   // reassign their own appointment to someone else, only admin/recepcion do.
-  const practitionerId = String(formData.get('practitionerId') ?? '').trim();
+  const practitionerId = String(formData.get("practitionerId") ?? "").trim();
 
   if (!date || !time) {
     return missingDateTimeError();
@@ -447,17 +468,17 @@ export async function updateAppointmentAction(
   let appointment: Appointment;
   try {
     appointment = await apiFetch<Appointment>(`/appointments/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body,
     });
   } catch (err) {
     if (err instanceof ApiError) {
       return appointmentFormError(err.message);
     }
-    return { error: 'No se pudo actualizar la cita.' };
+    return { error: "No se pudo actualizar la cita." };
   }
 
-  revalidatePath('/appointments');
+  revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);
   revalidatePath(`/patients/${appointment.patientId}`);
   return { success: true };
@@ -465,10 +486,10 @@ export async function updateAppointmentAction(
 
 export async function cancelAppointmentAction(id: string): Promise<void> {
   await apiFetch(`/appointments/${id}`, {
-    method: 'PATCH',
-    body: { status: 'cancelled' },
+    method: "PATCH",
+    body: { status: "cancelled" },
   });
-  revalidatePath('/appointments');
+  revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);
   redirect(`/appointments/${id}`);
 }
@@ -478,7 +499,7 @@ export async function cancelAppointmentAction(id: string): Promise<void> {
 // cita de la agenda de verdad (duplicada, hueco de prueba), no la deja
 // visible como "Cancelada" en el histórico.
 export async function deleteAppointmentAction(id: string): Promise<void> {
-  await apiFetch(`/appointments/${id}`, { method: 'DELETE' });
-  revalidatePath('/appointments');
-  redirect('/appointments');
+  await apiFetch(`/appointments/${id}`, { method: "DELETE" });
+  revalidatePath("/appointments");
+  redirect("/appointments");
 }

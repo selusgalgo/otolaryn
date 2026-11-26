@@ -9,7 +9,10 @@ import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import { apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { isDoctor, withHonorific } from "@/lib/doctor-name";
-import { clinicDateInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
+import {
+  clinicDateInputValue,
+  formatInClinicTimeZone,
+} from "@/lib/clinic-time";
 import { getPractitionerOptions } from "@/lib/practitioners";
 import type { Patient, Schedule, TodayDashboard } from "@/lib/types";
 import { stripHtml, truncateText } from "@/lib/utils";
@@ -28,7 +31,10 @@ function todayIso(): string {
 }
 
 function formatDateTime(iso: string): string {
-  return formatInClinicTimeZone(iso, { dateStyle: "medium", timeStyle: "short" });
+  return formatInClinicTimeZone(iso, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 export default async function DashboardPage() {
@@ -40,25 +46,34 @@ export default async function DashboardPage() {
   // so this skips ever calling it instead of letting Promise.all below
   // reject and take the whole page down with it.
   const canSeeAgenda = me.role !== "profesional" || me.agendaAccess;
-  const [dashboard, monthAppointments, practitioners, schedule] = await Promise.all([
-    apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
-    // Feeds the calendar's initial month — see AgendaCalendar, which takes
-    // over with its own fetches (getMonthAppointmentsAction) on navigation.
-    canSeeAgenda ? getMonthAppointmentsAction(todayYear, todayMonth - 1) : Promise.resolve([]),
-    getPractitionerOptions(),
-    // Read-only for every tenant role here too (see SettingsController) —
-    // needed to color each day by occupancy, same as Agenda's calendar.
-    apiFetch<Schedule>("/settings/schedule"),
-  ]);
+  const [dashboard, monthAppointments, practitioners, schedule] =
+    await Promise.all([
+      apiFetch<TodayDashboard>(`/dashboard/today?date=${date}`),
+      // Feeds the calendar's initial month — see AgendaCalendar, which takes
+      // over with its own fetches (getMonthAppointmentsAction) on navigation.
+      canSeeAgenda
+        ? getMonthAppointmentsAction(todayYear, todayMonth - 1)
+        : Promise.resolve([]),
+      getPractitionerOptions(),
+      // Read-only for every tenant role here too (see SettingsController) —
+      // needed to color each day by occupancy, same as Agenda's calendar.
+      apiFetch<Schedule>("/settings/schedule"),
+    ]);
 
   // clinicalEntries is null (not just empty) for recepcion — that widget
   // doesn't render for that role at all, see below. The API only returns
   // patientId, not a name, so names are resolved here for display.
   const patientIds = Array.from(
-    new Set([...(dashboard.clinicalEntries ?? []), ...(dashboard.drafts ?? [])].map((e) => e.patientId)),
+    new Set(
+      [...(dashboard.clinicalEntries ?? []), ...(dashboard.drafts ?? [])].map(
+        (e) => e.patientId,
+      ),
+    ),
   );
   const patients = await Promise.all(
-    patientIds.map((id) => apiFetch<Patient>(`/patients/${id}`).catch(() => null)),
+    patientIds.map((id) =>
+      apiFetch<Patient>(`/patients/${id}`).catch(() => null),
+    ),
   );
   const patientById = new Map(
     patients.filter((p): p is Patient => p !== null).map((p) => [p.id, p]),
@@ -71,15 +86,22 @@ export default async function DashboardPage() {
 
   const currentUserId = decodeJwtClaims(await getSessionToken())?.sub;
   const urgentOwnDrafts = (dashboard.drafts ?? []).filter(
-    (draft) => draft.authorUserId === currentUserId && isDraftExpiringSoon(draft.draftExpiresAt),
+    (draft) =>
+      draft.authorUserId === currentUserId &&
+      isDraftExpiringSoon(draft.draftExpiresAt),
   );
   const urgentDraftIds = new Set(urgentOwnDrafts.map((draft) => draft.id));
-  const otherDrafts = (dashboard.drafts ?? []).filter((draft) => !urgentDraftIds.has(draft.id));
+  const otherDrafts = (dashboard.drafts ?? []).filter(
+    (draft) => !urgentDraftIds.has(draft.id),
+  );
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">
-        Hola, {isDoctor(me) ? withHonorific(me.firstName, me.honorific) : me.firstName}
+        Hola,{" "}
+        {isDoctor(me)
+          ? withHonorific(me.firstName, me.honorific)
+          : me.firstName}
       </h1>
 
       {canSeeAgenda && (
@@ -99,7 +121,9 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {dashboard.clinicalEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin entradas registradas hoy.</p>
+              <p className="text-sm text-muted-foreground">
+                Sin entradas registradas hoy.
+              </p>
             ) : (
               <ul className="divide-y">
                 {dashboard.clinicalEntries.map((entry) => (
@@ -109,8 +133,14 @@ export default async function DashboardPage() {
                       className="flex items-center justify-between gap-4 hover:underline"
                     >
                       <span className="text-sm">
-                        <span className="font-bold">{patientName(entry.patientId)}</span>{" · "}
-                        {truncateText(stripHtml(entry.chiefComplaint), MOTIVO_MAX_CHARS)}
+                        <span className="font-bold">
+                          {patientName(entry.patientId)}
+                        </span>
+                        {" · "}
+                        {truncateText(
+                          stripHtml(entry.chiefComplaint),
+                          MOTIVO_MAX_CHARS,
+                        )}
                       </span>
                       {/* Mismo estilo de "tag" que la fecha en la tabla de
                           Consultas de la ficha del paciente — consistencia
@@ -130,7 +160,9 @@ export default async function DashboardPage() {
       {urgentOwnDrafts.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Borradores que caducan pronto</CardTitle>
+            <CardTitle className="text-base">
+              Borradores que caducan pronto
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
@@ -141,13 +173,22 @@ export default async function DashboardPage() {
                     className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 hover:underline"
                   >
                     <span className="text-sm">
-                      <span className="font-bold">{patientName(draft.patientId)}</span>
+                      <span className="font-bold">
+                        {patientName(draft.patientId)}
+                      </span>
                       {" · "}
-                      {draft.chiefComplaint ? truncateText(stripHtml(draft.chiefComplaint), MOTIVO_MAX_CHARS) : "Sin motivo todavía"}
+                      {draft.chiefComplaint
+                        ? truncateText(
+                            stripHtml(draft.chiefComplaint),
+                            MOTIVO_MAX_CHARS,
+                          )
+                        : "Sin motivo todavía"}
                     </span>
                     <span className="flex flex-wrap items-center gap-3">
                       <DraftBadge expiresAt={draft.draftExpiresAt} />
-                      <span className="text-sm font-medium">Continuar borrador →</span>
+                      <span className="text-sm font-medium">
+                        Continuar borrador →
+                      </span>
                     </span>
                   </Link>
                 </li>
@@ -175,12 +216,19 @@ export default async function DashboardPage() {
                     className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 hover:underline"
                   >
                     <span className="text-sm">
-                      <span className="font-bold">{patientName(draft.patientId)}</span>
+                      <span className="font-bold">
+                        {patientName(draft.patientId)}
+                      </span>
                       {" · "}
                       {draft.chiefComplaint ? (
-                        truncateText(stripHtml(draft.chiefComplaint), MOTIVO_MAX_CHARS)
+                        truncateText(
+                          stripHtml(draft.chiefComplaint),
+                          MOTIVO_MAX_CHARS,
+                        )
                       ) : (
-                        <span className="text-muted-foreground">Sin motivo todavía</span>
+                        <span className="text-muted-foreground">
+                          Sin motivo todavía
+                        </span>
                       )}
                     </span>
                     <DraftBadge expiresAt={draft.draftExpiresAt} />

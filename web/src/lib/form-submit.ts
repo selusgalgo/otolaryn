@@ -10,7 +10,10 @@ export function keepValuesOnSubmit(dispatch: (formData: FormData) => void) {
   return (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const formData = new FormData(event.currentTarget, submitter instanceof HTMLElement ? submitter : undefined);
+    const formData = new FormData(
+      event.currentTarget,
+      submitter instanceof HTMLElement ? submitter : undefined,
+    );
     startTransition(() => dispatch(formData));
   };
 }

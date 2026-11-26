@@ -22,7 +22,8 @@ export const SETTINGS_SECTIONS: {
   {
     id: "clinic-profile",
     title: "Perfil de la clínica",
-    description: "Nombre, dirección, teléfono y logotipo que aparecen en los PDF exportados.",
+    description:
+      "Nombre, dirección, teléfono y logotipo que aparecen en los PDF exportados.",
     icon: BuildingOffice2Icon,
   },
   {
@@ -46,7 +47,8 @@ export const SETTINGS_SECTIONS: {
   {
     id: "antecedentes",
     title: "Antecedentes",
-    description: "Etiquetas que los profesionales pueden marcar en la ficha de cada paciente.",
+    description:
+      "Etiquetas que los profesionales pueden marcar en la ficha de cada paciente.",
     icon: ClipboardDocumentListIcon,
   },
   {
@@ -58,7 +60,8 @@ export const SETTINGS_SECTIONS: {
   {
     id: "security",
     title: "Seguridad",
-    description: "Restringir el acceso de los profesionales a ordenadores autorizados.",
+    description:
+      "Restringir el acceso de los profesionales a ordenadores autorizados.",
     icon: LockClosedIcon,
   },
 ];

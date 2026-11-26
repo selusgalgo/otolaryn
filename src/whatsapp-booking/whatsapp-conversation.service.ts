@@ -384,8 +384,14 @@ export class WhatsappConversationService {
         kind: 'main',
         options: [
           { id: 'CITA', title: 'Reservar cita' },
-          ...(await this.booking.cancellationsEnabled() ? [{ id: 'CANCELAR CITA', title: 'Cancelar cita' }] : []),
-          ...(settings.platformEnabled && settings.clinicEnabled && features.reschedule ? [{ id: 'CAMBIAR CITA', title: 'Cambiar cita' }] : []),
+          ...((await this.booking.cancellationsEnabled())
+            ? [{ id: 'CANCELAR CITA', title: 'Cancelar cita' }]
+            : []),
+          ...(settings.platformEnabled &&
+          settings.clinicEnabled &&
+          features.reschedule
+            ? [{ id: 'CAMBIAR CITA', title: 'Cambiar cita' }]
+            : []),
           { id: 'RECEPCIÓN', title: 'Recepción' },
         ],
       };
@@ -395,21 +401,67 @@ export class WhatsappConversationService {
         '\nEscribe ' +
         options.join(' · ') +
         '.';
-    } else if (state?.step === 'another' && /^(otra_misma|otra_persona|1|2|para mi|para otra persona)$/.test(normalizedText)) {
+    } else if (
+      state?.step === 'another' &&
+      /^(otra_misma|otra_persona|1|2|para mi|para otra persona)$/.test(
+        normalizedText,
+      )
+    ) {
       const reuse = /^(otra_misma|1|para mi)$/.test(normalizedText);
-      const identity = reuse ? { firstName: state.firstName, lastName: state.lastName, dateOfBirth: state.dateOfBirth, reuseIdentity: true } : {};
+      const identity = reuse
+        ? {
+            firstName: state.firstName,
+            lastName: state.lastName,
+            dateOfBirth: state.dateOfBirth,
+            reuseIdentity: true,
+          }
+        : {};
       if (features.visitTypes.length) {
-        state = { ...identity, step: 'visitType', visitTypes: features.visitTypes };
-        reply = 'Elige el tipo de cita:\n' + features.visitTypes.map((type, i) => i + 1 + '. ' + type.name).join('\n') + '\nEscribe el número de la opción.';
+        state = {
+          ...identity,
+          step: 'visitType',
+          visitTypes: features.visitTypes,
+        };
+        reply =
+          'Elige el tipo de cita:\n' +
+          features.visitTypes
+            .map((type, i) => i + 1 + '. ' + type.name)
+            .join('\n') +
+          '\nEscribe el número de la opción.';
       } else {
         const professionals = await this.booking.practitioners();
         state = { ...identity, step: 'professional', professionals };
-        reply = professionals.length ? 'Elige el profesional con quien quieres reservar:\n' + professionals.map((p, i) => `${i + 1}. ${p.firstName} ${p.lastName}`).join('\n') : 'Ahora mismo no hay profesionales disponibles. Contacta con recepción.';
-        if (professionals.length) menu = { kind: 'professionals', options: professionals.map((p) => ({ id: `P:${p.id}`, title: `${p.firstName} ${p.lastName}` })) };
+        reply = professionals.length
+          ? 'Elige el profesional con quien quieres reservar:\n' +
+            professionals
+              .map((p, i) => `${i + 1}. ${p.firstName} ${p.lastName}`)
+              .join('\n')
+          : 'Ahora mismo no hay profesionales disponibles. Contacta con recepción.';
+        if (professionals.length)
+          menu = {
+            kind: 'professionals',
+            options: professionals.map((p) => ({
+              id: `P:${p.id}`,
+              title: `${p.firstName} ${p.lastName}`,
+            })),
+          };
       }
-    } else if (state?.step === 'another' && !isStartCommand(text) && !startsCancellation && !startsReschedule && !isCancelCommand(text)) {
-      reply = '¿Quieres reservar otra cita para la misma persona o para otra? Elige 1 para la misma persona o 2 para otra persona.';
-      menu = { kind: 'another', options: [{ id: 'OTRA_MISMA', title: 'Para mí' }, { id: 'OTRA_PERSONA', title: 'Para otra persona' }] };
+    } else if (
+      state?.step === 'another' &&
+      !isStartCommand(text) &&
+      !startsCancellation &&
+      !startsReschedule &&
+      !isCancelCommand(text)
+    ) {
+      reply =
+        '¿Quieres reservar otra cita para la misma persona o para otra? Elige 1 para la misma persona o 2 para otra persona.';
+      menu = {
+        kind: 'another',
+        options: [
+          { id: 'OTRA_MISMA', title: 'Para mí' },
+          { id: 'OTRA_PERSONA', title: 'Para otra persona' },
+        ],
+      };
     } else if (
       startsReschedule &&
       !(
@@ -575,7 +627,12 @@ export class WhatsappConversationService {
             ? 'Escribe el número de un tipo de cita de la lista.'
             : 'Ahora mismo no hay profesionales disponibles para reservar automáticamente. Si quieres, contacta con recepción.';
       } else {
-        state = { ...(state?.step === 'visitType' ? state : {}), step: 'professional', professionals, visitTypeId: type?.id };
+        state = {
+          ...(state?.step === 'visitType' ? state : {}),
+          step: 'professional',
+          professionals,
+          visitTypeId: type?.id,
+        };
         reply =
           (type
             ? ''
@@ -759,7 +816,15 @@ export class WhatsappConversationService {
       } else {
         state = {
           ...state,
-          step: state.rescheduling ? 'confirm' : state.reuseIdentity ? (settings.askReason ? 'reason' : features.reminderHours > 0 ? 'reminder' : 'confirm') : 'firstName',
+          step: state.rescheduling
+            ? 'confirm'
+            : state.reuseIdentity
+              ? settings.askReason
+                ? 'reason'
+                : features.reminderHours > 0
+                  ? 'reminder'
+                  : 'confirm'
+              : 'firstName',
           scheduledAt: slots[page * 8 + index].scheduledAt,
           slots: undefined,
           slotPage: undefined,
@@ -771,23 +836,45 @@ export class WhatsappConversationService {
             state.practitionerName +
             '? Responde SI para cambiarla o SALIR para conservar tu cita.'
           : state.reuseIdentity
-            ? state.step === 'reason' ? '¿Quieres indicar brevemente el motivo de tu visita? Escríbelo en una frase o responde OMITIR.' : state.step === 'reminder' ? reminderPrompt : `Perfecto. ¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`
+            ? state.step === 'reason'
+              ? '¿Quieres indicar brevemente el motivo de tu visita? Escríbelo en una frase o responde OMITIR.'
+              : state.step === 'reminder'
+                ? reminderPrompt
+                : `Perfecto. ¿Te viene bien la cita con ${state.practitionerName} el ${formatSlot(state.scheduledAt!)}? Responde SI para reservar o CANCELAR para salir.`
             : '¿A nombre de quién reservo? Escríbeme tu nombre y apellidos juntos.';
-        if (state.step === 'confirm' && !state.rescheduling) menu = { kind: 'confirm', options: [{ id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`, title: 'Confirmar cita' }, { id: 'CANCELAR', title: 'Cancelar' }] };
+        if (state.step === 'confirm' && !state.rescheduling)
+          menu = {
+            kind: 'confirm',
+            options: [
+              {
+                id: `CONFIRMAR:${state.practitionerId}:${state.scheduledAt}`,
+                title: 'Confirmar cita',
+              },
+              { id: 'CANCELAR', title: 'Cancelar' },
+            ],
+          };
       }
     } else if (state.step === 'firstName' || state.step === 'lastName') {
       if (state.step === 'firstName') {
         const parts = text.trim().split(/\s+/);
         const firstName = parts.shift() ?? '';
         const lastName = parts.join(' ');
-        if (!firstName || !lastName || firstName.length > 100 || lastName.length > 100) {
-          reply = 'Escríbeme tu nombre y apellidos juntos, por ejemplo: Ana García López.';
+        if (
+          !firstName ||
+          !lastName ||
+          firstName.length > 100 ||
+          lastName.length > 100
+        ) {
+          reply =
+            'Escríbeme tu nombre y apellidos juntos, por ejemplo: Ana García López.';
         } else {
           state = { ...state, firstName, lastName, step: 'dob' };
-          reply = 'Para asociar la cita a la ficha correcta, dime tu fecha de nacimiento (por ejemplo, 21/04/1990).';
+          reply =
+            'Para asociar la cita a la ficha correcta, dime tu fecha de nacimiento (por ejemplo, 21/04/1990).';
         }
       } else if (!text || text.length > 100) {
-        reply = 'No he entendido ese dato. Envíame tus apellidos de hasta 100 caracteres.';
+        reply =
+          'No he entendido ese dato. Envíame tus apellidos de hasta 100 caracteres.';
       } else {
         state = { ...state, lastName: text, step: 'dob' };
         reply =
@@ -930,9 +1017,21 @@ export class WhatsappConversationService {
           }
           await manager.query('RELEASE SAVEPOINT whatsapp_booking_attempt');
           if (!state.original && reply.startsWith('¡Listo!')) {
-            state = { step: 'another', firstName: state.firstName, lastName: state.lastName, dateOfBirth: state.dateOfBirth };
-            reply += '\n¿Quieres reservar otra cita? Elige 1 para la misma persona o 2 para otra persona.';
-            menu = { kind: 'another', options: [{ id: 'OTRA_MISMA', title: 'Para mí' }, { id: 'OTRA_PERSONA', title: 'Para otra persona' }] };
+            state = {
+              step: 'another',
+              firstName: state.firstName,
+              lastName: state.lastName,
+              dateOfBirth: state.dateOfBirth,
+            };
+            reply +=
+              '\n¿Quieres reservar otra cita? Elige 1 para la misma persona o 2 para otra persona.';
+            menu = {
+              kind: 'another',
+              options: [
+                { id: 'OTRA_MISMA', title: 'Para mí' },
+                { id: 'OTRA_PERSONA', title: 'Para otra persona' },
+              ],
+            };
           } else state = undefined;
         } catch (err) {
           await manager.query('ROLLBACK TO SAVEPOINT whatsapp_booking_attempt');

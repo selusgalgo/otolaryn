@@ -19,7 +19,9 @@ export interface PractitionerOption {
 // /users?bookable=true would 403 for any other role anyway. "Bookable"
 // means every profesional, plus any admin who also practices (an
 // owner-doctor) — see UsersService.findAll.
-export async function getPractitionerOptions(): Promise<PractitionerOption[] | null> {
+export async function getPractitionerOptions(): Promise<
+  PractitionerOption[] | null
+> {
   const me = await getCurrentUser();
   if (me.role !== "admin" && me.role !== "recepcion") {
     return null;

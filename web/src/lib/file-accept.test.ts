@@ -17,15 +17,21 @@ describe("matchesAccept", () => {
 
   it("matches type families", () => {
     expect(matchesAccept(file("a.gif", "image/gif"), "image/*")).toBe(true);
-    expect(matchesAccept(file("a.pdf", "application/pdf"), "image/*")).toBe(false);
+    expect(matchesAccept(file("a.pdf", "application/pdf"), "image/*")).toBe(
+      false,
+    );
   });
 
   it("matches extensions regardless of case", () => {
     expect(matchesAccept(file("Datos.XLSX", ""), ".xls,.xlsx,.csv")).toBe(true);
-    expect(matchesAccept(file("datos.txt", "text/plain"), ".xls,.xlsx,.csv")).toBe(false);
+    expect(
+      matchesAccept(file("datos.txt", "text/plain"), ".xls,.xlsx,.csv"),
+    ).toBe(false);
   });
 
   it("copes with spaces in the list and a PDF with no reported type", () => {
-    expect(matchesAccept(file("firmada.pdf", ""), "application/pdf, .pdf")).toBe(true);
+    expect(
+      matchesAccept(file("firmada.pdf", ""), "application/pdf, .pdf"),
+    ).toBe(true);
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { draftDaysLeft, draftExpiryText, isDraftExpiringSoon } from "./draft-expiry";
+import {
+  draftDaysLeft,
+  draftExpiryText,
+  isDraftExpiringSoon,
+} from "./draft-expiry";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-11-04T10:00:00Z");
@@ -26,9 +30,15 @@ describe("caducidad de borradores", () => {
   });
 
   it("redacta el aviso", () => {
-    expect(draftExpiryText(inDays(7), NOW)).toBe("Se borra en 7 días si no lo terminas");
-    expect(draftExpiryText(inDays(1), NOW)).toBe("Se borra mañana si no lo terminas");
-    expect(draftExpiryText(inDays(-1), NOW)).toBe("Se borra hoy si no lo terminas");
+    expect(draftExpiryText(inDays(7), NOW)).toBe(
+      "Se borra en 7 días si no lo terminas",
+    );
+    expect(draftExpiryText(inDays(1), NOW)).toBe(
+      "Se borra mañana si no lo terminas",
+    );
+    expect(draftExpiryText(inDays(-1), NOW)).toBe(
+      "Se borra hoy si no lo terminas",
+    );
     expect(draftExpiryText(null, NOW)).toBe("");
   });
 });

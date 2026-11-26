@@ -35,7 +35,8 @@ export async function GET(
   return new Response(upstream.body, {
     headers: {
       "Content-Type": upstream.headers.get("content-type") ?? "application/pdf",
-      "Content-Disposition": upstream.headers.get("content-disposition") ?? "attachment",
+      "Content-Disposition":
+        upstream.headers.get("content-disposition") ?? "attachment",
     },
   });
 }

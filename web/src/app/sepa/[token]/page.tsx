@@ -1,9 +1,23 @@
-import { ArrowDownTrayIcon, CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownTrayIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { SepaDebtorForm } from "@/components/sepa/sepa-debtor-form";
 import { SepaSignPanel } from "@/components/sepa/sepa-sign-panel";
-import { saveSepaDebtorAction, signSepaCertificateAction, signSepaWebAction } from "@/lib/actions/sepa-public";
+import {
+  saveSepaDebtorAction,
+  signSepaCertificateAction,
+  signSepaWebAction,
+} from "@/lib/actions/sepa-public";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clientHeaders } from "@/lib/client-headers";
 import { formatCents } from "@/lib/sepa";
@@ -32,7 +46,9 @@ function Unavailable({ message }: { message: string }) {
       <CardContent className="flex items-start gap-3 py-6">
         <ExclamationTriangleIcon className="mt-0.5 size-6 shrink-0 text-muted-foreground" />
         <div>
-          <h1 className="text-lg font-semibold">No se puede abrir este enlace</h1>
+          <h1 className="text-lg font-semibold">
+            No se puede abrir este enlace
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">{message}</p>
         </div>
       </CardContent>
@@ -51,17 +67,27 @@ function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   );
 }
 
-export default async function SepaSigningPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function SepaSigningPage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
   const { token } = await params;
 
   let view: PublicSepaView;
   try {
-    view = await apiFetch<PublicSepaView>(`/public/sepa/${encodeURIComponent(token)}`, {
-      skipAuth: true,
-      headers: await clientHeaders(),
-    });
+    view = await apiFetch<PublicSepaView>(
+      `/public/sepa/${encodeURIComponent(token)}`,
+      {
+        skipAuth: true,
+        headers: await clientHeaders(),
+      },
+    );
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 410 || err.status === 429)) {
+    if (
+      err instanceof ApiError &&
+      (err.status === 404 || err.status === 410 || err.status === 429)
+    ) {
       return (
         <Unavailable
           message={
@@ -91,7 +117,8 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
         <CardHeader>
           <CardTitle className="text-base">Qué vas a autorizar</CardTitle>
           <CardDescription>
-            {creditor.name} (NIF {creditor.taxId}) cobrará por adeudo directo en tu cuenta el servicio Mederi.
+            {creditor.name} (NIF {creditor.taxId}) cobrará por adeudo directo en
+            tu cuenta el servicio Mederi.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -102,7 +129,9 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
             </div>
             <div>
               <dt className="text-muted-foreground">Periodicidad</dt>
-              <dd className="font-medium">Mensual, desde el {formatDate(view.firstChargeDate)}</dd>
+              <dd className="font-medium">
+                Mensual, desde el {formatDate(view.firstChargeDate)}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Importe de cada adeudo</dt>
@@ -110,11 +139,13 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
             </div>
           </dl>
           <p className="mt-3 text-xs text-muted-foreground">
-            Base {formatCents(amounts.baseCents)} + IVA ({view.vatPercent} %) {formatCents(amounts.vatCents)}
+            Base {formatCents(amounts.baseCents)} + IVA ({view.vatPercent} %){" "}
+            {formatCents(amounts.vatCents)}
             {amounts.irpfCents > 0 && (
               <>
                 {" "}
-                − retención IRPF ({view.irpfPercent} %) {formatCents(amounts.irpfCents)}
+                − retención IRPF ({view.irpfPercent} %){" "}
+                {formatCents(amounts.irpfCents)}
               </>
             )}
             . Cada adeudo va precedido de su factura por correo electrónico.
@@ -130,7 +161,9 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
               <div>
                 <h2 className="text-lg font-semibold">Orden firmada</h2>
                 <p className="text-sm text-muted-foreground">
-                  {view.signedAt && <>Firmada el {formatDateTime(view.signedAt)} </>}
+                  {view.signedAt && (
+                    <>Firmada el {formatDateTime(view.signedAt)} </>
+                  )}
                   {view.signatureMethod === "certificate"
                     ? "con certificado digital"
                     : "con firma electrónica en la web"}
@@ -153,7 +186,9 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
               <CardTitle className="text-base">
                 <StepTitle n={1}>Tus datos</StepTitle>
               </CardTitle>
-              <CardDescription>Los del titular de la cuenta donde se cargarán los recibos.</CardDescription>
+              <CardDescription>
+                Los del titular de la cuenta donde se cargarán los recibos.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <SepaDebtorForm
@@ -210,7 +245,10 @@ export default async function SepaSigningPage({ params }: { params: Promise<{ to
                   signerName={view.debtor.signerName}
                   creditorName={creditor.name}
                   signWebAction={signSepaWebAction.bind(null, token)}
-                  signCertificateAction={signSepaCertificateAction.bind(null, token)}
+                  signCertificateAction={signSepaCertificateAction.bind(
+                    null,
+                    token,
+                  )}
                 />
               </CardContent>
             )}

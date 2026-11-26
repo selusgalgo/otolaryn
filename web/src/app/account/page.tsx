@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { ArrowLeftIcon, ArrowLeftOnRectangleIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  ArrowLeftOnRectangleIcon,
+} from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "@/components/account/profile-form";
 import { PasswordForm } from "@/components/account/password-form";

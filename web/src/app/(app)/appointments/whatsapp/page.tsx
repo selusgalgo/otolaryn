@@ -1,16 +1,16 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-import { Button } from '@/components/ui/button';
-import { apiFetch } from '@/lib/api';
-import { getCurrentUser } from '@/lib/auth';
-import { formatInClinicTimeZone } from '@/lib/clinic-time';
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
+import { formatInClinicTimeZone } from "@/lib/clinic-time";
 
 type Activity = {
   events: {
     id: string;
     appointmentId: string;
-    kind: 'booked' | 'cancelled' | 'rescheduled';
+    kind: "booked" | "cancelled" | "rescheduled";
     occurredAt: string;
     unread: boolean;
     patientId: string | null;
@@ -20,53 +20,56 @@ type Activity = {
     appointmentId: string;
     scheduledAt: string;
     attemptedAt: string;
-    status: 'sending' | 'accepted' | 'failed' | 'uncertain';
+    status: "sending" | "accepted" | "failed" | "uncertain";
     patientId: string | null;
     patientName: string | null;
   }[];
   deliveryIssues: {
     messageHash: string;
     createdAt: string;
-    status: 'pending' | 'claimed' | 'uncertain';
+    status: "pending" | "claimed" | "uncertain";
   }[];
 };
 const eventLabels = {
-  booked: 'Reserva',
-  cancelled: 'Cancelación',
-  rescheduled: 'Cambio de cita',
+  booked: "Reserva",
+  cancelled: "Cancelación",
+  rescheduled: "Cambio de cita",
 };
 const reminderLabels = {
-  sending: 'Envío en curso',
-  accepted: 'Solicitud de envío aceptada por Meta',
-  failed: 'Rechazado',
-  uncertain: 'Resultado sin confirmar',
+  sending: "Envío en curso",
+  accepted: "Solicitud de envío aceptada por Meta",
+  failed: "Rechazado",
+  uncertain: "Resultado sin confirmar",
 };
 const issueLabels = {
-  pending: 'Envío pendiente',
-  claimed: 'Envío sin confirmar',
-  uncertain: 'Resultado sin confirmar',
+  pending: "Envío pendiente",
+  claimed: "Envío sin confirmar",
+  uncertain: "Resultado sin confirmar",
 };
 const format = (date: string) =>
-  formatInClinicTimeZone(date, { dateStyle: 'medium', timeStyle: 'short' });
+  formatInClinicTimeZone(date, { dateStyle: "medium", timeStyle: "short" });
 
 async function acknowledge(id: string) {
-  'use server';
+  "use server";
   await apiFetch(
     `/whatsapp-booking/activity/${encodeURIComponent(id)}/acknowledge`,
-    { method: 'PATCH' },
+    { method: "PATCH" },
   );
-  revalidatePath('/appointments/whatsapp');
-  revalidatePath('/appointments');
+  revalidatePath("/appointments/whatsapp");
+  revalidatePath("/appointments");
 }
 
 export default async function WhatsappActivityPage() {
   const user = await getCurrentUser();
-  if (user.role !== 'admin' && user.role !== 'recepcion')
-    redirect('/appointments');
-  if (!(await apiFetch<{ enabled: boolean }>('/whatsapp-booking/feature-status')).enabled)
-    redirect('/appointments');
+  if (user.role !== "admin" && user.role !== "recepcion")
+    redirect("/appointments");
+  if (
+    !(await apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status"))
+      .enabled
+  )
+    redirect("/appointments");
   const { events, reminders, deliveryIssues } = await apiFetch<Activity>(
-    '/whatsapp-booking/activity',
+    "/whatsapp-booking/activity",
   );
   return (
     <main className="space-y-6">
@@ -89,14 +92,20 @@ export default async function WhatsappActivityPage() {
             >
               <span className="font-medium">{eventLabels[event.kind]}</span>
               {event.patientId && (
-                <Link href={`/patients/${event.patientId}`} className="underline">
-                  {event.patientName || 'Ver paciente'}
+                <Link
+                  href={`/patients/${event.patientId}`}
+                  className="underline"
+                >
+                  {event.patientName || "Ver paciente"}
                 </Link>
               )}
               <time dateTime={event.occurredAt}>
                 {format(event.occurredAt)}
               </time>
-              <Link href={`/appointments/${event.appointmentId}`} className="font-medium underline">
+              <Link
+                href={`/appointments/${event.appointmentId}`}
+                className="font-medium underline"
+              >
                 Revisar cita →
               </Link>
               {event.unread && (
@@ -125,19 +134,26 @@ export default async function WhatsappActivityPage() {
             >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 {reminder.patientId && (
-                  <Link href={`/patients/${reminder.patientId}`} className="font-medium underline">
-                    {reminder.patientName || 'Ver paciente'}
+                  <Link
+                    href={`/patients/${reminder.patientId}`}
+                    className="font-medium underline"
+                  >
+                    {reminder.patientName || "Ver paciente"}
                   </Link>
                 )}
                 <span>Cita del {format(reminder.scheduledAt)}</span>
                 <span>· {reminderLabels[reminder.status]}</span>
-                <Link href={`/appointments/${reminder.appointmentId}`} className="font-medium underline">
+                <Link
+                  href={`/appointments/${reminder.appointmentId}`}
+                  className="font-medium underline"
+                >
                   Revisar cita →
                 </Link>
               </div>
-              {reminder.status === 'accepted' && (
+              {reminder.status === "accepted" && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Meta aceptó la solicitud de envío; esto no confirma que el paciente haya recibido o confirmado la cita.
+                  Meta aceptó la solicitud de envío; esto no confirma que el
+                  paciente haya recibido o confirmado la cita.
                 </p>
               )}
             </li>

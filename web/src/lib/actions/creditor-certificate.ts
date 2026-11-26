@@ -44,7 +44,10 @@ export async function installCertificateAction(
   body.append("file", file, file.name);
   body.append("passphrase", passphrase);
   try {
-    await apiFetchMultipart<CreditorCertificateStatus>("/platform/creditor-profile/certificate", body);
+    await apiFetchMultipart<CreditorCertificateStatus>(
+      "/platform/creditor-profile/certificate",
+      body,
+    );
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };
@@ -58,7 +61,10 @@ export async function installCertificateAction(
 
 export async function removeCertificateAction(): Promise<CertificateFormState> {
   try {
-    await apiFetch<CreditorCertificateStatus>("/platform/creditor-profile/certificate", { method: "DELETE" });
+    await apiFetch<CreditorCertificateStatus>(
+      "/platform/creditor-profile/certificate",
+      { method: "DELETE" },
+    );
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };

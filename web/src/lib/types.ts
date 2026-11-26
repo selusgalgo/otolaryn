@@ -53,7 +53,9 @@ export interface Patient {
   holderRelationship: HolderRelationship | null;
   // Solo en GET /patients/:id: el titular y los familiares a cargo.
   holder?: PatientLinkSummary | null;
-  dependents?: (PatientLinkSummary & { holderRelationship: HolderRelationship | null })[];
+  dependents?: (PatientLinkSummary & {
+    holderRelationship: HolderRelationship | null;
+  })[];
   // Manually editable — see the backend DTO comment for why this exists
   // alongside the computed value below instead of replacing it.
   firstConsultationOverride: string | null;
@@ -82,7 +84,12 @@ export interface WhatsappBookingSettings {
     reminderHours: number;
     reminderTemplateName: string;
     reminderTemplateLanguage: string;
-    visitTypes: { id: string; name: string; durationMinutes: number; practitionerIds: string[] }[];
+    visitTypes: {
+      id: string;
+      name: string;
+      durationMinutes: number;
+      practitionerIds: string[];
+    }[];
     restrictHours: boolean;
     hours: { weekday: number; start: string; end: string }[];
   };
@@ -135,7 +142,8 @@ export interface ClinicalEntryAttachment {
   createdAt: string;
 }
 
-export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+export type AppointmentStatus =
+  "scheduled" | "completed" | "cancelled" | "no_show";
 
 export interface Appointment {
   id: string;
@@ -291,7 +299,12 @@ export type CertificateSource = "upload" | "env";
 
 export type CreditorCertificateStatus =
   | { configured: false }
-  | { configured: true; usable: false; error: string; source: CertificateSource }
+  | {
+      configured: true;
+      usable: false;
+      error: string;
+      source: CertificateSource;
+    }
   | {
       configured: true;
       usable: true;
@@ -324,7 +337,11 @@ export interface SepaSignatureEvidence {
   signedPdfSha256: string;
   // Certificate that signed the document before it reached the client; null
   // when none was configured at the time.
-  creditorSeal?: { subject: string; serialNumber: string; sha256Fingerprint: string } | null;
+  creditorSeal?: {
+    subject: string;
+    serialNumber: string;
+    sha256Fingerprint: string;
+  } | null;
   typedName?: string;
   fileName?: string;
   // Certificate route: the signed file begins with the exact bytes we issued.
@@ -382,7 +399,12 @@ export interface PublicSepaView {
   clinicName: string;
   planName: string;
   firstChargeDate: string;
-  amounts: { baseCents: number; vatCents: number; irpfCents: number; totalCents: number };
+  amounts: {
+    baseCents: number;
+    vatCents: number;
+    irpfCents: number;
+    totalCents: number;
+  };
   vatPercent: number;
   irpfPercent: number;
   creditor: {

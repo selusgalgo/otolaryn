@@ -4,7 +4,10 @@ import { Label } from "@/components/ui/label";
 import type { ColumnMapping, ImportPreview } from "@/lib/actions/patients";
 import type { AntecedenteType } from "@/lib/types";
 
-type PlainField = Exclude<keyof ColumnMapping, "insuranceEntityName" | "antecedentes">;
+type PlainField = Exclude<
+  keyof ColumnMapping,
+  "insuranceEntityName" | "antecedentes"
+>;
 
 const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "firstName", label: "Nombre", required: true },
@@ -36,14 +39,22 @@ const FIELDS: { field: PlainField; label: string; required: boolean }[] = [
   { field: "currentMedications", label: "Medicación actual", required: false },
   { field: "insuranceNumber", label: "Nº de seguro privado", required: false },
   { field: "legacyId", label: "Nº de historia", required: false },
-  { field: "firstConsultationOverride", label: "Primera consulta", required: false },
+  {
+    field: "firstConsultationOverride",
+    label: "Primera consulta",
+    required: false,
+  },
 ];
 
 // Up to 2 real sample values from the column currently chosen for a field,
 // shown right under its select — the whole point of this step is letting
 // someone see "column X actually holds these values" before committing,
 // not just picking a name off a list blind.
-function sampleFor(preview: ImportPreview, field: string, header: string | undefined): string {
+function sampleFor(
+  preview: ImportPreview,
+  field: string,
+  header: string | undefined,
+): string {
   if (!header) {
     // Documento is optional — worth saying so here, otherwise leaving it
     // unmapped looks like an oversight rather than a deliberate, supported
@@ -110,7 +121,9 @@ export function ImportColumnMapping({
   return (
     <div className="space-y-4 rounded-lg border p-3">
       <div className="space-y-3">
-        <p className="text-sm font-medium">Relaciona cada columna del fichero con su campo</p>
+        <p className="text-sm font-medium">
+          Relaciona cada columna del fichero con su campo
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {FIELDS.map(({ field, label, required }) => {
             const selected = mapping[field] ?? "";
@@ -130,7 +143,9 @@ export function ImportColumnMapping({
                   onChange={(e) => setPlainField(field, e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                 >
-                  <option value="">{required ? "Selecciona una columna…" : "No importar"}</option>
+                  <option value="">
+                    {required ? "Selecciona una columna…" : "No importar"}
+                  </option>
                   {preview.headers.map((header) => (
                     <option key={header} value={header}>
                       {header}
@@ -150,7 +165,10 @@ export function ImportColumnMapping({
               value={mapping.insuranceEntityName ?? ""}
               disabled={disabled}
               onChange={(e) =>
-                onChange({ ...mapping, insuranceEntityName: e.target.value || undefined })
+                onChange({
+                  ...mapping,
+                  insuranceEntityName: e.target.value || undefined,
+                })
               }
               className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
             >
@@ -162,7 +180,11 @@ export function ImportColumnMapping({
               ))}
             </select>
             <p className="min-h-4 truncate text-xs text-muted-foreground">
-              {sampleFor(preview, "insuranceEntityName", mapping.insuranceEntityName)}
+              {sampleFor(
+                preview,
+                "insuranceEntityName",
+                mapping.insuranceEntityName,
+              )}
             </p>
           </div>
         </div>
@@ -178,12 +200,16 @@ export function ImportColumnMapping({
               const selected = mapping.antecedentes?.[type.id] ?? "";
               return (
                 <div key={type.id} className="space-y-1">
-                  <Label htmlFor={`mapping-antecedente-${type.id}`}>{antecedenteLabel(type)}</Label>
+                  <Label htmlFor={`mapping-antecedente-${type.id}`}>
+                    {antecedenteLabel(type)}
+                  </Label>
                   <select
                     id={`mapping-antecedente-${type.id}`}
                     value={selected}
                     disabled={disabled}
-                    onChange={(e) => setAntecedenteColumn(type.id, e.target.value)}
+                    onChange={(e) =>
+                      setAntecedenteColumn(type.id, e.target.value)
+                    }
                     className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                   >
                     <option value="">No importar</option>

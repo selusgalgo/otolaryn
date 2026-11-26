@@ -17,8 +17,13 @@ export function decodeJwtClaims(token: string | undefined): JwtClaims | null {
   if (!part) return null;
   try {
     const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-    const json = new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "=",
+    );
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)),
+    );
     const claims = JSON.parse(json) as unknown;
     return claims && typeof claims === "object" ? (claims as JwtClaims) : null;
   } catch {
@@ -28,7 +33,10 @@ export function decodeJwtClaims(token: string | undefined): JwtClaims | null {
 
 // true solo si el token trae un `exp` ya pasado — un token ilegible no se
 // da por caducado (lo decidirá la API).
-export function isJwtExpired(token: string | undefined, nowMs: number = Date.now()): boolean {
+export function isJwtExpired(
+  token: string | undefined,
+  nowMs: number = Date.now(),
+): boolean {
   const exp = decodeJwtClaims(token)?.exp;
   return typeof exp === "number" && exp * 1000 <= nowMs;
 }

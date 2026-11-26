@@ -101,8 +101,12 @@ describe('Device lock (Configuración → Seguridad)', () => {
   });
 
   it('blocks profesional/recepcion from reading or writing it', async () => {
-    const loginProfesional = await loginAs(profesionalEmail, PROFESIONAL_PASSWORD);
-    const profesionalToken = (loginProfesional.body as LoginResponse).accessToken;
+    const loginProfesional = await loginAs(
+      profesionalEmail,
+      PROFESIONAL_PASSWORD,
+    );
+    const profesionalToken = (loginProfesional.body as LoginResponse)
+      .accessToken;
 
     const read = await request(server)
       .get('/settings/device-lock')
@@ -127,7 +131,10 @@ describe('Device lock (Configuración → Seguridad)', () => {
       hasCredential: false,
     });
 
-    const loginProfesional = await loginAs(profesionalEmail, PROFESIONAL_PASSWORD);
+    const loginProfesional = await loginAs(
+      profesionalEmail,
+      PROFESIONAL_PASSWORD,
+    );
     expect(loginProfesional.status).toBe(200);
 
     const loginRecepcion = await loginAs(recepcionEmail, RECEPCION_PASSWORD);
@@ -163,7 +170,11 @@ describe('Device lock (Configuración → Seguridad)', () => {
     );
     expect(wrongToken.status).toBe(401);
 
-    const withToken = await loginAs(profesionalEmail, PROFESIONAL_PASSWORD, token);
+    const withToken = await loginAs(
+      profesionalEmail,
+      PROFESIONAL_PASSWORD,
+      token,
+    );
     expect(withToken.status).toBe(200);
     expect((withToken.body as LoginResponse).accessToken).toBeDefined();
 
@@ -186,7 +197,8 @@ describe('Device lock (Configuración → Seguridad)', () => {
       PROFESIONAL_PASSWORD,
       token,
     );
-    const profesionalToken = (loginProfesional.body as LoginResponse).accessToken;
+    const profesionalToken = (loginProfesional.body as LoginResponse)
+      .accessToken;
 
     const meWithToken = await request(server)
       .get('/auth/me')

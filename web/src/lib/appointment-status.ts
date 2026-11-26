@@ -7,4 +7,9 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   no_show: "No presentado",
 };
 
-export const APPOINTMENT_STATUSES: AppointmentStatus[] = ["scheduled", "completed", "cancelled", "no_show"];
+export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  "scheduled",
+  "completed",
+  "cancelled",
+  "no_show",
+];

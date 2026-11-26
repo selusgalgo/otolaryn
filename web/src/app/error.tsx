@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 // salida. Aquí se ofrece reintentar o volver a entrar — la ruta a la que
 // volver se conserva — y se avisa de que los borradores de consulta siguen
 // en este dispositivo.
-export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function AppError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   const pathname = usePathname();
 
   useEffect(() => {
@@ -23,9 +29,9 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface p-6 text-center">
       <h1 className="text-xl font-semibold">Algo no ha ido bien</h1>
       <p className="max-w-md text-sm text-muted-foreground">
-        Ha ocurrido un error inesperado. Si tu sesión ha caducado, vuelve a iniciar sesión. Si estabas
-        escribiendo una consulta, el borrador sigue guardado en este dispositivo y se recuperará al volver a
-        abrirla.
+        Ha ocurrido un error inesperado. Si tu sesión ha caducado, vuelve a
+        iniciar sesión. Si estabas escribiendo una consulta, el borrador sigue
+        guardado en este dispositivo y se recuperará al volver a abrirla.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button type="button" onClick={reset}>

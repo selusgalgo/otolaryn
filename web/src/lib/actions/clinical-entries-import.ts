@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch, apiFetchMultipart, ApiError } from "@/lib/api";
-import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
+import type {
+  ConsultationField,
+  ConsultationTemplate,
+} from "@/lib/consultation-template";
 
 // field -> the file's own header text, e.g. { patientLegacyId: "NUMHISTORIA" }.
 // insuranceEntityName/doctorName aren't plain fields either — same
@@ -10,7 +13,9 @@ import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation
 // lib/actions/patients.ts.
 // Los campos de texto (chiefComplaint, evolution, report...) son los de la
 // plantilla de la clínica — ver lib/consultation-template.ts.
-export interface ClinicalEntryColumnMapping extends Partial<Record<ConsultationField, string>> {
+export interface ClinicalEntryColumnMapping extends Partial<
+  Record<ConsultationField, string>
+> {
   visitDate?: string;
   patientLegacyId?: string;
   patientFirstName?: string;

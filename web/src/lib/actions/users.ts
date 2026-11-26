@@ -146,7 +146,9 @@ export async function setUserActiveAction(
 // deleting your own account, the clinic's last admin, or anyone with
 // appointments/clinical entries already tied to them; that message is
 // shown as-is, it's already written for the person reading it.
-export async function deleteUserAction(userId: string): Promise<{ error?: string }> {
+export async function deleteUserAction(
+  userId: string,
+): Promise<{ error?: string }> {
   try {
     await apiFetch(`/users/${userId}`, { method: "DELETE" });
   } catch (err) {

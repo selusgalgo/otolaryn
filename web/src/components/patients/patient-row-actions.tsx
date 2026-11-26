@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { PatientForm } from "@/components/patients/patient-form";
 import { RowActions } from "@/components/ui/row-actions";
-import { archivePatientAction, updatePatientAction } from "@/lib/actions/patients";
+import {
+  archivePatientAction,
+  updatePatientAction,
+} from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { Patient } from "@/lib/types";
 import { confirmDiscardUnsavedChanges } from "@/lib/unsaved-changes";
@@ -70,8 +73,19 @@ export function PatientRowActions({
       <RowActions
         overflowLabel={`Más acciones para ${fullName}`}
         actions={[
-          { id: "view", label: `Ver a ${fullName}`, visibleLabel: "Ver ficha", icon: <EyeIcon />, href: `/patients/${patient.id}` },
-          { id: "edit", label: `Editar a ${fullName}`, icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
+          {
+            id: "view",
+            label: `Ver a ${fullName}`,
+            visibleLabel: "Ver ficha",
+            icon: <EyeIcon />,
+            href: `/patients/${patient.id}`,
+          },
+          {
+            id: "edit",
+            label: `Editar a ${fullName}`,
+            icon: <PencilIcon />,
+            onSelect: () => setEditOpen(true),
+          },
           ...(canArchive
             ? [
                 {
@@ -124,16 +138,25 @@ export function PatientRowActions({
             <DialogHeader>
               <DialogTitle>¿Archivar a {fullName}?</DialogTitle>
               <DialogDescription>
-                Dejará de aparecer en listados y búsquedas, pero su historial no se elimina — se conserva, como exige
-                mantener los datos clínicos durante al menos 5 años.
+                Dejará de aparecer en listados y búsquedas, pero su historial no
+                se elimina — se conserva, como exige mantener los datos clínicos
+                durante al menos 5 años.
               </DialogDescription>
             </DialogHeader>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setArchiveOpen(false)} disabled={pending}>
+              <Button
+                variant="outline"
+                onClick={() => setArchiveOpen(false)}
+                disabled={pending}
+              >
                 Cancelar
               </Button>
-              <Button variant="destructive" disabled={pending} onClick={confirmArchive}>
+              <Button
+                variant="destructive"
+                disabled={pending}
+                onClick={confirmArchive}
+              >
                 {pending ? "Archivando..." : "Archivar"}
               </Button>
             </DialogFooter>

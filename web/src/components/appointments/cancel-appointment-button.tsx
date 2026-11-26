@@ -26,12 +26,16 @@ export function CancelAppointmentButton({ id }: { id: string }) {
         <DialogHeader>
           <DialogTitle>¿Cancelar esta cita?</DialogTitle>
           <DialogDescription>
-            La cita pasa a estado &quot;Cancelada&quot; y libera el hueco en la agenda, pero sigue
-            apareciendo en el historial.
+            La cita pasa a estado &quot;Cancelada&quot; y libera el hueco en la
+            agenda, pero sigue apareciendo en el historial.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
             Volver
           </Button>
           <Button

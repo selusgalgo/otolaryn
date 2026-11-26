@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useActionState } from 'react';
-import { WhatsappFeaturesFields } from './whatsapp-features-fields';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { keepValuesOnSubmit } from '@/lib/form-submit';
-import type { AppUser, WhatsappBookingSettings } from '@/lib/types';
+import { useActionState } from "react";
+import { WhatsappFeaturesFields } from "./whatsapp-features-fields";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
+import type { AppUser, WhatsappBookingSettings } from "@/lib/types";
 
 type State = { error?: string; success?: boolean };
 type Action = (state: State, data: FormData) => Promise<State>;
@@ -25,8 +25,8 @@ export function WhatsappBookingForm({
     <form onSubmit={keepValuesOnSubmit(submit)} className="grid max-w-lg gap-4">
       <p className="text-sm text-muted-foreground">
         {settings.platformEnabled
-          ? 'Habilitado por la plataforma.'
-          : 'Pendiente de habilitación por la plataforma.'}
+          ? "Habilitado por la plataforma."
+          : "Pendiente de habilitación por la plataforma."}
       </p>
       <label className="flex gap-2 text-sm">
         <input
@@ -34,7 +34,7 @@ export function WhatsappBookingForm({
           name="clinicEnabled"
           defaultChecked={settings.clinicEnabled}
           disabled={pending}
-        />{' '}
+        />{" "}
         Permitir reservas por WhatsApp
       </label>
       <label className="flex gap-2 text-sm">
@@ -43,7 +43,7 @@ export function WhatsappBookingForm({
           name="askReason"
           defaultChecked={settings.askReason}
           disabled={pending}
-        />{' '}
+        />{" "}
         Preguntar el motivo de la consulta
       </label>
       <div>
@@ -88,7 +88,7 @@ export function WhatsappBookingForm({
               value={p.id}
               defaultChecked={settings.practitionerIds.includes(p.id)}
               disabled={pending}
-            />{' '}
+            />{" "}
             {p.firstName} {p.lastName}
           </label>
         ))}
@@ -104,7 +104,9 @@ export function WhatsappBookingForm({
           />
           Permitir cancelar citas reservadas por WhatsApp
         </label>
-        <Label htmlFor="cancellationNoticeHours">Antelación para cancelar (horas)</Label>
+        <Label htmlFor="cancellationNoticeHours">
+          Antelación para cancelar (horas)
+        </Label>
         <Input
           id="cancellationNoticeHours"
           name="cancellationNoticeHours"
@@ -116,14 +118,19 @@ export function WhatsappBookingForm({
           disabled={pending}
         />
         <p className="text-xs text-muted-foreground">
-          Con 0 se puede cancelar hasta el inicio de la cita. Fuera de plazo, se indica al paciente que contacte con recepción.
+          Con 0 se puede cancelar hasta el inicio de la cita. Fuera de plazo, se
+          indica al paciente que contacte con recepción.
         </p>
       </fieldset>
-      <WhatsappFeaturesFields settings={settings.features} practitioners={practitioners} pending={pending} />
+      <WhatsappFeaturesFields
+        settings={settings.features}
+        practitioners={practitioners}
+        pending={pending}
+      />
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       {state.success && <p className="text-sm text-success">Guardado.</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? 'Guardando...' : 'Guardar'}
+        {pending ? "Guardando..." : "Guardar"}
       </Button>
     </form>
   );
@@ -145,13 +152,13 @@ export function WhatsappPlatformForm({
           name="platformEnabled"
           defaultChecked={enabled}
           disabled={pending}
-        />{' '}
+        />{" "}
         Habilitar reservas por WhatsApp para esta clínica
       </label>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       {state.success && <p className="text-sm text-success">Guardado.</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? 'Guardando...' : 'Guardar'}
+        {pending ? "Guardando..." : "Guardar"}
       </Button>
     </form>
   );

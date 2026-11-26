@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DocumentTextIcon, PaperClipIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  DocumentTextIcon,
+  PaperClipIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { FileDropzone } from "@/components/patients/file-dropzone";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +35,12 @@ interface AttachmentsPanelProps {
 
 // Archivos (PDF e imágenes) adjuntos a una consulta. Las fotos se reducen en el
 // navegador antes de subirlas, como hace WhatsApp, para que no pesen en el servidor.
-export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage }: AttachmentsPanelProps) {
+export function AttachmentsPanel({
+  patientId,
+  entryId,
+  ensureEntryId,
+  canManage,
+}: AttachmentsPanelProps) {
   const [currentId, setCurrentId] = useState(entryId);
   const [items, setItems] = useState<ClinicalEntryAttachment[]>([]);
   const [loading, setLoading] = useState(Boolean(entryId));
@@ -61,7 +70,9 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
       let count = items.length;
       for (const original of files) {
         if (count >= MAX_ATTACHMENTS_PER_ENTRY) {
-          setError(`Máximo ${MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta.`);
+          setError(
+            `Máximo ${MAX_ATTACHMENTS_PER_ENTRY} archivos por consulta.`,
+          );
           break;
         }
         const file = await prepareAttachment(original);
@@ -72,7 +83,9 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
         if (!id) {
           id = (await ensureEntryId?.()) ?? null;
           if (!id) {
-            setError("No se pudo guardar el borrador para adjuntar el archivo.");
+            setError(
+              "No se pudo guardar el borrador para adjuntar el archivo.",
+            );
             break;
           }
           setCurrentId(id);
@@ -94,7 +107,11 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
   }
 
   async function onDelete(item: ClinicalEntryAttachment) {
-    if (!currentId || !window.confirm(`¿Quitar «${item.originalName}» de la consulta?`)) return;
+    if (
+      !currentId ||
+      !window.confirm(`¿Quitar «${item.originalName}» de la consulta?`)
+    )
+      return;
     setError(null);
     setBusy(true);
     const res = await deleteAttachmentAction(patientId, currentId, item.id);
@@ -114,7 +131,9 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
         <h3 className="flex items-center gap-1.5 text-sm font-medium">
           <PaperClipIcon className="size-4" aria-hidden />
           Archivos adjuntos
-          {items.length > 0 && <span className="text-muted-foreground">({items.length})</span>}
+          {items.length > 0 && (
+            <span className="text-muted-foreground">({items.length})</span>
+          )}
         </h3>
       </div>
       {canManage && (
@@ -144,7 +163,10 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
       {items.length > 0 && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {items.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 rounded-lg border border-input p-2">
+            <li
+              key={a.id}
+              className="flex items-center gap-3 rounded-lg border border-input p-2"
+            >
               <a
                 href={url(a)}
                 target="_blank"
@@ -154,9 +176,17 @@ export function AttachmentsPanel({ patientId, entryId, ensureEntryId, canManage 
               >
                 {isImageMime(a.mimeType) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url(a)} alt="" className="size-full object-cover" loading="lazy" />
+                  <img
+                    src={url(a)}
+                    alt=""
+                    className="size-full object-cover"
+                    loading="lazy"
+                  />
                 ) : (
-                  <DocumentTextIcon className="size-6 text-muted-foreground" aria-hidden />
+                  <DocumentTextIcon
+                    className="size-6 text-muted-foreground"
+                    aria-hidden
+                  />
                 )}
               </a>
               <div className="min-w-0 flex-1">

@@ -11,7 +11,10 @@ export interface PatientFormState {
   success?: boolean;
 }
 
-function patientFormError(message: string, prefix?: string): Pick<PatientFormState, "error" | "fieldErrors"> {
+function patientFormError(
+  message: string,
+  prefix?: string,
+): Pick<PatientFormState, "error" | "fieldErrors"> {
   const mapped = mapFormError(
     message,
     {
@@ -36,7 +39,9 @@ function patientFormError(message: string, prefix?: string): Pick<PatientFormSta
   );
   return {
     ...(mapped.fieldErrors ? { fieldErrors: mapped.fieldErrors } : {}),
-    ...(mapped.formError ? { error: prefix ? `${prefix}: ${mapped.formError}` : mapped.formError } : {}),
+    ...(mapped.formError
+      ? { error: prefix ? `${prefix}: ${mapped.formError}` : mapped.formError }
+      : {}),
   };
 }
 
@@ -50,10 +55,14 @@ function patientPayloadFromFormData(formData: FormData) {
   const postalCode = String(formData.get("postalCode") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const profession = String(formData.get("profession") ?? "").trim();
-  const insuranceEntityId = String(formData.get("insuranceEntityId") ?? "").trim();
+  const insuranceEntityId = String(
+    formData.get("insuranceEntityId") ?? "",
+  ).trim();
   const insuranceNumber = String(formData.get("insuranceNumber") ?? "").trim();
   const gender = String(formData.get("gender") ?? "").trim();
-  const firstConsultationOverride = String(formData.get("firstConsultationOverride") ?? "").trim();
+  const firstConsultationOverride = String(
+    formData.get("firstConsultationOverride") ?? "",
+  ).trim();
 
   return {
     // Trimmed here too so the UI doesn't round-trip to the API just to
@@ -96,14 +105,18 @@ function patientPayloadFromFormData(formData: FormData) {
     // paciente no debe borrarlos.
     ...(formData.has("drugAllergies")
       ? {
-          drugAllergies: String(formData.get("drugAllergies") ?? "").trim() || null,
-          currentMedications: String(formData.get("currentMedications") ?? "").trim() || null,
+          drugAllergies:
+            String(formData.get("drugAllergies") ?? "").trim() || null,
+          currentMedications:
+            String(formData.get("currentMedications") ?? "").trim() || null,
         }
       : {}),
     ...(formData.has("holderPatientId")
       ? {
-          holderPatientId: String(formData.get("holderPatientId") ?? "").trim() || null,
-          holderRelationship: String(formData.get("holderRelationship") ?? "").trim() || null,
+          holderPatientId:
+            String(formData.get("holderPatientId") ?? "").trim() || null,
+          holderRelationship:
+            String(formData.get("holderRelationship") ?? "").trim() || null,
         }
       : {}),
   };
@@ -220,7 +233,9 @@ export interface ArchivePatientState {
 // has to be kept for years. Called from a row menu on the patients list;
 // revalidates and stays put instead of redirecting, since the list may be
 // showing a page or search filter worth keeping.
-export async function archivePatientAction(id: string): Promise<ArchivePatientState> {
+export async function archivePatientAction(
+  id: string,
+): Promise<ArchivePatientState> {
   try {
     await apiFetch(`/patients/${id}`, { method: "DELETE" });
   } catch (err) {
@@ -248,12 +263,17 @@ export interface BulkDeletePatientsState {
 // real outcome (someone else already discharged one, a profesional
 // selected a patient outside their own visibility) and not just success
 // or failure.
-export async function bulkDeletePatientsAction(ids: string[]): Promise<BulkDeletePatientsState> {
+export async function bulkDeletePatientsAction(
+  ids: string[],
+): Promise<BulkDeletePatientsState> {
   try {
-    const result = await apiFetch<BulkDeletePatientsResult>("/patients/bulk-delete", {
-      method: "POST",
-      body: { ids },
-    });
+    const result = await apiFetch<BulkDeletePatientsResult>(
+      "/patients/bulk-delete",
+      {
+        method: "POST",
+        body: { ids },
+      },
+    );
     revalidatePath("/patients");
     return { result };
   } catch (err) {
@@ -336,7 +356,9 @@ export interface PreviewPatientsImportState {
 // step before any patient is actually created. Called imperatively (like
 // searchPatientsAction below) whenever a file is dropped/picked, not tied
 // to useActionState — there's no <form> submission at this point yet.
-export async function previewPatientsImportAction(formData: FormData): Promise<PreviewPatientsImportState> {
+export async function previewPatientsImportAction(
+  formData: FormData,
+): Promise<PreviewPatientsImportState> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Selecciona un fichero." };
@@ -346,7 +368,10 @@ export async function previewPatientsImportAction(formData: FormData): Promise<P
   upstream.set("file", file, file.name);
 
   try {
-    const preview = await apiFetchMultipart<ImportPreview>("/patients/import/preview", upstream);
+    const preview = await apiFetchMultipart<ImportPreview>(
+      "/patients/import/preview",
+      upstream,
+    );
     return { preview };
   } catch (err) {
     if (err instanceof ApiError) {
@@ -371,7 +396,10 @@ export async function startImportPatientsAction(
   upstream.set("mapping", JSON.stringify(mapping));
 
   try {
-    const progress = await apiFetchMultipart<ImportJobProgress>("/patients/import", upstream);
+    const progress = await apiFetchMultipart<ImportJobProgress>(
+      "/patients/import",
+      upstream,
+    );
     return { progress };
   } catch (err) {
     if (err instanceof ApiError) {
@@ -389,9 +417,12 @@ export async function continueImportJobAction(
   jobId: string,
 ): Promise<StartImportPatientsState> {
   try {
-    const progress = await apiFetch<ImportJobProgress>(`/patients/import/${jobId}/continue`, {
-      method: "POST",
-    });
+    const progress = await apiFetch<ImportJobProgress>(
+      `/patients/import/${jobId}/continue`,
+      {
+        method: "POST",
+      },
+    );
     if (progress.status === "completed") {
       revalidatePath("/patients");
     }
@@ -520,7 +551,10 @@ export async function continueUpdateJobAction(
 // Called imperatively from PatientPicker (a client component), not bound
 // to a <form> — a plain async function a Client Component can invoke on
 // every keystroke (debounced) is enough here; no need for useActionState.
-export async function searchPatientsAction(query: string, pageSize = 10): Promise<Patient[]> {
+export async function searchPatientsAction(
+  query: string,
+  pageSize = 10,
+): Promise<Patient[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   const result = await apiFetch<{ data: Patient[] }>(

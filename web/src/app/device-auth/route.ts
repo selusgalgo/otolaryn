@@ -24,5 +24,8 @@ export async function GET(request: NextRequest) {
   // from it pointed browsers at http://localhost:3001/login instead of the
   // real site. middleware.ts's own redirects use the same relative-path
   // approach for the same reason.
-  return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
+  return new NextResponse(null, {
+    status: 302,
+    headers: { Location: "/login" },
+  });
 }

@@ -2,13 +2,19 @@ import { describe, expect, it } from "vitest";
 import { decodeJwtClaims, isJwtExpired } from "./jwt";
 
 function token(claims: object): string {
-  const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const b64 = (o: object) =>
+    btoa(JSON.stringify(o))
+      .replace(/=/g, "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_");
   return `${b64({ alg: "HS256" })}.${b64(claims)}.firma`;
 }
 
 describe("jwt helpers", () => {
   it("lee los claims sin verificar la firma", () => {
-    expect(decodeJwtClaims(token({ sub: "u1", exp: 10, session_end: 99 }))).toMatchObject({ sub: "u1", exp: 10, session_end: 99 });
+    expect(
+      decodeJwtClaims(token({ sub: "u1", exp: 10, session_end: 99 })),
+    ).toMatchObject({ sub: "u1", exp: 10, session_end: 99 });
   });
 
   it("devuelve null con un token ausente o ilegible", () => {

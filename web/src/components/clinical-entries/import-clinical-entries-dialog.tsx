@@ -3,7 +3,13 @@
 import { useRef, useState, useTransition } from "react";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { FileDropzone } from "@/components/patients/file-dropzone";
@@ -62,12 +68,16 @@ export function ImportClinicalEntriesDialog({
   const [dropzoneKey, setDropzoneKey] = useState(0);
 
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<ClinicalEntriesImportPreview | null>(null);
+  const [preview, setPreview] = useState<ClinicalEntriesImportPreview | null>(
+    null,
+  );
   const [mapping, setMapping] = useState<ClinicalEntryColumnMapping>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const [doctorNames, setDoctorNames] = useState<string[]>([]);
-  const [doctorMapping, setDoctorMapping] = useState<Record<string, string | undefined>>({});
+  const [doctorMapping, setDoctorMapping] = useState<
+    Record<string, string | undefined>
+  >({});
 
   const [progress, setProgress] = useState<ImportJobProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +159,11 @@ export function ImportClinicalEntriesDialog({
       for (const [name, userId] of Object.entries(finalDoctorMapping)) {
         if (userId) cleaned[name] = userId;
       }
-      const start = await startImportClinicalEntriesAction(file, mapping, cleaned);
+      const start = await startImportClinicalEntriesAction(
+        file,
+        mapping,
+        cleaned,
+      );
       if (start.error || !start.progress) {
         setError(start.error ?? "No se pudo importar el fichero.");
         return;
@@ -158,7 +172,9 @@ export function ImportClinicalEntriesDialog({
       let current = start.progress;
       setProgress(current);
       while (current.status !== "completed" && !cancelledRef.current) {
-        const next = await continueClinicalEntriesImportJobAction(current.jobId);
+        const next = await continueClinicalEntriesImportJobAction(
+          current.jobId,
+        );
         if (next.error || !next.progress) {
           setError(next.error ?? "No se pudo continuar la importación.");
           return;
@@ -203,8 +219,8 @@ export function ImportClinicalEntriesDialog({
             />
             {!preview && (
               <p className="text-xs text-muted-foreground">
-                Cada fila se relaciona con un paciente ya importado por su Nº de historia
-                (NUMHISTORIA), nunca por el nombre.
+                Cada fila se relaciona con un paciente ya importado por su Nº de
+                historia (NUMHISTORIA), nunca por el nombre.
               </p>
             )}
           </div>
@@ -212,7 +228,9 @@ export function ImportClinicalEntriesDialog({
           {pending && step === "upload" && (
             <p className="text-sm text-muted-foreground">Leyendo el fichero…</p>
           )}
-          {previewError && <p className="text-sm text-destructive">{previewError}</p>}
+          {previewError && (
+            <p className="text-sm text-destructive">{previewError}</p>
+          )}
 
           {preview && (step === "mapping" || step === "doctors") && (
             <ImportClinicalEntriesColumnMapping
@@ -225,8 +243,9 @@ export function ImportClinicalEntriesDialog({
 
           {step === "doctors" && doctorNames.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No se mapeó ninguna columna de médico — todas las filas se omitirán al importar
-              (author_user_id es obligatorio en cada consulta). Vuelve atrás si quieres mapearla.
+              No se mapeó ninguna columna de médico — todas las filas se
+              omitirán al importar (author_user_id es obligatorio en cada
+              consulta). Vuelve atrás si quieres mapearla.
             </p>
           )}
           {step === "doctors" && (
@@ -245,16 +264,22 @@ export function ImportClinicalEntriesDialog({
             <div className="space-y-2 rounded-lg border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span>
-                  {progress.processedRows} de {progress.totalRows} filas procesadas
+                  {progress.processedRows} de {progress.totalRows} filas
+                  procesadas
                 </span>
                 <span className="text-muted-foreground">
                   {progress.totalRows > 0
-                    ? Math.round((progress.processedRows / progress.totalRows) * 100)
+                    ? Math.round(
+                        (progress.processedRows / progress.totalRows) * 100,
+                      )
                     : 0}
                   %
                 </span>
               </div>
-              <Progress value={progress.processedRows} max={progress.totalRows} />
+              <Progress
+                value={progress.processedRows}
+                max={progress.totalRows}
+              />
               {progress.status === "completed" && (
                 <>
                   <p>
@@ -264,8 +289,9 @@ export function ImportClinicalEntriesDialog({
                   {progress.skipped.length > 0 && (
                     <div className="space-y-1">
                       <p className="font-medium text-destructive">
-                        {progress.skipped.length} fila{progress.skipped.length === 1 ? "" : "s"}{" "}
-                        omitida{progress.skipped.length === 1 ? "" : "s"}:
+                        {progress.skipped.length} fila
+                        {progress.skipped.length === 1 ? "" : "s"} omitida
+                        {progress.skipped.length === 1 ? "" : "s"}:
                       </p>
                       <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                         {progress.skipped.map((s) => (
@@ -282,7 +308,12 @@ export function ImportClinicalEntriesDialog({
           )}
 
           {preview && !progress && step === "mapping" && (
-            <Button type="button" onClick={goToDoctors} disabled={pending} className="w-fit">
+            <Button
+              type="button"
+              onClick={goToDoctors}
+              disabled={pending}
+              className="w-fit"
+            >
               {pending ? "Comprobando..." : "Siguiente"}
             </Button>
           )}

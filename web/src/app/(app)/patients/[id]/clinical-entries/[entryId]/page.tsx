@@ -16,7 +16,12 @@ import {
   saveClinicalEntryDraftAction,
 } from "@/lib/actions/clinical-entries";
 import { getClinicConsultationConfig } from "@/lib/clinic-consultation-template";
-import { FIELD_KIND, fieldLabel, visibleFields, type ConsultationField } from "@/lib/consultation-template";
+import {
+  FIELD_KIND,
+  fieldLabel,
+  visibleFields,
+  type ConsultationField,
+} from "@/lib/consultation-template";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { decodeJwtClaims } from "@/lib/jwt";
@@ -30,7 +35,10 @@ const PRINTABLE: Partial<Record<ConsultationField, string>> = {
 };
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("es-ES", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 export default async function ClinicalEntryDetailPage({
@@ -58,10 +66,12 @@ export default async function ClinicalEntryDetailPage({
   }
 
   const me = await getCurrentUser();
-  const { template, fields: enabledFields } = await getClinicConsultationConfig();
+  const { template, fields: enabledFields } =
+    await getClinicConsultationConfig();
   const canEdit = me.role === "admin" || me.role === "profesional";
   const suggestions =
-    canEdit && visibleFields(template, entry, enabledFields).includes("referringDoctor")
+    canEdit &&
+    visibleFields(template, entry, enabledFields).includes("referringDoctor")
       ? await getReferringDoctorSuggestions()
       : [];
 
@@ -73,14 +83,19 @@ export default async function ClinicalEntryDetailPage({
   // verificar la firma: solo decide qué se muestra — la API es la que impide
   // editar un borrador ajeno.
   const isDraft = entry.status === "borrador";
-  const isOwnDraft = isDraft && entry.authorUserId === decodeJwtClaims(await getSessionToken())?.sub;
+  const isOwnDraft =
+    isDraft &&
+    entry.authorUserId === decodeJwtClaims(await getSessionToken())?.sub;
 
   if (isOwnDraft) {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link href={`/patients/${id}`} className="text-sm text-muted-foreground hover:underline">
+            <Link
+              href={`/patients/${id}`}
+              className="text-sm text-muted-foreground hover:underline"
+            >
               ← Volver a la ficha del paciente
             </Link>
             <h1 className="text-2xl font-bold">Borrador de consulta</h1>
@@ -98,7 +113,10 @@ export default async function ClinicalEntryDetailPage({
           initialValues={entry}
           draftKey={`clinical-entry-draft:draft:${entry.id}`}
           attachmentsPatientId={id}
-          serverDraft={{ draftId: entry.id, save: saveClinicalEntryDraftAction.bind(null, id) }}
+          serverDraft={{
+            draftId: entry.id,
+            save: saveClinicalEntryDraftAction.bind(null, id),
+          }}
         />
       </div>
     );
@@ -108,16 +126,21 @@ export default async function ClinicalEntryDetailPage({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href={`/patients/${id}`} className="text-sm text-muted-foreground hover:underline">
+          <Link
+            href={`/patients/${id}`}
+            className="text-sm text-muted-foreground hover:underline"
+          >
             ← Volver a la ficha del paciente
           </Link>
-          <h1 className="text-2xl font-bold">{formatDateTime(entry.visitDate)}</h1>
+          <h1 className="text-2xl font-bold">
+            {formatDateTime(entry.visitDate)}
+          </h1>
           {isDraft && (
             <div className="mt-1">
               <DraftBadge expiresAt={entry.draftExpiresAt} />
               <p className="mt-1 text-xs text-muted-foreground">
-                Borrador de otro profesional: solo puedes verlo y descartarlo. No cuenta en la historia clínica
-                hasta que su autor lo firme.
+                Borrador de otro profesional: solo puedes verlo y descartarlo.
+                No cuenta en la historia clínica hasta que su autor lo firme.
               </p>
             </div>
           )}
@@ -135,7 +158,9 @@ export default async function ClinicalEntryDetailPage({
                   referringDoctorSuggestions={suggestions}
                 />
               )}
-              {me.role === "admin" && <DeleteClinicalEntryButton patientId={id} entryId={entryId} />}
+              {me.role === "admin" && (
+                <DeleteClinicalEntryButton patientId={id} entryId={entryId} />
+              )}
             </>
           )}
         </div>
@@ -150,8 +175,16 @@ export default async function ClinicalEntryDetailPage({
           const printHref = isDraft ? null : PRINTABLE[field];
           return (
             <Card key={field}>
-              <CardHeader className={printHref ? "flex flex-row items-center justify-between" : undefined}>
-                <CardTitle className="text-base">{fieldLabel(template, field)}</CardTitle>
+              <CardHeader
+                className={
+                  printHref
+                    ? "flex flex-row items-center justify-between"
+                    : undefined
+                }
+              >
+                <CardTitle className="text-base">
+                  {fieldLabel(template, field)}
+                </CardTitle>
                 {printHref && (
                   <Button asChild size="sm" variant="outline">
                     <a
@@ -170,7 +203,9 @@ export default async function ClinicalEntryDetailPage({
                   <RichTextContent html={entry[field] ?? ""} />
                 </CardContent>
               ) : (
-                <CardContent className="whitespace-pre-wrap text-sm">{entry[field]}</CardContent>
+                <CardContent className="whitespace-pre-wrap text-sm">
+                  {entry[field]}
+                </CardContent>
               )}
             </Card>
           );

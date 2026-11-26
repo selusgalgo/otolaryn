@@ -9,8 +9,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 vi.mock("@/components/ui/rich-text-editor", () => ({
-  RichTextEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <textarea aria-label="editor" value={value} onChange={(e) => onChange(e.target.value)} />
+  RichTextEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+  }) => (
+    <textarea
+      aria-label="editor"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   ),
 }));
 
@@ -41,7 +51,11 @@ describe("ClinicalEntryForm — plantillas de consulta", () => {
   it("la plantilla de cirugía pinta Enfermedad actual, Evolución, Diagnóstico, Informe y Doctor que lo envía", () => {
     render(
       <DraftScopeProvider scope={null}>
-        <ClinicalEntryForm action={vi.fn()} template="cirugia" referringDoctorSuggestions={["Dr. Pérez"]} />
+        <ClinicalEntryForm
+          action={vi.fn()}
+          template="cirugia"
+          referringDoctorSuggestions={["Dr. Pérez"]}
+        />
       </DraftScopeProvider>,
     );
     expect(paintedLabels()).toEqual([
@@ -52,8 +66,15 @@ describe("ClinicalEntryForm — plantillas de consulta", () => {
       "Doctor que lo envía",
     ]);
     // Sugerencias del campo de texto libre.
-    expect(screen.getByLabelText("Doctor que lo envía")).toHaveAttribute("list", "referringDoctor-options");
-    expect(document.querySelector('#referringDoctor-options option[value="Dr. Pérez"]')).not.toBeNull();
+    expect(screen.getByLabelText("Doctor que lo envía")).toHaveAttribute(
+      "list",
+      "referringDoctor-options",
+    );
+    expect(
+      document.querySelector(
+        '#referringDoctor-options option[value="Dr. Pérez"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("un campo de otra plantilla con datos se sigue mostrando y se envía", async () => {
@@ -72,12 +93,19 @@ describe("ClinicalEntryForm — plantillas de consulta", () => {
     } as unknown as ClinicalEntry;
     render(
       <DraftScopeProvider scope={null}>
-        <ClinicalEntryForm action={action} template="cirugia" initialValues={entry} submitLabel="Guardar cambios" />
+        <ClinicalEntryForm
+          action={action}
+          template="cirugia"
+          initialValues={entry}
+          submitLabel="Guardar cambios"
+        />
       </DraftScopeProvider>,
     );
     expect(paintedLabels()).toContain("Tratamiento");
 
-    fireEvent.change(screen.getByLabelText("Doctor que lo envía"), { target: { value: "Dra. López" } });
+    fireEvent.change(screen.getByLabelText("Doctor que lo envía"), {
+      target: { value: "Dra. López" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() => expect(action).toHaveBeenCalled());
 

@@ -16,7 +16,10 @@ import {
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface ConsultationTemplateFormProps {
-  action: (prevState: TenantFormState, formData: FormData) => Promise<TenantFormState>;
+  action: (
+    prevState: TenantFormState,
+    formData: FormData,
+  ) => Promise<TenantFormState>;
   initialTemplate: ConsultationTemplate;
   // Campos que la clínica usa ahora (los marcados o los de su plantilla).
   initialFields: ConsultationField[];
@@ -28,9 +31,14 @@ const initialState: TenantFormState = {};
 // partida (marca los campos que le corresponden) y cada campo se puede
 // marcar o desmarcar para esa clínica. El motivo/enfermedad actual es
 // obligatorio en toda consulta, así que siempre está marcado.
-export function ConsultationTemplateForm({ action, initialTemplate, initialFields }: ConsultationTemplateFormProps) {
+export function ConsultationTemplateForm({
+  action,
+  initialTemplate,
+  initialFields,
+}: ConsultationTemplateFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
-  const [template, setTemplate] = useState<ConsultationTemplate>(initialTemplate);
+  const [template, setTemplate] =
+    useState<ConsultationTemplate>(initialTemplate);
   const [fields, setFields] = useState<Set<ConsultationField>>(
     () => new Set<ConsultationField>([...initialFields, "chiefComplaint"]),
   );
@@ -50,14 +58,19 @@ export function ConsultationTemplateForm({ action, initialTemplate, initialField
   }
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-md gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-md gap-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="template">Plantilla</Label>
         <select
           id="template"
           name="template"
           value={template}
-          onChange={(e) => changeTemplate(e.target.value as ConsultationTemplate)}
+          onChange={(e) =>
+            changeTemplate(e.target.value as ConsultationTemplate)
+          }
           disabled={pending}
           className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
         >
@@ -68,7 +81,8 @@ export function ConsultationTemplateForm({ action, initialTemplate, initialField
           ))}
         </select>
         <p className="text-xs text-muted-foreground">
-          Al cambiar de plantilla se marcan los campos que le corresponden; después puedes ajustarlos.
+          Al cambiar de plantilla se marcan los campos que le corresponden;
+          después puedes ajustarlos.
         </p>
       </div>
       <fieldset className="space-y-2" disabled={pending}>
@@ -87,14 +101,20 @@ export function ConsultationTemplateForm({ action, initialTemplate, initialField
               {checked && <input type="hidden" name="fields" value={field} />}
               <label htmlFor={`field-${field}`} className="text-sm">
                 {fieldLabel(template, field)}
-                {required && <span className="text-xs text-muted-foreground"> (obligatorio)</span>}
+                {required && (
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    (obligatorio)
+                  </span>
+                )}
               </label>
             </div>
           );
         })}
         <p className="text-xs text-muted-foreground">Adjuntos en todas.</p>
         <p className="text-xs text-muted-foreground">
-          Cambiarlo no borra nada: si una consulta ya tiene texto en un campo desmarcado, se sigue mostrando.
+          Cambiarlo no borra nada: si una consulta ya tiene texto en un campo
+          desmarcado, se sigue mostrando.
         </p>
       </fieldset>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

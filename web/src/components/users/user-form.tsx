@@ -17,7 +17,10 @@ import {
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface UserFormProps {
-  action: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
+  action: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
   submitLabel: string;
   submitIcon?: React.ReactNode;
   onSuccess?: () => void;
@@ -25,7 +28,12 @@ interface UserFormProps {
 
 const initialState: UserFormState = {};
 
-export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFormProps) {
+export function UserForm({
+  action,
+  submitLabel,
+  submitIcon,
+  onSuccess,
+}: UserFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [role, setRole] = useState<string>("profesional");
   // Controlado (no solo defaultValue) porque el desplegable de tratamiento de
@@ -37,7 +45,10 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
   }, [state.success, onSuccess]);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-lg gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-lg gap-4"
+    >
       {/* Encima del nombre, que es donde luego se antepone ("Dra. Ana Ruiz"); solo
           para quien ejerce como médico, según el rol y la función de más abajo. */}
       {practicesMedicine(role, staffFunction) && (
@@ -70,11 +81,24 @@ export function UserForm({ action, submitLabel, submitIcon, onSuccess }: UserFor
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required disabled={pending} />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          required
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Contraseña</Label>
-        <Input id="password" name="password" type="password" minLength={8} required disabled={pending} />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          minLength={8}
+          required
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="role">Rol</Label>

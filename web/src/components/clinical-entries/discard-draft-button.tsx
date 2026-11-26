@@ -18,7 +18,13 @@ import { discardClinicalEntryDraftAction } from "@/lib/actions/clinical-entries"
 // Descarta un borrador (borrado real: un borrador no es historia clínica). Lo
 // pueden hacer su autor y los administradores. Pide confirmación porque no hay
 // vuelta atrás, y al terminar vuelve a la ficha del paciente.
-export function DiscardDraftButton({ patientId, draftId }: { patientId: string; draftId: string }) {
+export function DiscardDraftButton({
+  patientId,
+  draftId,
+}: {
+  patientId: string;
+  draftId: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,16 +54,26 @@ export function DiscardDraftButton({ patientId, draftId }: { patientId: string; 
         <DialogHeader>
           <DialogTitle>¿Descartar este borrador?</DialogTitle>
           <DialogDescription>
-            Se borra por completo y no se puede recuperar. Si lo que quieres es conservar la consulta, vuelve y
-            pulsa «Guardar entrada».
+            Se borra por completo y no se puede recuperar. Si lo que quieres es
+            conservar la consulta, vuelve y pulsa «Guardar entrada».
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
             Volver
           </Button>
-          <Button type="button" variant="destructive" onClick={discard} disabled={pending}>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={discard}
+            disabled={pending}
+          >
             {pending ? "Descartando..." : "Descartar borrador"}
           </Button>
         </DialogFooter>

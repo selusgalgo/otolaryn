@@ -1,4 +1,8 @@
-import { CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 import { CertificateManager } from "@/components/platform/certificate-manager";
 import { cn } from "@/lib/utils";
 import type { CreditorCertificateStatus } from "@/lib/types";
@@ -7,8 +11,19 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", { dateStyle: "long" });
 }
 
-function Notice({ tone, children }: { tone: "ok" | "warn" | "error"; children: React.ReactNode }) {
-  const Icon = tone === "ok" ? CheckCircleIcon : tone === "warn" ? ExclamationTriangleIcon : XCircleIcon;
+function Notice({
+  tone,
+  children,
+}: {
+  tone: "ok" | "warn" | "error";
+  children: React.ReactNode;
+}) {
+  const Icon =
+    tone === "ok"
+      ? CheckCircleIcon
+      : tone === "warn"
+        ? ExclamationTriangleIcon
+        : XCircleIcon;
   return (
     <div
       role={tone === "ok" ? undefined : "alert"}
@@ -31,11 +46,15 @@ function Notice({ tone, children }: { tone: "ok" | "warn" | "error"; children: R
 function ServerSetupNote() {
   return (
     <details className="text-xs text-muted-foreground">
-      <summary className="cursor-pointer">Avanzado: configurarlo desde el servidor</summary>
+      <summary className="cursor-pointer">
+        Avanzado: configurarlo desde el servidor
+      </summary>
       <p className="pt-2">
-        En el <code className="text-foreground">.env</code> del backend, con el archivo guardado fuera de las carpetas
-        web: <code className="text-foreground">CREDITOR_P12_PATH</code> (ruta del .p12) y{" "}
-        <code className="text-foreground">CREDITOR_P12_PASSPHRASE</code> (su contraseña), y reiniciar el backend.
+        En el <code className="text-foreground">.env</code> del backend, con el
+        archivo guardado fuera de las carpetas web:{" "}
+        <code className="text-foreground">CREDITOR_P12_PATH</code> (ruta del
+        .p12) y <code className="text-foreground">CREDITOR_P12_PASSPHRASE</code>{" "}
+        (su contraseña), y reiniciar el backend.
       </p>
     </details>
   );
@@ -56,8 +75,8 @@ export function CertificateStatus({
           <p>Las órdenes de domiciliación se generan sin tu firma digital.</p>
         </Notice>
         <p className="text-sm text-muted-foreground">
-          Arrastra tu archivo .p12 e indica su contraseña: si son correctos, el certificado queda instalado y firma las
-          órdenes desde ese momento.
+          Arrastra tu archivo .p12 e indica su contraseña: si son correctos, el
+          certificado queda instalado y firma las órdenes desde ese momento.
         </p>
         <CertificateManager source={null} expanded />
         <ServerSetupNote />
@@ -71,7 +90,10 @@ export function CertificateStatus({
         <Notice tone="error">
           <p className="font-medium">El certificado no se puede usar.</p>
           <p>{status.error}</p>
-          <p>Mientras no se arregle, no se pueden generar órdenes: no se enviará nunca un documento sin firmar.</p>
+          <p>
+            Mientras no se arregle, no se pueden generar órdenes: no se enviará
+            nunca un documento sin firmar.
+          </p>
         </Notice>
         <CertificateManager source={status.source} expanded />
         <ServerSetupNote />
@@ -92,18 +114,29 @@ export function CertificateStatus({
     <div className="space-y-4">
       <Notice tone="ok">
         <p className="font-medium">Certificado operativo.</p>
-        <p>Cada orden se firma automáticamente con él antes de enviarse al cliente.</p>
+        <p>
+          Cada orden se firma automáticamente con él antes de enviarse al
+          cliente.
+        </p>
       </Notice>
       {!status.matchesCreditorTaxId && (
         <Notice tone="error">
-          <p className="font-medium">El certificado no corresponde al NIF del acreedor ({creditorTaxId}).</p>
-          <p>Las órdenes llevarían la firma de otra persona. Instala el certificado correcto.</p>
+          <p className="font-medium">
+            El certificado no corresponde al NIF del acreedor ({creditorTaxId}).
+          </p>
+          <p>
+            Las órdenes llevarían la firma de otra persona. Instala el
+            certificado correcto.
+          </p>
         </Notice>
       )}
       {status.expiringSoon && (
         <Notice tone="warn">
           <p className="font-medium">Caduca en {status.daysLeft} días.</p>
-          <p>Renueva el certificado y sustituye el archivo en el servidor antes de esa fecha.</p>
+          <p>
+            Renueva el certificado y sustituye el archivo en el servidor antes
+            de esa fecha.
+          </p>
         </Notice>
       )}
       <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
@@ -114,7 +147,10 @@ export function CertificateStatus({
           </div>
         ))}
       </dl>
-      <CertificateManager source={status.source} expanded={!status.matchesCreditorTaxId} />
+      <CertificateManager
+        source={status.source}
+        expanded={!status.matchesCreditorTaxId}
+      />
       <ServerSetupNote />
     </div>
   );

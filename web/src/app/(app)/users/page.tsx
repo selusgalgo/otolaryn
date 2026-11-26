@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
 import { RoleBadge } from "@/components/users/role-badge";
 import { UserRowActions } from "@/components/users/user-row-actions";
@@ -47,7 +54,10 @@ export default async function UsersPage() {
           <TableBody>
             {users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={4}
+                  className="text-center text-muted-foreground"
+                >
                   No hay usuarios todavía.
                 </TableCell>
               </TableRow>
@@ -62,7 +72,13 @@ export default async function UsersPage() {
                       size="sm"
                       variant={isDoctor(user) ? "doctor" : "patient"}
                     />
-                    <span className={!user.active ? "text-muted-foreground line-through" : undefined}>
+                    <span
+                      className={
+                        !user.active
+                          ? "text-muted-foreground line-through"
+                          : undefined
+                      }
+                    >
                       {userDisplayName(user)}
                     </span>
                     {!user.active && (
@@ -87,7 +103,10 @@ export default async function UsersPage() {
                   <UserRowActions
                     user={user}
                     updateAction={updateUserAction.bind(null, user.id)}
-                    resetPasswordAction={resetUserPasswordAction.bind(null, user.id)}
+                    resetPasswordAction={resetUserPasswordAction.bind(
+                      null,
+                      user.id,
+                    )}
                     deleteAction={deleteUserAction.bind(null, user.id)}
                     setActiveAction={setUserActiveAction.bind(null, user.id)}
                   />

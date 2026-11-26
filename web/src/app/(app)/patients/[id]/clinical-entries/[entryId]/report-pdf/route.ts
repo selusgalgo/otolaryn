@@ -11,13 +11,16 @@ export async function GET(
   const token = await getSessionToken();
   const deviceToken = await getDeviceToken();
 
-  const upstream = await fetch(`${API_URL}/clinical-entries/${entryId}/report-pdf`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+  const upstream = await fetch(
+    `${API_URL}/clinical-entries/${entryId}/report-pdf`,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
+  );
 
   if (!upstream.ok || !upstream.body) {
     return new Response("No se pudo generar el PDF del informe.", {
@@ -28,7 +31,8 @@ export async function GET(
   return new Response(upstream.body, {
     headers: {
       "Content-Type": upstream.headers.get("content-type") ?? "application/pdf",
-      "Content-Disposition": upstream.headers.get("content-disposition") ?? "attachment",
+      "Content-Disposition":
+        upstream.headers.get("content-disposition") ?? "attachment",
     },
   });
 }

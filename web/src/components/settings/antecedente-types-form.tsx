@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  PlusIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -25,7 +30,10 @@ interface AntecedenteTypesFormProps {
 // this from the list" action, delete is only for one added by mistake.
 // Rendered twice on /settings/antecedentes, once per category — each
 // instance only ever lists and creates types for its own category.
-export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteTypesFormProps) {
+export function AntecedenteTypesForm({
+  category,
+  initialTypes,
+}: AntecedenteTypesFormProps) {
   const [types, setTypes] = useState(
     [...initialTypes].sort((a, b) => a.displayOrder - b.displayOrder),
   );
@@ -87,8 +95,12 @@ export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteType
     // re-send the rest just because their array position stayed the same.
     startTransition(async () => {
       await Promise.all([
-        updateAntecedenteTypeAction(reordered[index].id, { displayOrder: index }),
-        updateAntecedenteTypeAction(reordered[target].id, { displayOrder: target }),
+        updateAntecedenteTypeAction(reordered[index].id, {
+          displayOrder: index,
+        }),
+        updateAntecedenteTypeAction(reordered[target].id, {
+          displayOrder: target,
+        }),
       ]);
     });
   }
@@ -109,7 +121,9 @@ export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteType
     <div className="space-y-3">
       <div className="divide-y rounded-md border">
         {types.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">Sin antecedentes todavía.</p>
+          <p className="p-4 text-sm text-muted-foreground">
+            Sin antecedentes todavía.
+          </p>
         )}
         {types.map((type, index) => (
           <div key={type.id} className="flex items-center gap-2 p-2">
@@ -143,7 +157,9 @@ export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteType
             <label className="flex shrink-0 items-center gap-1.5 px-1 text-sm text-muted-foreground">
               <Checkbox
                 checked={type.active}
-                onCheckedChange={(checked) => toggleActive(type.id, checked === true)}
+                onCheckedChange={(checked) =>
+                  toggleActive(type.id, checked === true)
+                }
                 disabled={pending}
               />
               Activo
@@ -165,7 +181,10 @@ export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteType
 
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
-          <Label htmlFor="new-antecedente" className="text-xs text-muted-foreground">
+          <Label
+            htmlFor="new-antecedente"
+            className="text-xs text-muted-foreground"
+          >
             Nuevo antecedente
           </Label>
           <Input
@@ -182,7 +201,11 @@ export function AntecedenteTypesForm({ category, initialTypes }: AntecedenteType
             placeholder="p. ej. Hipotiroidismo"
           />
         </div>
-        <Button type="button" onClick={addType} disabled={pending || !newName.trim()}>
+        <Button
+          type="button"
+          onClick={addType}
+          disabled={pending || !newName.trim()}
+        >
           <PlusIcon data-icon="inline-start" />
           Añadir
         </Button>

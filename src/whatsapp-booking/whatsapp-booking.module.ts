@@ -13,14 +13,23 @@ import { WhatsappDeliveryReviewController } from './whatsapp-delivery-review.con
 import { WhatsappRemindersService } from './whatsapp-reminders.service';
 import { WhatsappTenantOnboardingController } from './whatsapp-tenant-onboarding.controller';
 import { WhatsappTenantOnboardingService } from './whatsapp-tenant-onboarding.service';
-import { WhatsappTenantRouterController, WhatsappTenantRouterGuard } from './whatsapp-tenant-router.controller';
+import {
+  WhatsappTenantRouterController,
+  WhatsappTenantRouterGuard,
+} from './whatsapp-tenant-router.controller';
 import { WhatsappTenantRouterService } from './whatsapp-tenant-router.service';
 import { WhatsappFlowController } from './whatsapp-flow.controller';
 import { WhatsappFlowService } from './whatsapp-flow.service';
 
 @Module({
   imports: [AppointmentsModule, PatientsModule, TenancyModule, IamModule],
-  controllers: [WhatsappBookingController, WhatsappDeliveryReviewController, WhatsappTenantOnboardingController, WhatsappTenantRouterController, WhatsappFlowController],
+  controllers: [
+    WhatsappBookingController,
+    WhatsappDeliveryReviewController,
+    WhatsappTenantOnboardingController,
+    WhatsappTenantRouterController,
+    WhatsappFlowController,
+  ],
   providers: [
     WhatsappBookingGuard,
     WhatsappBookingService,

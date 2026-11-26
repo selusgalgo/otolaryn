@@ -118,7 +118,8 @@ export function FileDropzone({
         // dragleave also fires when the pointer moves onto a child element;
         // only a real exit from the area should switch the highlight off.
         onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragActive(false);
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            setDragActive(false);
         }}
         onDrop={(e) => {
           e.preventDefault();
@@ -129,7 +130,9 @@ export function FileDropzone({
           "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border-2 border-dashed text-center text-sm transition-colors outline-none",
           compact ? "p-3" : "p-6",
           "focus-visible:ring-3 focus-visible:ring-ring/50",
-          dragActive ? "border-primary bg-primary/5" : "border-input hover:bg-muted/50",
+          dragActive
+            ? "border-primary bg-primary/5"
+            : "border-input hover:bg-muted/50",
           disabled && "pointer-events-none opacity-50",
         )}
       >
@@ -140,10 +143,17 @@ export function FileDropzone({
             <DocumentIcon className="size-5 text-muted-foreground" />
             <p className="font-medium">
               {fileNames[0]}
-              {fileNames.length > 1 && <span className="text-muted-foreground"> y {fileNames.length - 1} más</span>}
+              {fileNames.length > 1 && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  y {fileNames.length - 1} más
+                </span>
+              )}
             </p>
             <p className="text-xs text-muted-foreground">
-              {multiple ? "Haz clic o suelta otros archivos para cambiarlos" : "Haz clic o suelta otro fichero para cambiarlo"}
+              {multiple
+                ? "Haz clic o suelta otros archivos para cambiarlos"
+                : "Haz clic o suelta otro fichero para cambiarlo"}
             </p>
           </>
         ) : (
@@ -151,7 +161,9 @@ export function FileDropzone({
             <ArrowUpTrayIcon className="size-5 text-muted-foreground" />
             <p>
               Arrastra {noun} aquí o{" "}
-              <span className="font-medium text-foreground">haz clic para seleccionarlo{multiple ? "s" : ""}</span>
+              <span className="font-medium text-foreground">
+                haz clic para seleccionarlo{multiple ? "s" : ""}
+              </span>
             </p>
             {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
           </>

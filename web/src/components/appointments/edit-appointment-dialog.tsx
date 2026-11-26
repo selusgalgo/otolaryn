@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { updateAppointmentAction } from "@/lib/actions/appointments";
 import type { PractitionerOption } from "@/lib/practitioners";

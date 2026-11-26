@@ -15,10 +15,18 @@ const WARN_BEFORE_END_MS = 5 * 60 * 1000;
 const TICK_MS = 30_000;
 // Eventos que cuentan como "la persona está trabajando". Pasivos y sin
 // guardar nada: solo marcan el instante de la última actividad.
-const ACTIVITY_EVENTS = ["keydown", "pointerdown", "wheel", "touchstart"] as const;
+const ACTIVITY_EVENTS = [
+  "keydown",
+  "pointerdown",
+  "wheel",
+  "touchstart",
+] as const;
 
 function formatTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // Sesión deslizante: mientras haya actividad, y en cuanto al token le quede
@@ -27,7 +35,11 @@ function formatTime(ms: number): string {
 // antes; con actividad dura hasta el techo absoluto (session_end), y unos
 // minutos antes se avisa para que se guarde lo que se esté escribiendo (los
 // borradores de consulta se conservan igualmente).
-export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: SessionKeepAliveProps) {
+export function SessionKeepAlive({
+  expiresAt,
+  issuedAt,
+  sessionEndsAt,
+}: SessionKeepAliveProps) {
   const [expires, setExpires] = useState(expiresAt);
   const [endsAt, setEndsAt] = useState(sessionEndsAt);
   const [now, setNow] = useState(() => Date.now());
@@ -44,15 +56,23 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     try {
-      const res = await fetch("/session/refresh", { method: "POST", cache: "no-store" });
-      const isJson = res.headers.get("content-type")?.includes("application/json");
+      const res = await fetch("/session/refresh", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const isJson = res.headers
+        .get("content-type")
+        ?.includes("application/json");
       // Un redirect a /login (la cookie ya había caducado) llega como HTML.
       if (res.status === 401 || res.redirected || !isJson) {
         setEnded(true);
         return;
       }
       if (res.ok) {
-        const data = (await res.json()) as { expiresAt: number | null; sessionEndsAt: number | null };
+        const data = (await res.json()) as {
+          expiresAt: number | null;
+          sessionEndsAt: number | null;
+        };
         setExpires(data.expiresAt);
         if (data.sessionEndsAt) setEndsAt(data.sessionEndsAt);
       }
@@ -75,9 +95,11 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
       const exp = expiresRef.current;
       if (exp && exp - t < lifetimeMs! / 2) void refresh();
     }
-    for (const name of ACTIVITY_EVENTS) window.addEventListener(name, onActivity, { passive: true });
+    for (const name of ACTIVITY_EVENTS)
+      window.addEventListener(name, onActivity, { passive: true });
     return () => {
-      for (const name of ACTIVITY_EVENTS) window.removeEventListener(name, onActivity);
+      for (const name of ACTIVITY_EVENTS)
+        window.removeEventListener(name, onActivity);
     };
   }, [lifetimeMs, refresh]);
 
@@ -86,7 +108,8 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
     return () => clearInterval(id);
   }, []);
 
-  const nearingEnd = endsAt !== null && endsAt - now < WARN_BEFORE_END_MS && endsAt > now;
+  const nearingEnd =
+    endsAt !== null && endsAt - now < WARN_BEFORE_END_MS && endsAt > now;
 
   if (!ended && !nearingEnd) return null;
 
@@ -105,12 +128,15 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
             Tu sesión ha caducado.
           </p>
           <p className="mt-2 text-muted-foreground">
-            Lo que estés escribiendo en una consulta queda guardado como borrador en este dispositivo.
+            Lo que estés escribiendo en una consulta queda guardado como
+            borrador en este dispositivo.
           </p>
           <a
             className="mt-4 inline-block font-medium text-primary underline"
             href={`/session/expired?reason=SESSION_EXPIRED&redirect=${encodeURIComponent(
-              typeof window === "undefined" ? "/" : window.location.pathname + window.location.search,
+              typeof window === "undefined"
+                ? "/"
+                : window.location.pathname + window.location.search,
             )}`}
           >
             Iniciar sesión de nuevo
@@ -125,9 +151,12 @@ export function SessionKeepAlive({ expiresAt, issuedAt, sessionEndsAt }: Session
       role="status"
       className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-lg border border-destructive/30 bg-background px-4 py-3 text-sm shadow-lg md:bottom-6"
     >
-      <p className="font-medium">Por seguridad, tu sesión terminará a las {formatTime(endsAt!)}.</p>
+      <p className="font-medium">
+        Por seguridad, tu sesión terminará a las {formatTime(endsAt!)}.
+      </p>
       <p className="mt-1 text-muted-foreground">
-        Guarda lo que estés escribiendo. Los borradores de consulta se conservan al volver a entrar.
+        Guarda lo que estés escribiendo. Los borradores de consulta se conservan
+        al volver a entrar.
       </p>
     </div>
   );

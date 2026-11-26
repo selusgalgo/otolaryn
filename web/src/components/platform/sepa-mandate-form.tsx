@@ -5,11 +5,20 @@ import { Button } from "@/components/ui/button";
 import { SepaFormField } from "@/components/platform/sepa-form-field";
 import type { SepaFormState } from "@/lib/actions/platform";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
-import { computeSepaAmounts, DEFAULT_IRPF_PERCENT, DEFAULT_VAT_PERCENT, formatCents, parseDecimal } from "@/lib/sepa";
+import {
+  computeSepaAmounts,
+  DEFAULT_IRPF_PERCENT,
+  DEFAULT_VAT_PERCENT,
+  formatCents,
+  parseDecimal,
+} from "@/lib/sepa";
 import type { SepaMandate, TenantSepaMandate } from "@/lib/types";
 
 interface SepaMandateFormProps {
-  action: (prevState: SepaFormState, formData: FormData) => Promise<SepaFormState>;
+  action: (
+    prevState: SepaFormState,
+    formData: FormData,
+  ) => Promise<SepaFormState>;
   data: TenantSepaMandate;
   // A signed mandate is immutable on the API; the form says so instead of
   // letting the superadmin type into something that will be refused.
@@ -35,31 +44,60 @@ function percentInput(value: number): string {
   return String(value).replace(".", ",");
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <fieldset className="grid gap-4 sm:col-span-6 sm:grid-cols-6">
-      <legend className="mb-1 text-sm font-semibold text-primary">{title}</legend>
-      {hint && <p className="-mt-2 text-xs text-muted-foreground sm:col-span-6">{hint}</p>}
+      <legend className="mb-1 text-sm font-semibold text-primary">
+        {title}
+      </legend>
+      {hint && (
+        <p className="-mt-2 text-xs text-muted-foreground sm:col-span-6">
+          {hint}
+        </p>
+      )}
       {children}
     </fieldset>
   );
 }
 
-export function SepaMandateForm({ action, data, locked = false }: SepaMandateFormProps) {
+export function SepaMandateForm({
+  action,
+  data,
+  locked = false,
+}: SepaMandateFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const m: Partial<SepaMandate> = data.mandate ?? {};
 
   // Controlled only so the debit preview can follow what's typed.
-  const [base, setBase] = useState(m.monthlyBase !== undefined ? decimalInput(m.monthlyBase) : "");
-  const [vat, setVat] = useState(percentInput(m.vatPercent ?? DEFAULT_VAT_PERCENT));
-  const [irpf, setIrpf] = useState(percentInput(m.irpfPercent ?? DEFAULT_IRPF_PERCENT));
+  const [base, setBase] = useState(
+    m.monthlyBase !== undefined ? decimalInput(m.monthlyBase) : "",
+  );
+  const [vat, setVat] = useState(
+    percentInput(m.vatPercent ?? DEFAULT_VAT_PERCENT),
+  );
+  const [irpf, setIrpf] = useState(
+    percentInput(m.irpfPercent ?? DEFAULT_IRPF_PERCENT),
+  );
 
   const numbers = [parseDecimal(base), parseDecimal(vat), parseDecimal(irpf)];
   const amounts =
-    numbers.every(Number.isFinite) && numbers[0] > 0 ? computeSepaAmounts(numbers[0], numbers[1], numbers[2]) : null;
+    numbers.every(Number.isFinite) && numbers[0] > 0
+      ? computeSepaAmounts(numbers[0], numbers[1], numbers[2])
+      : null;
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid gap-6 sm:grid-cols-6">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid gap-6 sm:grid-cols-6"
+    >
       <Section
         title="Titular de la cuenta"
         hint="Opcional: el cliente lo rellena él mismo desde el enlace de firma. Rellénalo solo si ya lo tienes."
@@ -253,21 +291,29 @@ export function SepaMandateForm({ action, data, locked = false }: SepaMandateFor
               </div>
             </>
           ) : (
-            <p className="text-muted-foreground">Escribe la cuota para ver el importe que se cargará cada mes.</p>
+            <p className="text-muted-foreground">
+              Escribe la cuota para ver el importe que se cargará cada mes.
+            </p>
           )}
         </dl>
       </Section>
 
       <div className="flex flex-wrap items-center gap-3 sm:col-span-6">
         <Button type="submit" disabled={pending || locked}>
-          {pending ? "Guardando..." : data.mandate ? "Guardar cambios" : "Crear orden"}
+          {pending
+            ? "Guardando..."
+            : data.mandate
+              ? "Guardar cambios"
+              : "Crear orden"}
         </Button>
         {locked && (
           <p className="text-sm text-muted-foreground">
             La orden está firmada: para cambiarla hay que cancelarla primero.
           </p>
         )}
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
         {state.success && <p className="text-sm text-success">Guardado.</p>}
       </div>
     </form>

@@ -8,7 +8,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { decodeJwtClaims } from "@/lib/jwt";
 import { getSessionToken } from "@/lib/session";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const me = await getCurrentUser();
 
   // superadmin has no tenant and none of these routes apply to it — the
@@ -22,7 +26,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Se lee sin verificar la firma del JWT: getCurrentUser ya validó la
   // sesión contra la API y esto solo separa borradores de personas distintas.
   const claims = decodeJwtClaims(await getSessionToken());
-  const draftScope = claims?.sub ? `${claims.tenant_id ?? "none"}:${claims.sub}` : null;
+  const draftScope = claims?.sub
+    ? `${claims.tenant_id ?? "none"}:${claims.sub}`
+    : null;
 
   return (
     <DraftScopeProvider scope={draftScope}>

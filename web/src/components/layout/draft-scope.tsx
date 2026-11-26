@@ -9,8 +9,18 @@ import { createContext, useContext } from "react";
 // uno que pueda mezclar personas.
 const DraftScopeContext = createContext<string | null>(null);
 
-export function DraftScopeProvider({ scope, children }: { scope: string | null; children: React.ReactNode }) {
-  return <DraftScopeContext.Provider value={scope}>{children}</DraftScopeContext.Provider>;
+export function DraftScopeProvider({
+  scope,
+  children,
+}: {
+  scope: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <DraftScopeContext.Provider value={scope}>
+      {children}
+    </DraftScopeContext.Provider>
+  );
 }
 
 export function useDraftScope(): string | null {

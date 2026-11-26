@@ -7,17 +7,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // A partir de cuántos días restantes el aviso pasa a tono de alerta.
 export const DRAFT_WARN_DAYS = 3;
 
-export function draftDaysLeft(expiresAt: string | null, now: number = Date.now()): number | null {
+export function draftDaysLeft(
+  expiresAt: string | null,
+  now: number = Date.now(),
+): number | null {
   if (!expiresAt) return null;
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now) / DAY_MS));
 }
 
-export function isDraftExpiringSoon(expiresAt: string | null, now: number = Date.now()): boolean {
+export function isDraftExpiringSoon(
+  expiresAt: string | null,
+  now: number = Date.now(),
+): boolean {
   const days = draftDaysLeft(expiresAt, now);
   return days !== null && days <= DRAFT_WARN_DAYS;
 }
 
-export function draftExpiryText(expiresAt: string | null, now: number = Date.now()): string {
+export function draftExpiryText(
+  expiresAt: string | null,
+  now: number = Date.now(),
+): string {
   const days = draftDaysLeft(expiresAt, now);
   if (days === null) return "";
   if (days === 0) return "Se borra hoy si no lo terminas";

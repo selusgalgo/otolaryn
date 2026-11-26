@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation';
-import { PlatformSidebar } from '@/components/layout/platform-sidebar';
-import { SessionGuard } from '@/components/layout/session-guard';
-import { getCurrentUser } from '@/lib/auth';
+import { redirect } from "next/navigation";
+import { PlatformSidebar } from "@/components/layout/platform-sidebar";
+import { SessionGuard } from "@/components/layout/session-guard";
+import { getCurrentUser } from "@/lib/auth";
 
 // Superadmin has its own navigation because it manages platform-wide clinics
 // and billing rather than tenant-scoped patient and agenda pages.
@@ -12,8 +12,8 @@ export default async function PlatformLayout({
 }) {
   const me = await getCurrentUser();
 
-  if (me.role !== 'superadmin') {
-    redirect('/dashboard');
+  if (me.role !== "superadmin") {
+    redirect("/dashboard");
   }
 
   return (

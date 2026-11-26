@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowLeftOnRectangleIcon,
   BuildingOffice2Icon,
@@ -9,29 +9,29 @@ import {
   CircleStackIcon,
   EllipsisVerticalIcon,
   UserIcon,
-} from '@heroicons/react/24/outline';
-import { Avatar } from '@/components/ui/avatar';
+} from "@heroicons/react/24/outline";
+import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { logoutAction } from '@/lib/actions/auth';
-import { userDisplayName } from '@/lib/doctor-name';
-import { ROLE_LABELS } from '@/lib/roles';
-import type { Me } from '@/lib/types';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import { logoutAction } from "@/lib/actions/auth";
+import { userDisplayName } from "@/lib/doctor-name";
+import { ROLE_LABELS } from "@/lib/roles";
+import type { Me } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: '/platform', label: 'Clínicas', icon: BuildingOffice2Icon },
-  { href: '/platform/billing', label: 'Facturación', icon: CreditCardIcon },
-  { href: '/platform/backups', label: 'Copias', icon: CircleStackIcon },
+  { href: "/platform", label: "Clínicas", icon: BuildingOffice2Icon },
+  { href: "/platform/billing", label: "Facturación", icon: CreditCardIcon },
+  { href: "/platform/backups", label: "Copias", icon: CircleStackIcon },
 ];
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === '/platform') {
+  if (href === "/platform") {
     return (
       pathname === href ||
       (pathname.startsWith(`${href}/`) &&
@@ -52,8 +52,8 @@ function NavLinks({ mobile = false }: { mobile?: boolean }) {
     <nav
       className={
         mobile
-          ? 'fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-nav-foreground/10 bg-nav pb-[env(safe-area-inset-bottom)] md:hidden'
-          : 'flex-1 space-y-1 p-3'
+          ? "fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-nav-foreground/10 bg-nav pb-[env(safe-area-inset-bottom)] md:hidden"
+          : "flex-1 space-y-1 p-3"
       }
     >
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
@@ -63,25 +63,25 @@ function NavLinks({ mobile = false }: { mobile?: boolean }) {
           <Link
             key={href}
             href={href}
-            aria-current={active ? 'page' : undefined}
+            aria-current={active ? "page" : undefined}
             className={cn(
               mobile
-                ? 'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors'
-                : 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                ? "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors"
+                : "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? mobile
-                  ? 'text-nav-foreground'
-                  : 'bg-white/10 text-nav-foreground'
+                  ? "text-nav-foreground"
+                  : "bg-white/10 text-nav-foreground"
                 : mobile
-                  ? 'text-nav-foreground/70'
-                  : 'text-nav-foreground/70 hover:bg-white/5 hover:text-nav-foreground',
+                  ? "text-nav-foreground/70"
+                  : "text-nav-foreground/70 hover:bg-white/5 hover:text-nav-foreground",
             )}
           >
             {mobile ? (
               <span
                 className={cn(
-                  'rounded-full px-3 py-0.5',
-                  active && 'bg-white/10',
+                  "rounded-full px-3 py-0.5",
+                  active && "bg-white/10",
                 )}
               >
                 <Icon className="size-5" />

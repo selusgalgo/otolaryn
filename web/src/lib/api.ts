@@ -56,8 +56,14 @@ interface NestErrorBody {
 // session token — every page/action calls through here instead of
 // fetching the NestJS API directly from client components, since the JWT
 // lives in an httpOnly cookie the browser can't read anyway.
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...options.headers };
+export async function apiFetch<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
 
   if (!options.skipAuth) {
     const token = await getSessionToken();
@@ -87,7 +93,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   const contentType = res.headers.get("content-type");
-  const data: unknown = contentType?.includes("application/json") ? await res.json() : undefined;
+  const data: unknown = contentType?.includes("application/json")
+    ? await res.json()
+    : undefined;
 
   if (!res.ok) {
     throw errorFromResponse(res.status, data);
@@ -133,7 +141,9 @@ export async function apiFetchMultipart<T>(
   });
 
   const contentType = res.headers.get("content-type");
-  const data: unknown = contentType?.includes("application/json") ? await res.json() : undefined;
+  const data: unknown = contentType?.includes("application/json")
+    ? await res.json()
+    : undefined;
 
   if (!res.ok) {
     throw errorFromResponse(res.status, data);

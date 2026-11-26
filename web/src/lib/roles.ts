@@ -40,6 +40,12 @@ export const HONORIFIC_LABELS: Record<Honorific, string> = {
 
 // Quien ejerce como médico: rol "profesional", o administrador con la función
 // adicional "Doctor". Solo a ellos se les pregunta el tratamiento (Dr./Dra.).
-export function practicesMedicine(role: string, staffFunction: string | null | undefined): boolean {
-  return role === "profesional" || (role === "admin" && staffFunction === "profesional");
+export function practicesMedicine(
+  role: string,
+  staffFunction: string | null | undefined,
+): boolean {
+  return (
+    role === "profesional" ||
+    (role === "admin" && staffFunction === "profesional")
+  );
 }
