@@ -31,17 +31,25 @@ describe("AttachmentsPanel", () => {
     list.mockResolvedValue({ attachments: [att("a1", "Analítica.pdf")] });
     render(<AttachmentsPanel patientId="p1" entryId="e1" canManage={false} />);
     expect(await screen.findByText("Analítica.pdf")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Abrir Analítica.pdf" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Abrir Analítica.pdf" }),
+    ).toHaveAttribute(
       "href",
       "/patients/p1/clinical-entries/e1/attachments/a1",
     );
-    expect(screen.queryByRole("button", { name: "Adjuntar archivo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Quitar/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Adjuntar archivo" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Quitar/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("solo lectura y sin archivos: no pinta nada", async () => {
     list.mockResolvedValue({ attachments: [] });
-    const { container } = render(<AttachmentsPanel patientId="p1" entryId="e1" canManage={false} />);
+    const { container } = render(
+      <AttachmentsPanel patientId="p1" entryId="e1" canManage={false} />,
+    );
     await waitFor(() => expect(list).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -50,8 +58,17 @@ describe("AttachmentsPanel", () => {
     const ensure = vi.fn().mockResolvedValue("draft1");
     upload.mockResolvedValue({ attachment: att("a2", "informe.pdf") });
     const user = userEvent.setup();
-    render(<AttachmentsPanel patientId="p1" entryId={null} ensureEntryId={ensure} canManage />);
-    const file = new File(["%PDF-1.7"], "informe.pdf", { type: "application/pdf" });
+    render(
+      <AttachmentsPanel
+        patientId="p1"
+        entryId={null}
+        ensureEntryId={ensure}
+        canManage
+      />,
+    );
+    const file = new File(["%PDF-1.7"], "informe.pdf", {
+      type: "application/pdf",
+    });
     await user.upload(screen.getByTestId("attachment-input"), file);
     expect(await screen.findByText("informe.pdf")).toBeInTheDocument();
     expect(ensure).toHaveBeenCalledTimes(1);
@@ -64,8 +81,12 @@ describe("AttachmentsPanel", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     render(<AttachmentsPanel patientId="p1" entryId="e1" canManage />);
-    await user.click(await screen.findByRole("button", { name: "Quitar Analítica.pdf" }));
-    await waitFor(() => expect(screen.queryByText("Analítica.pdf")).not.toBeInTheDocument());
+    await user.click(
+      await screen.findByRole("button", { name: "Quitar Analítica.pdf" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Analítica.pdf")).not.toBeInTheDocument(),
+    );
     expect(remove).toHaveBeenCalledWith("p1", "e1", "a1");
   });
 });

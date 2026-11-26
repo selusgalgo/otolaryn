@@ -18,7 +18,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { PatientRowActions } from "@/components/patients/patient-row-actions";
 import { bulkDeletePatientsAction } from "@/lib/actions/patients";
@@ -67,7 +74,11 @@ function SortableHeader({
 }) {
   const active = sortBy === column;
   const nextDir: SortDirection = active && sortDir === "asc" ? "desc" : "asc";
-  const Icon = !active ? ChevronUpDownIcon : sortDir === "asc" ? ChevronUpIcon : ChevronDownIcon;
+  const Icon = !active
+    ? ChevronUpDownIcon
+    : sortDir === "asc"
+      ? ChevronUpIcon
+      : ChevronDownIcon;
 
   const href = new URLSearchParams();
   if (search) href.set("search", search);
@@ -75,7 +86,10 @@ function SortableHeader({
   href.set("sortDir", nextDir);
 
   return (
-    <Link href={`/patients?${href.toString()}`} className="inline-flex items-center gap-1 hover:text-foreground">
+    <Link
+      href={`/patients?${href.toString()}`}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+    >
       {label}
       <Icon className="size-4" />
     </Link>
@@ -101,9 +115,13 @@ export function PatientsTable({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ deleted: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{
+    deleted: number;
+    skipped: number;
+  } | null>(null);
 
-  const allSelected = patients.length > 0 && patients.every((p) => selected.has(p.id));
+  const allSelected =
+    patients.length > 0 && patients.every((p) => selected.has(p.id));
   const someSelected = selected.size > 0 && !allSelected;
 
   function toggleAll() {
@@ -132,7 +150,10 @@ export function PatientsTable({
         return;
       }
       if (state.result) {
-        setResult({ deleted: state.result.deleted, skipped: state.result.skipped.length });
+        setResult({
+          deleted: state.result.deleted,
+          skipped: state.result.skipped.length,
+        });
         setSelected(new Set());
         setConfirmOpen(false);
       }
@@ -146,7 +167,8 @@ export function PatientsTable({
       {canArchive && selectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-sm">
           <span>
-            {selectedCount} paciente{selectedCount === 1 ? "" : "s"} seleccionado{selectedCount === 1 ? "" : "s"}
+            {selectedCount} paciente{selectedCount === 1 ? "" : "s"}{" "}
+            seleccionado{selectedCount === 1 ? "" : "s"}
           </span>
           <Dialog
             open={confirmOpen}
@@ -163,18 +185,28 @@ export function PatientsTable({
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  ¿Dar de baja a {selectedCount} paciente{selectedCount === 1 ? "" : "s"}?
+                  ¿Dar de baja a {selectedCount} paciente
+                  {selectedCount === 1 ? "" : "s"}?
                 </DialogTitle>
                 <DialogDescription>
-                  Dejarán de aparecer en listados y búsquedas, pero su historial no se elimina.
+                  Dejarán de aparecer en listados y búsquedas, pero su historial
+                  no se elimina.
                 </DialogDescription>
               </DialogHeader>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={pending}>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={pending}
+                >
                   Cancelar
                 </Button>
-                <Button variant="destructive" disabled={pending} onClick={confirmBulkDelete}>
+                <Button
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={confirmBulkDelete}
+                >
                   {pending ? "Dando de baja..." : "Confirmar baja"}
                 </Button>
               </DialogFooter>
@@ -185,7 +217,8 @@ export function PatientsTable({
 
       {result && (
         <p className="text-sm text-muted-foreground">
-          {result.deleted} paciente{result.deleted === 1 ? "" : "s"} dado{result.deleted === 1 ? "" : "s"} de baja.
+          {result.deleted} paciente{result.deleted === 1 ? "" : "s"} dado
+          {result.deleted === 1 ? "" : "s"} de baja.
           {result.skipped > 0 &&
             ` ${result.skipped} no se ${result.skipped === 1 ? "pudo" : "pudieron"} dar de baja.`}
         </p>
@@ -198,7 +231,13 @@ export function PatientsTable({
               {canArchive && (
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    checked={
+                      allSelected
+                        ? true
+                        : someSelected
+                          ? "indeterminate"
+                          : false
+                    }
                     onCheckedChange={toggleAll}
                     disabled={patients.length === 0}
                     aria-label="Seleccionar todos los pacientes de esta página"
@@ -206,7 +245,13 @@ export function PatientsTable({
                 </TableHead>
               )}
               <TableHead>
-                <SortableHeader label="Nombre" column="name" search={search} sortBy={sortBy} sortDir={sortDir} />
+                <SortableHeader
+                  label="Nombre"
+                  column="name"
+                  search={search}
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                />
               </TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Teléfono</TableHead>
@@ -226,13 +271,19 @@ export function PatientsTable({
           <TableBody>
             {patients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={(canArchive ? 6 : 5) + (showOrigin ? 1 : 0)} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={(canArchive ? 6 : 5) + (showOrigin ? 1 : 0)}
+                  className="text-center text-muted-foreground"
+                >
                   {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
             {patients.map((patient) => (
-              <TableRow key={patient.id} data-state={selected.has(patient.id) ? "selected" : undefined}>
+              <TableRow
+                key={patient.id}
+                data-state={selected.has(patient.id) ? "selected" : undefined}
+              >
                 {canArchive && (
                   <TableCell>
                     <Checkbox
@@ -243,8 +294,15 @@ export function PatientsTable({
                   </TableCell>
                 )}
                 <TableCell>
-                  <Link href={`/patients/${patient.id}`} className="group flex items-center gap-3">
-                    <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="sm" />
+                  <Link
+                    href={`/patients/${patient.id}`}
+                    className="group flex items-center gap-3"
+                  >
+                    <InitialsAvatar
+                      firstName={patient.firstName}
+                      lastName={patient.lastName}
+                      size="sm"
+                    />
                     <div>
                       <div className="font-semibold group-hover:underline">
                         {patient.firstName} {patient.lastName}
@@ -264,14 +322,27 @@ export function PatientsTable({
                     </div>
                   </Link>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{formatDocumentId(patient.documentId)}</TableCell>
-                <TableCell className="text-muted-foreground">{patient.phone || "-"}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatDocumentId(patient.documentId)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {patient.phone || "-"}
+                </TableCell>
                 {showOrigin && (
                   <TableCell className="text-muted-foreground">
-                    {{ manual: "Manual", import: "Importación", whatsapp: "WhatsApp", unknown: "Desconocido" }[patient.creationSource ?? "unknown"]}
+                    {
+                      {
+                        manual: "Manual",
+                        import: "Importación",
+                        whatsapp: "WhatsApp",
+                        unknown: "Desconocido",
+                      }[patient.creationSource ?? "unknown"]
+                    }
                   </TableCell>
                 )}
-                <TableCell className="text-muted-foreground">{formatDateShort(patient.dateOfBirth)}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatDateShort(patient.dateOfBirth)}
+                </TableCell>
                 <TableCell>
                   <PatientRowActions
                     patient={patient}

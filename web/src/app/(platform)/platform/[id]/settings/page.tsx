@@ -6,7 +6,10 @@ import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { WhatsappPlatformForm } from "@/components/settings/whatsapp-booking-form";
 import { ConsultationTemplateForm } from "@/components/platform/consultation-template-form";
-import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
+import type {
+  ConsultationField,
+  ConsultationTemplate,
+} from "@/lib/consultation-template";
 import {
   updateTenantAppointmentDefaultsAction,
   updateTenantClinicProfileAction,
@@ -15,7 +18,12 @@ import {
   updateTenantWhatsappPlatformAction,
 } from "@/lib/actions/platform";
 import { apiFetch } from "@/lib/api";
-import type { ClinicProfile, TenantAppointmentDefaults, TenantSchedule, WhatsappBookingSettings } from "@/lib/types";
+import type {
+  ClinicProfile,
+  TenantAppointmentDefaults,
+  TenantSchedule,
+  WhatsappBookingSettings,
+} from "@/lib/types";
 
 export default async function TenantSettingsPage({
   params,
@@ -23,27 +31,55 @@ export default async function TenantSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [schedule, appointmentDefaults, clinicProfile, whatsapp, consultationTemplate] = await Promise.all([
+  const [
+    schedule,
+    appointmentDefaults,
+    clinicProfile,
+    whatsapp,
+    consultationTemplate,
+  ] = await Promise.all([
     apiFetch<TenantSchedule>(`/platform/tenants/${id}/schedule`),
-    apiFetch<TenantAppointmentDefaults>(`/platform/tenants/${id}/appointment-defaults`),
+    apiFetch<TenantAppointmentDefaults>(
+      `/platform/tenants/${id}/appointment-defaults`,
+    ),
     apiFetch<ClinicProfile>(`/platform/tenants/${id}/clinic-profile`),
-    apiFetch<WhatsappBookingSettings>(`/platform/tenants/${id}/whatsapp-booking`),
-    apiFetch<{ template: ConsultationTemplate; fields: ConsultationField[] }>(`/platform/tenants/${id}/consultation-template`),
+    apiFetch<WhatsappBookingSettings>(
+      `/platform/tenants/${id}/whatsapp-booking`,
+    ),
+    apiFetch<{ template: ConsultationTemplate; fields: ConsultationField[] }>(
+      `/platform/tenants/${id}/consultation-template`,
+    ),
   ]);
   const scheduleAction = updateTenantScheduleAction.bind(null, id);
-  const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(null, id);
+  const appointmentDefaultsAction = updateTenantAppointmentDefaultsAction.bind(
+    null,
+    id,
+  );
   const clinicProfileAction = updateTenantClinicProfileAction.bind(null, id);
 
   return (
     <div className="space-y-4">
-      <Link href="/platform" className="flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href="/platform"
+        className="flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeftIcon className="size-4" />
         Clínicas
       </Link>
-      <h1 className="text-2xl font-bold">Configuración — {schedule.tenantName}</h1>
+      <h1 className="text-2xl font-bold">
+        Configuración — {schedule.tenantName}
+      </h1>
 
-      <Card><CardHeader><CardTitle className="text-base">Reservas por WhatsApp</CardTitle></CardHeader>
-        <CardContent><WhatsappPlatformForm action={updateTenantWhatsappPlatformAction.bind(null, id)} enabled={whatsapp.platformEnabled} /></CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Reservas por WhatsApp</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WhatsappPlatformForm
+            action={updateTenantWhatsappPlatformAction.bind(null, id)}
+            enabled={whatsapp.platformEnabled}
+          />
+        </CardContent>
       </Card>
 
       <Card>
@@ -51,7 +87,10 @@ export default async function TenantSettingsPage({
           <CardTitle className="text-base">Perfil de la clínica</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClinicProfileForm action={clinicProfileAction} initialProfile={clinicProfile} />
+          <ClinicProfileForm
+            action={clinicProfileAction}
+            initialProfile={clinicProfile}
+          />
         </CardContent>
       </Card>
 
@@ -84,7 +123,9 @@ export default async function TenantSettingsPage({
         <CardContent>
           <AppointmentDefaultsForm
             action={appointmentDefaultsAction}
-            initialDefaultDurationMinutes={appointmentDefaults.defaultDurationMinutes}
+            initialDefaultDurationMinutes={
+              appointmentDefaults.defaultDurationMinutes
+            }
           />
         </CardContent>
       </Card>

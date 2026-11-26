@@ -26,7 +26,9 @@ export async function GET(
   );
 
   if (!upstream.ok || !upstream.body) {
-    return new Response("No se pudo abrir el archivo.", { status: upstream.status || 500 });
+    return new Response("No se pudo abrir el archivo.", {
+      status: upstream.status || 500,
+    });
   }
 
   // Cabeceras de seguridad de la API (nosniff, CSP con sandbox) incluidas: el

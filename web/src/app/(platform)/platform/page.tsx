@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CreateTenantDialog } from "@/components/platform/create-tenant-dialog";
 import { apiFetch } from "@/lib/api";
 import type { Tenant } from "@/lib/types";
@@ -32,7 +39,10 @@ export default async function PlatformPage() {
           <TableBody>
             {tenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={3}
+                  className="text-center text-muted-foreground"
+                >
                   No hay clínicas todavía.
                 </TableCell>
               </TableRow>
@@ -40,7 +50,10 @@ export default async function PlatformPage() {
             {tenants.map((tenant) => (
               <TableRow key={tenant.id}>
                 <TableCell>
-                  <Link href={`/platform/${tenant.id}`} className="hover:underline">
+                  <Link
+                    href={`/platform/${tenant.id}`}
+                    className="hover:underline"
+                  >
                     {tenant.name}
                   </Link>
                 </TableCell>

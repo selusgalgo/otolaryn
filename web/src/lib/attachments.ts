@@ -3,7 +3,8 @@
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_ENTRY = 10;
 
-export const ACCEPTED_ATTACHMENT_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
+export const ACCEPTED_ATTACHMENT_TYPES =
+  "application/pdf,image/jpeg,image/png,image/webp";
 
 // Como WhatsApp: una foto de móvil (12 MP o más) pesa varios MB y no hace falta
 // tanto para verla en pantalla. Se reduce el lado largo y se recomprime.
@@ -22,11 +23,18 @@ export function formatFileSize(bytes: number): string {
 
 // Tamaño al que reducir una imagen: nunca se amplía, y se conservan las
 // proporciones con el lado largo como máximo `maxSide`.
-export function targetImageSize(width: number, height: number, maxSide = IMAGE_MAX_SIDE) {
+export function targetImageSize(
+  width: number,
+  height: number,
+  maxSide = IMAGE_MAX_SIDE,
+) {
   const longest = Math.max(width, height);
   if (longest <= maxSide) return { width, height };
   const scale = maxSide / longest;
-  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+  return {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+  };
 }
 
 // Reduce una foto antes de subirla. Los PDF y las imágenes que no se pueden
@@ -35,7 +43,8 @@ export function targetImageSize(width: number, height: number, maxSide = IMAGE_M
 // hace que pesen mucho menos; si el resultado no pesa menos que el original, se
 // queda el original.
 export async function prepareAttachment(file: File): Promise<File> {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+    return file;
   try {
     const bitmap = await createImageBitmap(file);
     const { width, height } = targetImageSize(bitmap.width, bitmap.height);
@@ -54,7 +63,10 @@ export async function prepareAttachment(file: File): Promise<File> {
     );
     if (!blob || blob.size >= file.size) return file;
     const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-    return new File([blob], name, { type: "image/jpeg", lastModified: file.lastModified });
+    return new File([blob], name, {
+      type: "image/jpeg",
+      lastModified: file.lastModified,
+    });
   } catch {
     return file;
   }

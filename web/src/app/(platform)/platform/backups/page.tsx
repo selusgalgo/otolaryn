@@ -1,9 +1,9 @@
-import { apiFetch } from '@/lib/api';
-import { BackupConfigurationForm } from '@/components/platform/backup-configuration-form';
+import { apiFetch } from "@/lib/api";
+import { BackupConfigurationForm } from "@/components/platform/backup-configuration-form";
 import {
   BackupOperations,
   type BackupArtifact,
-} from '@/components/platform/backup-operations';
+} from "@/components/platform/backup-operations";
 
 type Connection = {
   configured: boolean;
@@ -14,8 +14,8 @@ type Connection = {
 
 export default async function BackupsPage() {
   const [connection, artifacts] = await Promise.all([
-    apiFetch<Connection>('/platform/backups/connection'),
-    apiFetch<BackupArtifact[]>('/platform/backups'),
+    apiFetch<Connection>("/platform/backups/connection"),
+    apiFetch<BackupArtifact[]>("/platform/backups"),
   ]);
 
   return (
@@ -47,10 +47,10 @@ export default async function BackupsPage() {
         <h2 className="font-semibold">Conexión con Backblaze B2</h2>
         <p className="text-sm">
           {!connection.configured
-            ? 'Pendiente de configurar'
+            ? "Pendiente de configurar"
             : connection.connected
-              ? 'Conexión verificada'
-              : 'No se ha podido verificar la conexión'}
+              ? "Conexión verificada"
+              : "No se ha podido verificar la conexión"}
         </p>
         {connection.configured && (
           <p className="text-sm text-muted-foreground">

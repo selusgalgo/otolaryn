@@ -24,7 +24,9 @@ export function parseDateKey(key: string): Date {
 // 2026" once the "capitalize" class title-cases every word. Formatting
 // the month alone sidesteps that "de" entirely.
 export function formatMonthLabel(year: number, month: number): string {
-  const name = new Date(year, month, 1).toLocaleDateString("es-ES", { month: "long" });
+  const name = new Date(year, month, 1).toLocaleDateString("es-ES", {
+    month: "long",
+  });
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }
 
@@ -39,14 +41,20 @@ export function buildGrid(year: number, month: number): DayCell[] {
 
   const cells: DayCell[] = [];
   for (let i = firstWeekday - 1; i >= 0; i--) {
-    cells.push({ date: new Date(year, month - 1, daysInPrevMonth - i), inMonth: false });
+    cells.push({
+      date: new Date(year, month - 1, daysInPrevMonth - i),
+      inMonth: false,
+    });
   }
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ date: new Date(year, month, d), inMonth: true });
   }
   while (cells.length % 7 !== 0) {
     const last = cells[cells.length - 1].date;
-    cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), inMonth: false });
+    cells.push({
+      date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1),
+      inMonth: false,
+    });
   }
   return cells;
 }

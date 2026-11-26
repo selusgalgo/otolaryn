@@ -25,9 +25,14 @@ const initialState: ClinicProfileFormState = {};
 // state (FileReader → a data: URI) so a newly picked file shows immediately
 // without a round-trip; the <input type="file"> itself still carries the
 // real File the form submits.
-export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormProps) {
+export function ClinicProfileForm({
+  action,
+  initialProfile,
+}: ClinicProfileFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
-  const [logoPreview, setLogoPreview] = useState<string | null>(initialProfile.logo);
+  const [logoPreview, setLogoPreview] = useState<string | null>(
+    initialProfile.logo,
+  );
   const [removeLogo, setRemoveLogo] = useState(false);
   // Bumped by "Quitar" to remount the dropzone empty — its <input> is what
   // the form submits as `logo`, and a file input can't be cleared from here.
@@ -47,7 +52,10 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
   }
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-md gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-md gap-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la clínica</Label>
         <Input
@@ -69,7 +77,8 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
           placeholder="p. ej. Otorrinolaringología — Cirugía de cara y cuello"
         />
         <p className="text-xs text-muted-foreground">
-          Una frase corta debajo del nombre en la cabecera de los PDF exportados.
+          Una frase corta debajo del nombre en la cabecera de los PDF
+          exportados.
         </p>
       </div>
 
@@ -122,13 +131,24 @@ export function ClinicProfileForm({ action, initialProfile }: ClinicProfileFormP
             />
           </div>
           {logoPreview && (
-            <Button type="button" variant="outline" onClick={handleRemoveLogo} disabled={pending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRemoveLogo}
+              disabled={pending}
+            >
               Quitar
             </Button>
           )}
         </div>
-        <input type="hidden" name="removeLogo" value={removeLogo ? "true" : "false"} />
-        <p className="text-xs text-muted-foreground">PNG, JPEG o WebP, máx. 1 MB.</p>
+        <input
+          type="hidden"
+          name="removeLogo"
+          value={removeLogo ? "true" : "false"}
+        />
+        <p className="text-xs text-muted-foreground">
+          PNG, JPEG o WebP, máx. 1 MB.
+        </p>
       </div>
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

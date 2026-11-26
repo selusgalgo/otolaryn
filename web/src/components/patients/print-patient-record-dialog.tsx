@@ -31,7 +31,9 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 // pestaña, como hacía el enlace directo.
 export function PrintPatientRecordDialog({ patientId }: { patientId: string }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<SectionId>>(() => new Set(SECTIONS.map((s) => s.id)));
+  const [selected, setSelected] = useState<Set<SectionId>>(
+    () => new Set(SECTIONS.map((s) => s.id)),
+  );
 
   function toggle(id: SectionId, checked: boolean) {
     setSelected((prev) => {
@@ -63,7 +65,9 @@ export function PrintPatientRecordDialog({ patientId }: { patientId: string }) {
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Imprimir ficha</DialogTitle>
-          <DialogDescription>Elige qué quieres incluir en el PDF.</DialogDescription>
+          <DialogDescription>
+            Elige qué quieres incluir en el PDF.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           {SECTIONS.map((section) => (
@@ -71,7 +75,9 @@ export function PrintPatientRecordDialog({ patientId }: { patientId: string }) {
               <Checkbox
                 id={`print-${section.id}`}
                 checked={selected.has(section.id)}
-                onCheckedChange={(checked) => toggle(section.id, checked === true)}
+                onCheckedChange={(checked) =>
+                  toggle(section.id, checked === true)
+                }
               />
               <label htmlFor={`print-${section.id}`} className="text-sm">
                 {section.label}
@@ -87,7 +93,12 @@ export function PrintPatientRecordDialog({ patientId }: { patientId: string }) {
             <Button disabled>Generar PDF</Button>
           ) : (
             <Button asChild>
-              <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+              >
                 Generar PDF
               </a>
             </Button>

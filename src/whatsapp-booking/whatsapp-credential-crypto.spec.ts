@@ -11,7 +11,9 @@ describe('WhatsappCredentialCrypto', () => {
     expect(crypto.encrypt(tenant, 'token-ficticio')).not.toBe(sealed);
     expect(crypto.decrypt(tenant, sealed)).toBe('token-ficticio');
     expect(() => crypto.decrypt(other, sealed)).toThrow();
-    expect(() => new WhatsappCredentialCrypto('cd'.repeat(32)).decrypt(tenant, sealed)).toThrow();
+    expect(() =>
+      new WhatsappCredentialCrypto('cd'.repeat(32)).decrypt(tenant, sealed),
+    ).toThrow();
   });
 
   it('rechaza claves, formatos y datos alterados', () => {

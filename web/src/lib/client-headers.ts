@@ -13,7 +13,11 @@ import { headers } from "next/headers";
 // added by our own proxy — never the first.
 export async function clientHeaders(): Promise<Record<string, string>> {
   const h = await headers();
-  const forwarded = h.get("x-forwarded-for")?.split(",").map((part) => part.trim()).filter(Boolean);
+  const forwarded = h
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
   const ip = h.get("x-real-ip")?.trim() || forwarded?.at(-1) || "";
   const userAgent = h.get("user-agent") ?? "";
   return {

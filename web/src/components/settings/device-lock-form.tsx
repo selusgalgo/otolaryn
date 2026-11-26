@@ -102,18 +102,20 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
           className="mt-0.5"
         />
         <span>
-          <span className="block font-medium">Restringir a dispositivos autorizados</span>
+          <span className="block font-medium">
+            Restringir a dispositivos autorizados
+          </span>
           <span className="block text-sm text-muted-foreground">
-            Los profesionales solo podrán iniciar sesión desde un ordenador donde se haya
-            instalado la credencial de esta clínica.
+            Los profesionales solo podrán iniciar sesión desde un ordenador
+            donde se haya instalado la credencial de esta clínica.
           </span>
         </span>
       </label>
 
       {deviceLock.enabled && !deviceLock.hasCredential && (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-          Activado pero sin credencial generada todavía — hasta que generes una, ningún
-          profesional podrá iniciar sesión. Genera una credencial abajo.
+          Activado pero sin credencial generada todavía — hasta que generes una,
+          ningún profesional podrá iniciar sesión. Genera una credencial abajo.
         </p>
       )}
 
@@ -124,11 +126,23 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
             : "Genera una credencial y abre el enlace de instalación una vez en cada ordenador de la clínica."}
         </p>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={generate} disabled={pending}>
-            {deviceLock.hasCredential ? "Generar nueva credencial" : "Generar credencial"}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={generate}
+            disabled={pending}
+          >
+            {deviceLock.hasCredential
+              ? "Generar nueva credencial"
+              : "Generar credencial"}
           </Button>
           {deviceLock.hasCredential && (
-            <Button type="button" variant="outline" onClick={revoke} disabled={pending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={revoke}
+              disabled={pending}
+            >
               Revocar
             </Button>
           )}
@@ -137,16 +151,24 @@ export function DeviceLockForm({ initialDeviceLock }: DeviceLockFormProps) {
 
       {installLink && (
         <div className="space-y-2 rounded-md border bg-muted/50 p-3">
-          <p className="text-sm font-medium">Enlace de instalación (solo se muestra ahora)</p>
+          <p className="text-sm font-medium">
+            Enlace de instalación (solo se muestra ahora)
+          </p>
           <p className="text-xs text-muted-foreground">
-            Ábrelo una vez en cada ordenador autorizado de la clínica. No lo compartas por un
-            canal que no sea de confianza — cualquiera que lo abra deja ese ordenador autorizado.
+            Ábrelo una vez en cada ordenador autorizado de la clínica. No lo
+            compartas por un canal que no sea de confianza — cualquiera que lo
+            abra deja ese ordenador autorizado.
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 overflow-x-auto rounded bg-background p-2 text-xs">
               {installLink}
             </code>
-            <Button type="button" size="sm" variant="outline" onClick={copyLink}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={copyLink}
+            >
               <ClipboardDocumentIcon data-icon="inline-start" />
               {copied ? "Copiado" : "Copiar"}
             </Button>

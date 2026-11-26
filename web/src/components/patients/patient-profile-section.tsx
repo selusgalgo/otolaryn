@@ -9,13 +9,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { CreateAppointmentDialog } from "@/components/appointments/create-appointment-dialog";
-import { updatePatientAction, type PatientFormState } from "@/lib/actions/patients";
+import {
+  updatePatientAction,
+  type PatientFormState,
+} from "@/lib/actions/patients";
 import type { InsuranceOption } from "@/lib/insurance";
 import type { PractitionerOption } from "@/lib/practitioners";
 import { HolderPicker } from "@/components/patients/holder-picker";
 import { PrintPatientRecordDialog } from "@/components/patients/print-patient-record-dialog";
-import { HOLDER_RELATIONSHIP_LABEL, PATIENT_GENDER_LABEL, type Patient } from "@/lib/types";
-import { calculateAge, formatDateOnly, formatDocumentId, formatLegacyId } from "@/lib/utils";
+import {
+  HOLDER_RELATIONSHIP_LABEL,
+  PATIENT_GENDER_LABEL,
+  type Patient,
+} from "@/lib/types";
+import {
+  calculateAge,
+  formatDateOnly,
+  formatDocumentId,
+  formatLegacyId,
+} from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 import { focusFirstFieldError } from "@/lib/form-errors";
 import {
@@ -59,7 +71,9 @@ function InfoRow({ label, children }: { label: string; children?: ReactNode }) {
   return (
     <div className="grid grid-cols-[7.25rem_minmax(0,1fr)] gap-x-3">
       <dt className="font-medium text-foreground">{label}</dt>
-      <dd className="break-words text-muted-foreground">{empty ? "—" : children}</dd>
+      <dd className="break-words text-muted-foreground">
+        {empty ? "—" : children}
+      </dd>
     </div>
   );
 }
@@ -68,7 +82,11 @@ function InfoRow({ label, children }: { label: string; children?: ReactNode }) {
 // personales / contacto / administrativos, para que la lista no sea un
 // bloque continuo de quince filas iguales.
 function InfoGroup({ children }: { children: ReactNode }) {
-  return <dl className="space-y-2.5 border-t pt-4 first:border-t-0 first:pt-0">{children}</dl>;
+  return (
+    <dl className="space-y-2.5 border-t pt-4 first:border-t-0 first:pt-0">
+      {children}
+    </dl>
+  );
 }
 
 // El error de campo (si lo hay) se pinta debajo con id `profile-<id>-error`,
@@ -128,7 +146,10 @@ export function PatientProfileSection({
   // reads better than a lone dash for an empty field in this ficha.
   const documentDisplay = formatDocumentId(patient.documentId);
   const boundUpdate = updatePatientAction.bind(null, patient.id);
-  const [state, formAction, pending] = useActionState(boundUpdate, initialState);
+  const [state, formAction, pending] = useActionState(
+    boundUpdate,
+    initialState,
+  );
   const {
     formRef,
     isDirty,
@@ -166,7 +187,11 @@ export function PatientProfileSection({
 
   const avatar = (
     <div className="relative">
-      <InitialsAvatar firstName={patient.firstName} lastName={patient.lastName} size="xl" />
+      <InitialsAvatar
+        firstName={patient.firstName}
+        lastName={patient.lastName}
+        size="xl"
+      />
     </div>
   );
 
@@ -174,7 +199,10 @@ export function PatientProfileSection({
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href="/patients" className="hover:text-foreground hover:underline">
+          <Link
+            href="/patients"
+            className="hover:text-foreground hover:underline"
+          >
             Pacientes
           </Link>
           <span>›</span>
@@ -220,7 +248,11 @@ export function PatientProfileSection({
               <CardContent className="flex flex-col items-center gap-4 py-2 text-center">
                 {avatar}
                 <div className="grid w-full grid-cols-2 gap-2 text-left">
-                  <EditField id="firstName" error={state.fieldErrors?.firstName} label="Nombre">
+                  <EditField
+                    id="firstName"
+                    error={state.fieldErrors?.firstName}
+                    label="Nombre"
+                  >
                     <Input
                       id="firstName"
                       name="firstName"
@@ -230,7 +262,11 @@ export function PatientProfileSection({
                       {...errorProps("firstName", state.fieldErrors?.firstName)}
                     />
                   </EditField>
-                  <EditField id="lastName" error={state.fieldErrors?.lastName} label="Apellidos">
+                  <EditField
+                    id="lastName"
+                    error={state.fieldErrors?.lastName}
+                    label="Apellidos"
+                  >
                     <Input
                       id="lastName"
                       name="lastName"
@@ -251,7 +287,11 @@ export function PatientProfileSection({
               {/* Una columna dentro de la columna estrecha (lg+); cuando
                   todo se apila en tablet hay sitio para dos. */}
               <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <EditField id="documentId" error={state.fieldErrors?.documentId} label="Documento (DNI/NIE)">
+                <EditField
+                  id="documentId"
+                  error={state.fieldErrors?.documentId}
+                  label="Documento (DNI/NIE)"
+                >
                   <Input
                     id="documentId"
                     name="documentId"
@@ -261,7 +301,11 @@ export function PatientProfileSection({
                     {...errorProps("documentId", state.fieldErrors?.documentId)}
                   />
                 </EditField>
-                <EditField id="dateOfBirth" error={state.fieldErrors?.dateOfBirth} label="Fecha de nacimiento">
+                <EditField
+                  id="dateOfBirth"
+                  error={state.fieldErrors?.dateOfBirth}
+                  label="Fecha de nacimiento"
+                >
                   <Input
                     id="dateOfBirth"
                     name="dateOfBirth"
@@ -272,7 +316,10 @@ export function PatientProfileSection({
                     // puede editar sin tener que inventarla.
                     required={!!patient.dateOfBirth}
                     disabled={pending}
-                    {...errorProps("dateOfBirth", state.fieldErrors?.dateOfBirth)}
+                    {...errorProps(
+                      "dateOfBirth",
+                      state.fieldErrors?.dateOfBirth,
+                    )}
                   />
                 </EditField>
                 <EditField id="gender" label="Género">
@@ -284,7 +331,9 @@ export function PatientProfileSection({
                     className={SELECT_CLASS}
                   >
                     <option value="">Sin indicar</option>
-                    <option value="hombre">{PATIENT_GENDER_LABEL.hombre}</option>
+                    <option value="hombre">
+                      {PATIENT_GENDER_LABEL.hombre}
+                    </option>
                     <option value="mujer">{PATIENT_GENDER_LABEL.mujer}</option>
                   </select>
                 </EditField>
@@ -296,7 +345,11 @@ export function PatientProfileSection({
                     disabled={pending}
                   />
                 </EditField>
-                <EditField id="phone" error={state.fieldErrors?.phone} label="Teléfono">
+                <EditField
+                  id="phone"
+                  error={state.fieldErrors?.phone}
+                  label="Teléfono"
+                >
                   <Input
                     id="phone"
                     name="phone"
@@ -307,9 +360,18 @@ export function PatientProfileSection({
                   />
                 </EditField>
                 <EditField id="phone2" label="Teléfono 2">
-                  <Input id="phone2" name="phone2" defaultValue={patient.phone2 ?? ""} disabled={pending} />
+                  <Input
+                    id="phone2"
+                    name="phone2"
+                    defaultValue={patient.phone2 ?? ""}
+                    disabled={pending}
+                  />
                 </EditField>
-                <EditField id="email" error={state.fieldErrors?.email} label="Email">
+                <EditField
+                  id="email"
+                  error={state.fieldErrors?.email}
+                  label="Email"
+                >
                   <Input
                     id="email"
                     name="email"
@@ -320,7 +382,12 @@ export function PatientProfileSection({
                   />
                 </EditField>
                 <EditField id="address" label="Dirección">
-                  <Input id="address" name="address" defaultValue={patient.address ?? ""} disabled={pending} />
+                  <Input
+                    id="address"
+                    name="address"
+                    defaultValue={patient.address ?? ""}
+                    disabled={pending}
+                  />
                 </EditField>
                 <EditField id="postalCode" label="C.P.">
                   <Input
@@ -332,10 +399,20 @@ export function PatientProfileSection({
                   />
                 </EditField>
                 <EditField id="city" label="Ciudad/Población">
-                  <Input id="city" name="city" defaultValue={patient.city ?? ""} disabled={pending} />
+                  <Input
+                    id="city"
+                    name="city"
+                    defaultValue={patient.city ?? ""}
+                    disabled={pending}
+                  />
                 </EditField>
                 <EditField id="province" label="Provincia">
-                  <Input id="province" name="province" defaultValue={patient.province ?? ""} disabled={pending} />
+                  <Input
+                    id="province"
+                    name="province"
+                    defaultValue={patient.province ?? ""}
+                    disabled={pending}
+                  />
                 </EditField>
                 <EditField id="insuranceEntityId" label="Aseguradora">
                   <select
@@ -363,7 +440,10 @@ export function PatientProfileSection({
                   />
                 </EditField>
                 <div className="space-y-1">
-                  <Label htmlFor="firstConsultationOverride" className="text-xs text-muted-foreground">
+                  <Label
+                    htmlFor="firstConsultationOverride"
+                    className="text-xs text-muted-foreground"
+                  >
                     Primera consulta
                   </Label>
                   {/* Sigue calculándose sola desde Historia clínica cuando
@@ -379,7 +459,8 @@ export function PatientProfileSection({
                     disabled={pending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Solo si la primera consulta no se registró en Historia clínica.
+                    Solo si la primera consulta no se registró en Historia
+                    clínica.
                   </p>
                 </div>
                 <div className="sm:col-span-2 lg:col-span-1">
@@ -403,7 +484,13 @@ export function PatientProfileSection({
               <Button type="submit" disabled={pending}>
                 {pending ? "Guardando..." : "Guardar cambios"}
               </Button>
-              <Button type="button" data-ignore-dirty="true" variant="outline" onClick={cancelEditing} disabled={pending}>
+              <Button
+                type="button"
+                data-ignore-dirty="true"
+                variant="outline"
+                onClick={cancelEditing}
+                disabled={pending}
+              >
                 Cancelar
               </Button>
             </div>
@@ -414,11 +501,15 @@ export function PatientProfileSection({
               <CardContent className="flex flex-col items-center gap-3 py-3 text-center">
                 {avatar}
                 <div className="space-y-1">
-                  <h1 className="text-lg leading-tight font-bold">{fullName}</h1>
+                  <h1 className="text-lg leading-tight font-bold">
+                    {fullName}
+                  </h1>
                   {patient.legacyId && (
                     <div className="text-sm text-muted-foreground">
                       Nº de historia:{" "}
-                      <span className="font-medium text-foreground">{formatLegacyId(patient.legacyId)}</span>
+                      <span className="font-medium text-foreground">
+                        {formatLegacyId(patient.legacyId)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -444,17 +535,27 @@ export function PatientProfileSection({
                         : null}
                   </InfoRow>
                   <InfoRow label="Nacimiento">
-                    {patient.dateOfBirth ? formatDateOnly(patient.dateOfBirth) : null}
+                    {patient.dateOfBirth
+                      ? formatDateOnly(patient.dateOfBirth)
+                      : null}
                   </InfoRow>
-                  <InfoRow label="Género">{patient.gender ? PATIENT_GENDER_LABEL[patient.gender] : null}</InfoRow>
+                  <InfoRow label="Género">
+                    {patient.gender
+                      ? PATIENT_GENDER_LABEL[patient.gender]
+                      : null}
+                  </InfoRow>
                   <InfoRow label="Profesión">{patient.profession}</InfoRow>
                 </InfoGroup>
 
                 <InfoGroup>
                   <InfoRow label="Teléfono">{patient.phone}</InfoRow>
-                  {patient.phone2 && <InfoRow label="Teléfono 2">{patient.phone2}</InfoRow>}
+                  {patient.phone2 && (
+                    <InfoRow label="Teléfono 2">{patient.phone2}</InfoRow>
+                  )}
                   <InfoRow label="Email">
-                    {patient.email && <span className="break-all">{patient.email}</span>}
+                    {patient.email && (
+                      <span className="break-all">{patient.email}</span>
+                    )}
                   </InfoRow>
                   <InfoRow label="Dirección">{patient.address}</InfoRow>
                   <InfoRow label="C.P.">{patient.postalCode}</InfoRow>
@@ -464,23 +565,39 @@ export function PatientProfileSection({
 
                 <InfoGroup>
                   <InfoRow label="Aseguradora">{insuranceName}</InfoRow>
-                  <InfoRow label="Nº de seguro">{patient.insuranceNumber}</InfoRow>
-                  <InfoRow label="Primera consulta">
-                    {patient.firstConsultationDate ? formatDateOnly(patient.firstConsultationDate) : null}
+                  <InfoRow label="Nº de seguro">
+                    {patient.insuranceNumber}
                   </InfoRow>
-                  {(whatsappEnabled || patient.creationSource !== "whatsapp") && (
+                  <InfoRow label="Primera consulta">
+                    {patient.firstConsultationDate
+                      ? formatDateOnly(patient.firstConsultationDate)
+                      : null}
+                  </InfoRow>
+                  {(whatsappEnabled ||
+                    patient.creationSource !== "whatsapp") && (
                     <InfoRow label="Origen del alta">
-                      {CREATION_SOURCE_LABEL[patient.creationSource ?? "unknown"]}
+                      {
+                        CREATION_SOURCE_LABEL[
+                          patient.creationSource ?? "unknown"
+                        ]
+                      }
                     </InfoRow>
                   )}
                   {patient.holder && (
                     <InfoRow label="A cargo de">
-                      <Link href={`/patients/${patient.holder.id}`} className="text-foreground hover:underline">
+                      <Link
+                        href={`/patients/${patient.holder.id}`}
+                        className="text-foreground hover:underline"
+                      >
                         {patient.holder.firstName} {patient.holder.lastName}
                       </Link>
                       {patient.holderRelationship && (
                         <span className="block text-xs">
-                          {HOLDER_RELATIONSHIP_LABEL[patient.holderRelationship]}
+                          {
+                            HOLDER_RELATIONSHIP_LABEL[
+                              patient.holderRelationship
+                            ]
+                          }
                         </span>
                       )}
                     </InfoRow>
@@ -490,11 +607,20 @@ export function PatientProfileSection({
                       <ul className="space-y-1">
                         {patient.dependents.map((d) => (
                           <li key={d.id}>
-                            <Link href={`/patients/${d.id}`} className="text-foreground hover:underline">
+                            <Link
+                              href={`/patients/${d.id}`}
+                              className="text-foreground hover:underline"
+                            >
                               {d.firstName} {d.lastName}
                             </Link>
                             {d.holderRelationship && (
-                              <span className="block text-xs">{HOLDER_RELATIONSHIP_LABEL[d.holderRelationship]}</span>
+                              <span className="block text-xs">
+                                {
+                                  HOLDER_RELATIONSHIP_LABEL[
+                                    d.holderRelationship
+                                  ]
+                                }
+                              </span>
                             )}
                           </li>
                         ))}

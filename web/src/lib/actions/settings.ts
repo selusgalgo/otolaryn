@@ -18,71 +18,140 @@ export interface ScheduleFormState {
   success?: boolean;
 }
 
-export async function beginWhatsappConnection(): Promise<{ appId?: string; configId?: string; state?: string; error?: string }> {
+export async function beginWhatsappConnection(): Promise<{
+  appId?: string;
+  configId?: string;
+  state?: string;
+  error?: string;
+}> {
   try {
-    return await apiFetch('/settings/whatsapp-connection/begin', { method: 'POST' });
+    return await apiFetch("/settings/whatsapp-connection/begin", {
+      method: "POST",
+    });
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : 'No se ha podido iniciar la conexión.' };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se ha podido iniciar la conexión.",
+    };
   }
 }
 
-export async function completeWhatsappConnection(input: { state: string; code: string; wabaId: string; phoneNumberId: string }): Promise<{ status?: string; error?: string }> {
+export async function completeWhatsappConnection(input: {
+  state: string;
+  code: string;
+  wabaId: string;
+  phoneNumberId: string;
+}): Promise<{ status?: string; error?: string }> {
   try {
-    return await apiFetch('/settings/whatsapp-connection/complete', { method: 'POST', body: input });
+    return await apiFetch("/settings/whatsapp-connection/complete", {
+      method: "POST",
+      body: input,
+    });
   } catch (err) {
-    return { error: err instanceof ApiError && err.status < 500 ? err.message : 'Se ha interrumpido la respuesta. Comprueba el estado de la conexión antes de volver a intentarlo.' };
+    return {
+      error:
+        err instanceof ApiError && err.status < 500
+          ? err.message
+          : "Se ha interrumpido la respuesta. Comprueba el estado de la conexión antes de volver a intentarlo.",
+    };
   }
 }
 
-export async function checkWhatsappConnection(): Promise<{ status?: string; error?: string; warning?: string }> {
+export async function checkWhatsappConnection(): Promise<{
+  status?: string;
+  error?: string;
+  warning?: string;
+}> {
   try {
-    const current = await apiFetch<{ status: string }>('/settings/whatsapp-connection');
-    if (current.status !== 'pending') return current;
+    const current = await apiFetch<{ status: string }>(
+      "/settings/whatsapp-connection",
+    );
+    if (current.status !== "pending") return current;
     try {
-      return await apiFetch('/settings/whatsapp-connection/activate', { method: 'POST' });
+      return await apiFetch("/settings/whatsapp-connection/activate", {
+        method: "POST",
+      });
     } catch (err) {
-      return { status: 'pending', warning: err instanceof ApiError ? err.message : 'No se ha podido comprobar la activación.' };
+      return {
+        status: "pending",
+        warning:
+          err instanceof ApiError
+            ? err.message
+            : "No se ha podido comprobar la activación.",
+      };
     }
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : 'No se ha podido comprobar la conexión.' };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se ha podido comprobar la conexión.",
+    };
   }
 }
 
-export async function updateWhatsappBookingAction(_prevState: ScheduleFormState, formData: FormData): Promise<ScheduleFormState> {
+export async function updateWhatsappBookingAction(
+  _prevState: ScheduleFormState,
+  formData: FormData,
+): Promise<ScheduleFormState> {
   try {
-    await apiFetch("/settings/whatsapp-booking", { method: "PATCH", body: {
-      clinicEnabled: formData.get("clinicEnabled") === "on",
-      askReason: formData.get("askReason") === "on",
-      horizonDays: Number(formData.get("horizonDays")),
-      leadMinutes: Number(formData.get("leadMinutes")),
-      cancellationEnabled: formData.get("cancellationEnabled") === "on",
-      cancellationNoticeHours: Number(formData.get("cancellationNoticeHours")),
-      features: {
-        welcome: String(formData.get("welcome") ?? "").trim(),
-        receptionPhone: String(formData.get("receptionPhone") ?? "").trim(),
-        receptionHours: String(formData.get("receptionHours") ?? "").trim(),
-        reschedule: formData.has("reschedule"),
-        notifyReception: formData.has("notifyReception"),
-        reminderHours: Number(formData.get("reminderHours")),
-        reminderTemplateName: String(formData.get("reminderTemplateName") ?? "").trim(),
-        reminderTemplateLanguage: String(formData.get("reminderTemplateLanguage") ?? "es_ES").trim(),
-        restrictHours: formData.has("restrictHours"),
-        visitTypes: formData.getAll("visitTypeId").map(String).map(id => ({
-          id,
-          name: String(formData.get(`typeName-${id}`) ?? "").trim(),
-          durationMinutes: Number(formData.get(`typeDuration-${id}`)),
-          practitionerIds: formData.getAll(`typePractitioner-${id}`).map(String),
-        })),
-        hours: formData.getAll("rangeId").map(String).map(id => ({
-          weekday: Number(formData.get(`weekday-${id}`)),
-          start: String(formData.get(`start-${id}`) ?? ""),
-          end: String(formData.get(`end-${id}`) ?? ""),
-        })),
+    await apiFetch("/settings/whatsapp-booking", {
+      method: "PATCH",
+      body: {
+        clinicEnabled: formData.get("clinicEnabled") === "on",
+        askReason: formData.get("askReason") === "on",
+        horizonDays: Number(formData.get("horizonDays")),
+        leadMinutes: Number(formData.get("leadMinutes")),
+        cancellationEnabled: formData.get("cancellationEnabled") === "on",
+        cancellationNoticeHours: Number(
+          formData.get("cancellationNoticeHours"),
+        ),
+        features: {
+          welcome: String(formData.get("welcome") ?? "").trim(),
+          receptionPhone: String(formData.get("receptionPhone") ?? "").trim(),
+          receptionHours: String(formData.get("receptionHours") ?? "").trim(),
+          reschedule: formData.has("reschedule"),
+          notifyReception: formData.has("notifyReception"),
+          reminderHours: Number(formData.get("reminderHours")),
+          reminderTemplateName: String(
+            formData.get("reminderTemplateName") ?? "",
+          ).trim(),
+          reminderTemplateLanguage: String(
+            formData.get("reminderTemplateLanguage") ?? "es_ES",
+          ).trim(),
+          restrictHours: formData.has("restrictHours"),
+          visitTypes: formData
+            .getAll("visitTypeId")
+            .map(String)
+            .map((id) => ({
+              id,
+              name: String(formData.get(`typeName-${id}`) ?? "").trim(),
+              durationMinutes: Number(formData.get(`typeDuration-${id}`)),
+              practitionerIds: formData
+                .getAll(`typePractitioner-${id}`)
+                .map(String),
+            })),
+          hours: formData
+            .getAll("rangeId")
+            .map(String)
+            .map((id) => ({
+              weekday: Number(formData.get(`weekday-${id}`)),
+              start: String(formData.get(`start-${id}`) ?? ""),
+              end: String(formData.get(`end-${id}`) ?? ""),
+            })),
+        },
+        practitionerIds: formData.getAll("practitionerIds").map(String),
       },
-      practitionerIds: formData.getAll("practitionerIds").map(String),
-    }});
+    });
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : "No se pudo guardar la configuración." };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo guardar la configuración.",
+    };
   }
   revalidatePath("/settings");
   return { success: true };
@@ -151,7 +220,11 @@ export async function updateClinicProfileAction(
   formData: FormData,
 ): Promise<ClinicProfileFormState> {
   try {
-    await apiFetchMultipart<ClinicProfile>("/settings/clinic-profile", formData, "PATCH");
+    await apiFetchMultipart<ClinicProfile>(
+      "/settings/clinic-profile",
+      formData,
+      "PATCH",
+    );
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };
@@ -170,7 +243,9 @@ export interface DeviceLockActionState {
 
 // admin, own clinic. Imperative (not bound to a <form>) — the toggle is its
 // own small mutation, like AntecedenteTypesForm's checkbox.
-export async function updateDeviceLockAction(enabled: boolean): Promise<DeviceLockActionState> {
+export async function updateDeviceLockAction(
+  enabled: boolean,
+): Promise<DeviceLockActionState> {
   try {
     const deviceLock = await apiFetch<DeviceLock>("/settings/device-lock", {
       method: "PATCH",
@@ -195,10 +270,9 @@ export interface GenerateDeviceCredentialState {
 
 export async function generateDeviceCredentialAction(): Promise<GenerateDeviceCredentialState> {
   try {
-    const { token, ...deviceLock } = await apiFetch<DeviceLock & { token: string }>(
-      "/settings/device-lock/credential",
-      { method: "POST" },
-    );
+    const { token, ...deviceLock } = await apiFetch<
+      DeviceLock & { token: string }
+    >("/settings/device-lock/credential", { method: "POST" });
     revalidatePath("/settings");
     return { token, deviceLock };
   } catch (err) {
@@ -209,9 +283,12 @@ export async function generateDeviceCredentialAction(): Promise<GenerateDeviceCr
 
 export async function revokeDeviceCredentialAction(): Promise<DeviceLockActionState> {
   try {
-    const deviceLock = await apiFetch<DeviceLock>("/settings/device-lock/credential", {
-      method: "DELETE",
-    });
+    const deviceLock = await apiFetch<DeviceLock>(
+      "/settings/device-lock/credential",
+      {
+        method: "DELETE",
+      },
+    );
     revalidatePath("/settings");
     return { deviceLock };
   } catch (err) {

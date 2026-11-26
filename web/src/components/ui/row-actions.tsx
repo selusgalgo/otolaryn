@@ -35,13 +35,19 @@ export function RowActions({
   const eligibleActions = actions.filter((action) => !action.overflowOnly);
   const visibleActions = eligibleActions.slice(0, 3);
   const visibleIds = new Set(visibleActions.map((action) => action.id));
-  const overflowActions = actions.filter((action) => !visibleIds.has(action.id));
+  const overflowActions = actions.filter(
+    (action) => !visibleIds.has(action.id),
+  );
 
   return (
     <div className="flex items-center justify-end gap-1">
-      {actions.length === 0 && reserveSpaceWhenEmpty && <span aria-hidden="true" className="size-9" />}
+      {actions.length === 0 && reserveSpaceWhenEmpty && (
+        <span aria-hidden="true" className="size-9" />
+      )}
       {visibleActions.map((action) => {
-        const destructiveClass = action.destructive ? "text-destructive hover:text-destructive" : undefined;
+        const destructiveClass = action.destructive
+          ? "text-destructive hover:text-destructive"
+          : undefined;
 
         if (action.href) {
           return (
@@ -82,7 +88,12 @@ export function RowActions({
       {overflowActions.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={overflowLabel} title={overflowLabel}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={overflowLabel}
+              title={overflowLabel}
+            >
               <EllipsisVerticalIcon />
             </Button>
           </DropdownMenuTrigger>
@@ -94,7 +105,11 @@ export function RowActions({
 
               if (action.href) {
                 return (
-                  <DropdownMenuItem key={action.id} asChild className={className}>
+                  <DropdownMenuItem
+                    key={action.id}
+                    asChild
+                    className={className}
+                  >
                     <Link href={action.href}>
                       {action.icon}
                       {action.label}

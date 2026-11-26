@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import type { AppUser, WhatsappBookingSettings } from '@/lib/types';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { AppUser, WhatsappBookingSettings } from "@/lib/types";
 
 const days = [
-  'Lunes',
-  'Martes',
-  'Miércoles',
-  'Jueves',
-  'Viernes',
-  'Sábado',
-  'Domingo',
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
 ];
 
 export function WhatsappFeaturesFields({
@@ -22,7 +22,7 @@ export function WhatsappFeaturesFields({
   practitioners,
   pending,
 }: {
-  settings: WhatsappBookingSettings['features'];
+  settings: WhatsappBookingSettings["features"];
   practitioners: AppUser[];
   pending: boolean;
 }) {
@@ -117,7 +117,7 @@ export function WhatsappFeaturesFields({
               ...rows,
               {
                 id: crypto.randomUUID(),
-                name: '',
+                name: "",
                 durationMinutes: 30,
                 practitionerIds: [],
               },
@@ -134,7 +134,7 @@ export function WhatsappFeaturesFields({
             type="checkbox"
             name="restrictHours"
             defaultChecked={settings.restrictHours}
-          />{' '}
+          />{" "}
           Ofrecer solo estas franjas dentro de la agenda
         </label>
         {hours.map((range) => (
@@ -192,8 +192,8 @@ export function WhatsappFeaturesFields({
               {
                 id: crypto.randomUUID(),
                 weekday: 0,
-                start: '09:00',
-                end: '14:00',
+                start: "09:00",
+                end: "14:00",
               },
             ])
           }
@@ -208,7 +208,7 @@ export function WhatsappFeaturesFields({
             type="checkbox"
             name="reschedule"
             defaultChecked={settings.reschedule}
-          />{' '}
+          />{" "}
           Permitir cambiar citas por WhatsApp con el mismo plazo que para
           cancelar
         </label>
@@ -217,7 +217,7 @@ export function WhatsappFeaturesFields({
             type="checkbox"
             name="notifyReception"
             defaultChecked={settings.notifyReception}
-          />{' '}
+          />{" "}
           Mostrar avisos nuevos en la agenda de recepción
         </label>
         <Label htmlFor="reminderHours">

@@ -20,7 +20,10 @@ import {
 import { toast } from "sonner";
 
 interface PatientFormProps {
-  action: (prevState: PatientFormState, formData: FormData) => Promise<PatientFormState>;
+  action: (
+    prevState: PatientFormState,
+    formData: FormData,
+  ) => Promise<PatientFormState>;
   initialValues?: Partial<Patient>;
   submitLabel: string;
   // Pre-rendered JSX, not a component reference — this form can be used
@@ -88,7 +91,9 @@ export function PatientForm({
   useEffect(() => {
     if (state.success) {
       captureBaseline();
-      toast.success(initialValues ? "Paciente actualizado." : "Paciente creado.");
+      toast.success(
+        initialValues ? "Paciente actualizado." : "Paciente creado.",
+      );
       onSuccessRef.current?.();
     }
   }, [state, initialValues, captureBaseline]);
@@ -121,13 +126,24 @@ export function PatientForm({
               id="firstName"
               name="firstName"
               defaultValue={initialValues?.firstName}
-              onChange={(event) => setIdentity((current) => ({ ...current, firstName: event.target.value }))}
+              onChange={(event) =>
+                setIdentity((current) => ({
+                  ...current,
+                  firstName: event.target.value,
+                }))
+              }
               required
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.firstName}
-              aria-describedby={state.fieldErrors?.firstName ? "firstName-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.firstName ? "firstName-error" : undefined
+              }
             />
-            {state.fieldErrors?.firstName && <p id="firstName-error" className="text-xs text-destructive">{state.fieldErrors.firstName}</p>}
+            {state.fieldErrors?.firstName && (
+              <p id="firstName-error" className="text-xs text-destructive">
+                {state.fieldErrors.firstName}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="lastName">Apellidos</Label>
@@ -135,13 +151,24 @@ export function PatientForm({
               id="lastName"
               name="lastName"
               defaultValue={initialValues?.lastName}
-              onChange={(event) => setIdentity((current) => ({ ...current, lastName: event.target.value }))}
+              onChange={(event) =>
+                setIdentity((current) => ({
+                  ...current,
+                  lastName: event.target.value,
+                }))
+              }
               required
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.lastName}
-              aria-describedby={state.fieldErrors?.lastName ? "lastName-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.lastName ? "lastName-error" : undefined
+              }
             />
-            {state.fieldErrors?.lastName && <p id="lastName-error" className="text-xs text-destructive">{state.fieldErrors.lastName}</p>}
+            {state.fieldErrors?.lastName && (
+              <p id="lastName-error" className="text-xs text-destructive">
+                {state.fieldErrors.lastName}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="documentId">Documento (DNI/NIE/pasaporte)</Label>
@@ -149,13 +176,24 @@ export function PatientForm({
               id="documentId"
               name="documentId"
               defaultValue={initialValues?.documentId ?? ""}
-              onChange={(event) => setIdentity((current) => ({ ...current, documentId: event.target.value }))}
+              onChange={(event) =>
+                setIdentity((current) => ({
+                  ...current,
+                  documentId: event.target.value,
+                }))
+              }
               maxLength={20}
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.documentId}
-              aria-describedby={state.fieldErrors?.documentId ? "documentId-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.documentId ? "documentId-error" : undefined
+              }
             />
-            {state.fieldErrors?.documentId && <p id="documentId-error" className="text-xs text-destructive">{state.fieldErrors.documentId}</p>}
+            {state.fieldErrors?.documentId && (
+              <p id="documentId-error" className="text-xs text-destructive">
+                {state.fieldErrors.documentId}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="dateOfBirth">Fecha de nacimiento</Label>
@@ -164,15 +202,26 @@ export function PatientForm({
               name="dateOfBirth"
               type="date"
               defaultValue={initialValues?.dateOfBirth?.slice(0, 10)}
-              onChange={(event) => setIdentity((current) => ({ ...current, dateOfBirth: event.target.value }))}
+              onChange={(event) =>
+                setIdentity((current) => ({
+                  ...current,
+                  dateOfBirth: event.target.value,
+                }))
+              }
               // Alta: obligatoria. Edición: solo si el paciente ya la tiene,
               // para poder editar uno importado sin fecha sin inventarla.
               required={!initialValues || !!initialValues.dateOfBirth}
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.dateOfBirth}
-              aria-describedby={state.fieldErrors?.dateOfBirth ? "dateOfBirth-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.dateOfBirth ? "dateOfBirth-error" : undefined
+              }
             />
-            {state.fieldErrors?.dateOfBirth && <p id="dateOfBirth-error" className="text-xs text-destructive">{state.fieldErrors.dateOfBirth}</p>}
+            {state.fieldErrors?.dateOfBirth && (
+              <p id="dateOfBirth-error" className="text-xs text-destructive">
+                {state.fieldErrors.dateOfBirth}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Género</Label>
@@ -261,9 +310,15 @@ export function PatientForm({
               defaultValue={initialValues?.email ?? ""}
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.email}
-              aria-describedby={state.fieldErrors?.email ? "email-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.email ? "email-error" : undefined
+              }
             />
-            {state.fieldErrors?.email && <p id="email-error" className="text-xs text-destructive">{state.fieldErrors.email}</p>}
+            {state.fieldErrors?.email && (
+              <p id="email-error" className="text-xs text-destructive">
+                {state.fieldErrors.email}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Teléfono</Label>
@@ -274,21 +329,42 @@ export function PatientForm({
               required={!initialValues || !!initialValues.phone}
               disabled={pending}
               aria-invalid={!!state.fieldErrors?.phone}
-              aria-describedby={state.fieldErrors?.phone ? "phone-error" : undefined}
+              aria-describedby={
+                state.fieldErrors?.phone ? "phone-error" : undefined
+              }
             />
-            {state.fieldErrors?.phone && <p id="phone-error" className="text-xs text-destructive">{state.fieldErrors.phone}</p>}
+            {state.fieldErrors?.phone && (
+              <p id="phone-error" className="text-xs text-destructive">
+                {state.fieldErrors.phone}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone2">Teléfono 2</Label>
-            <Input id="phone2" name="phone2" defaultValue={initialValues?.phone2 ?? ""} disabled={pending} />
+            <Input
+              id="phone2"
+              name="phone2"
+              defaultValue={initialValues?.phone2 ?? ""}
+              disabled={pending}
+            />
           </div>
           <div className="space-y-2 sm:col-span-2 md:col-span-3">
             <Label htmlFor="address">Dirección</Label>
-            <Input id="address" name="address" defaultValue={initialValues?.address ?? ""} disabled={pending} />
+            <Input
+              id="address"
+              name="address"
+              defaultValue={initialValues?.address ?? ""}
+              disabled={pending}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="city">Ciudad/Población</Label>
-            <Input id="city" name="city" defaultValue={initialValues?.city ?? ""} disabled={pending} />
+            <Input
+              id="city"
+              name="city"
+              defaultValue={initialValues?.city ?? ""}
+              disabled={pending}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="postalCode">C.P.</Label>
@@ -302,7 +378,12 @@ export function PatientForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="province">Provincia</Label>
-            <Input id="province" name="province" defaultValue={initialValues?.province ?? ""} disabled={pending} />
+            <Input
+              id="province"
+              name="province"
+              defaultValue={initialValues?.province ?? ""}
+              disabled={pending}
+            />
           </div>
         </div>
       </details>

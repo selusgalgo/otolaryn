@@ -1,5 +1,9 @@
 import { toDateKey } from "@/lib/calendar-grid";
-import { clinicDateInputValue, clinicLocalToUtcIso, clinicMinutesOfDay } from "@/lib/clinic-time";
+import {
+  clinicDateInputValue,
+  clinicLocalToUtcIso,
+  clinicMinutesOfDay,
+} from "@/lib/clinic-time";
 import type { AppointmentStatus, Schedule } from "@/lib/types";
 
 export type DayOccupancy = "closed" | "free" | "partial" | "full";
@@ -136,7 +140,10 @@ export function computeDayOccupancy(
 
   let anyFull = false;
   let anyFree = false;
-  for (const busyRanges of groupByPractitioner(appointmentsThatDay, practitionerIds)) {
+  for (const busyRanges of groupByPractitioner(
+    appointmentsThatDay,
+    practitionerIds,
+  )) {
     let busyWithinOpenMinutes = 0;
     for (const open of openRanges) {
       for (const busy of busyRanges) {
@@ -177,7 +184,9 @@ function nextFreeStart(
     let earliestConflictEnd: number | null = null;
     let anyoneFree = false;
     for (const busyRanges of busyRangesByPractitioner) {
-      const conflicts = busyRanges.filter((busy) => overlapMinutes(candidate, busy) > 0);
+      const conflicts = busyRanges.filter(
+        (busy) => overlapMinutes(candidate, busy) > 0,
+      );
       if (conflicts.length === 0) {
         anyoneFree = true;
         break;
@@ -243,11 +252,15 @@ export function computeDayFreeSlots(
   // slot is bookable if *any* of them is free then, same "Todos los
   // profesionales is a union, not a shared calendar" fix as
   // computeDayOccupancy above.
-  const busyRangesByPractitioner = groupByPractitioner(appointmentsThatDay, practitionerIds);
+  const busyRangesByPractitioner = groupByPractitioner(
+    appointmentsThatDay,
+    practitionerIds,
+  );
 
   const isToday = toDateKey(date) === todayKey;
   const nowMinutes = isToday
-    ? Math.ceil(clinicMinutesOfDay(now.toISOString()) / slotMinutes) * slotMinutes
+    ? Math.ceil(clinicMinutesOfDay(now.toISOString()) / slotMinutes) *
+      slotMinutes
     : 0;
 
   const slots: string[] = [];
@@ -255,7 +268,12 @@ export function computeDayFreeSlots(
     const openEnd = timeToMinutes(openSlot.endTime);
     let cursor = Math.max(timeToMinutes(openSlot.startTime), nowMinutes);
     for (;;) {
-      const start = nextFreeStart(cursor, slotMinutes, openEnd, busyRangesByPractitioner);
+      const start = nextFreeStart(
+        cursor,
+        slotMinutes,
+        openEnd,
+        busyRangesByPractitioner,
+      );
       if (start === null) break;
       slots.push(minutesToTime(start));
       cursor = start + slotMinutes;
@@ -279,9 +297,17 @@ export const OCCUPANCY_STYLES: Record<DayOccupancy, string> = {
   closed: "bg-gray-100 text-gray-700 hover:bg-gray-200",
 };
 
-export const OCCUPANCY_LEGEND: { key: DayOccupancy; label: string; swatch: string }[] = [
+export const OCCUPANCY_LEGEND: {
+  key: DayOccupancy;
+  label: string;
+  swatch: string;
+}[] = [
   { key: "free", label: "Disponible", swatch: "bg-emerald-400" },
-  { key: "partial", label: "Algún profesional completo", swatch: "bg-orange-400" },
+  {
+    key: "partial",
+    label: "Algún profesional completo",
+    swatch: "bg-orange-400",
+  },
   { key: "full", label: "Completo", swatch: "bg-red-400" },
   { key: "closed", label: "Cerrado", swatch: "bg-gray-300" },
 ];
@@ -327,7 +353,11 @@ export function findNextFreeSlots(
   const searchStartDay = new Date(`${searchStartKey}T00:00:00`);
   const nowMinutesOnStartDay = clinicMinutesOfDay(from.toISOString());
 
-  for (let dayOffset = 0; dayOffset <= daysAhead && slots.length < count; dayOffset++) {
+  for (
+    let dayOffset = 0;
+    dayOffset <= daysAhead && slots.length < count;
+    dayOffset++
+  ) {
     const day = new Date(searchStartDay);
     day.setDate(day.getDate() + dayOffset);
     const dayKey = toDateKey(day);
@@ -349,7 +379,8 @@ export function findNextFreeSlots(
       // Only the first scanned day needs clamping to "now" — every later
       // day is entirely in the future, so its whole open tramo is fair game.
       if (dayOffset === 0) {
-        const roundedNow = Math.ceil(nowMinutesOnStartDay / slotMinutes) * slotMinutes;
+        const roundedNow =
+          Math.ceil(nowMinutesOnStartDay / slotMinutes) * slotMinutes;
         cursor = Math.max(cursor, roundedNow);
       }
       while (slots.length < count) {

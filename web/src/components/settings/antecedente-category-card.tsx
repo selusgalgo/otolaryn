@@ -2,7 +2,11 @@
 
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 // Wraps one category's AntecedenteTypesForm in its own collapsible Card —
 // the parent page lays two of these side by side on wider screens (desktop:

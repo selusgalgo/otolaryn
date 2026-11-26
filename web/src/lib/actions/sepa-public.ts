@@ -28,29 +28,35 @@ export async function saveSepaDebtorAction(
   formData: FormData,
 ): Promise<SepaPublicFormState> {
   try {
-    await apiFetch<PublicSepaView>(`/public/sepa/${encodeURIComponent(token)}`, {
-      method: "PUT",
-      skipAuth: true,
-      headers: await clientHeaders(),
-      body: {
-        holderName: text(formData, "holderName"),
-        holderTaxId: text(formData, "holderTaxId"),
-        signerName: text(formData, "signerName"),
-        signerPosition: text(formData, "signerPosition"),
-        address: text(formData, "address"),
-        postalCode: text(formData, "postalCode"),
-        city: text(formData, "city"),
-        province: text(formData, "province"),
-        country: text(formData, "country"),
-        email: text(formData, "email"),
-        phone: text(formData, "phone"),
-        iban: text(formData, "iban"),
-        bic: text(formData, "bic"),
+    await apiFetch<PublicSepaView>(
+      `/public/sepa/${encodeURIComponent(token)}`,
+      {
+        method: "PUT",
+        skipAuth: true,
+        headers: await clientHeaders(),
+        body: {
+          holderName: text(formData, "holderName"),
+          holderTaxId: text(formData, "holderTaxId"),
+          signerName: text(formData, "signerName"),
+          signerPosition: text(formData, "signerPosition"),
+          address: text(formData, "address"),
+          postalCode: text(formData, "postalCode"),
+          city: text(formData, "city"),
+          province: text(formData, "province"),
+          country: text(formData, "country"),
+          email: text(formData, "email"),
+          phone: text(formData, "phone"),
+          iban: text(formData, "iban"),
+          bic: text(formData, "bic"),
+        },
       },
-    });
+    );
   } catch (err) {
     return {
-      error: messageOf(err, "No se pudieron guardar tus datos. Inténtalo de nuevo."),
+      error: messageOf(
+        err,
+        "No se pudieron guardar tus datos. Inténtalo de nuevo.",
+      ),
     };
   }
 
@@ -64,15 +70,18 @@ export async function signSepaWebAction(
   formData: FormData,
 ): Promise<SepaPublicFormState> {
   try {
-    await apiFetch<PublicSepaView>(`/public/sepa/${encodeURIComponent(token)}/sign`, {
-      method: "POST",
-      skipAuth: true,
-      headers: await clientHeaders(),
-      body: {
-        typedName: text(formData, "typedName"),
-        accept: formData.get("accept") === "on",
+    await apiFetch<PublicSepaView>(
+      `/public/sepa/${encodeURIComponent(token)}/sign`,
+      {
+        method: "POST",
+        skipAuth: true,
+        headers: await clientHeaders(),
+        body: {
+          typedName: text(formData, "typedName"),
+          accept: formData.get("accept") === "on",
+        },
       },
-    });
+    );
   } catch (err) {
     return {
       error: messageOf(err, "No se pudo firmar la orden. Inténtalo de nuevo."),
@@ -111,7 +120,10 @@ export async function signSepaCertificateAction(
     );
   } catch (err) {
     return {
-      error: messageOf(err, "No se pudo subir el PDF firmado. Inténtalo de nuevo."),
+      error: messageOf(
+        err,
+        "No se pudo subir el PDF firmado. Inténtalo de nuevo.",
+      ),
     };
   }
 

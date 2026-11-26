@@ -8,10 +8,24 @@ import { AppointmentStatusBadge } from "@/components/appointments/appointment-st
 import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
 import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
-import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
+import {
+  WEEKDAYS,
+  buildGrid,
+  formatMonthLabel,
+  parseDateKey,
+  toDateKey,
+} from "@/lib/calendar-grid";
 import type { DayCell } from "@/lib/calendar-grid";
-import { clinicDateInputValue, clinicMinutesOfDay, formatInClinicTimeZone } from "@/lib/clinic-time";
-import { OCCUPANCY_LEGEND, OCCUPANCY_STYLES, computeDayOccupancy } from "@/lib/occupancy";
+import {
+  clinicDateInputValue,
+  clinicMinutesOfDay,
+  formatInClinicTimeZone,
+} from "@/lib/clinic-time";
+import {
+  OCCUPANCY_LEGEND,
+  OCCUPANCY_STYLES,
+  computeDayOccupancy,
+} from "@/lib/occupancy";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Schedule } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -42,7 +56,9 @@ function AppointmentRow({ appointment }: { appointment: CalendarAppointment }) {
         aria-label={`Ver la cita de ${appointment.patientName}`}
         className="flex shrink-0 items-center gap-2 after:absolute after:inset-0"
       >
-        <span className="text-xs text-muted-foreground">{formatTime(appointment.scheduledAt)}</span>
+        <span className="text-xs text-muted-foreground">
+          {formatTime(appointment.scheduledAt)}
+        </span>
         <AppointmentStatusBadge status={appointment.status} />
       </Link>
     </div>
@@ -174,7 +190,9 @@ export function AgendaCalendar({
               <span key={w}>{w}</span>
             ))}
           </div>
-          <div className={cn("grid grid-cols-7 gap-1", loading && "opacity-50")}>
+          <div
+            className={cn("grid grid-cols-7 gap-1", loading && "opacity-50")}
+          >
             {grid.map((cell) => {
               const key = toDateKey(cell.date);
               const isSelected = key === selectedDateKey;
@@ -198,14 +216,20 @@ export function AgendaCalendar({
                   type="button"
                   disabled={isPast}
                   onClick={() => selectDay(cell)}
-                  title={showOccupancy ? OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label : undefined}
+                  title={
+                    showOccupancy
+                      ? OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label
+                      : undefined
+                  }
                   className={cn(
                     "rounded-md py-1.5 text-sm transition-colors",
                     isPast && "cursor-not-allowed text-muted-foreground/30",
                     !isPast && !showOccupancy && "text-muted-foreground/40",
                     showOccupancy && OCCUPANCY_STYLES[occupancy],
                     isSelected && "ring-2 ring-inset ring-primary",
-                    !isSelected && isToday && "ring-1 ring-inset ring-primary/60",
+                    !isSelected &&
+                      isToday &&
+                      "ring-1 ring-inset ring-primary/60",
                   )}
                 >
                   {cell.date.getDate()}
@@ -238,25 +262,37 @@ export function AgendaCalendar({
         </CardHeader>
         <CardContent className="space-y-4">
           {dayAppointments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin citas para este día.</p>
+            <p className="text-sm text-muted-foreground">
+              Sin citas para este día.
+            </p>
           ) : (
             <>
               {morningAppointments.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">Mañana</p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Mañana
+                  </p>
                   <div className="space-y-2">
                     {morningAppointments.map((appointment) => (
-                      <AppointmentRow key={appointment.id} appointment={appointment} />
+                      <AppointmentRow
+                        key={appointment.id}
+                        appointment={appointment}
+                      />
                     ))}
                   </div>
                 </div>
               )}
               {afternoonAppointments.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">Tarde</p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Tarde
+                  </p>
                   <div className="space-y-2">
                     {afternoonAppointments.map((appointment) => (
-                      <AppointmentRow key={appointment.id} appointment={appointment} />
+                      <AppointmentRow
+                        key={appointment.id}
+                        appointment={appointment}
+                      />
                     ))}
                   </div>
                 </div>

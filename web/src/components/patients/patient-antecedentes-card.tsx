@@ -7,7 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { updatePatientAntecedentesAction } from "@/lib/actions/antecedentes";
-import type { AntecedenteCategory, AntecedenteType, PatientAntecedente } from "@/lib/types";
+import type {
+  AntecedenteCategory,
+  AntecedenteType,
+  PatientAntecedente,
+} from "@/lib/types";
 
 interface PatientAntecedentesCardProps {
   patientId: string;
@@ -57,13 +61,17 @@ export function PatientAntecedentesCard({
   // Inactive types stay out of the checklist unless already marked on this
   // patient — a deprecated antecedente shouldn't be offered for new use,
   // but one already recorded here must stay visible, not vanish.
-  const markedByType = new Map(initialMarked.map((m) => [m.antecedenteTypeId, m]));
+  const markedByType = new Map(
+    initialMarked.map((m) => [m.antecedenteTypeId, m]),
+  );
   const visibleTypes = types
     .filter((t) => t.active || markedByType.has(t.id))
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const [editing, setEditing] = useState(false);
-  const [rows, setRows] = useState<Map<string, RowState>>(() => buildRows(visibleTypes, markedByType));
+  const [rows, setRows] = useState<Map<string, RowState>>(() =>
+    buildRows(visibleTypes, markedByType),
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -72,12 +80,16 @@ export function PatientAntecedentesCard({
 
   function toggle(typeId: string, checked: boolean) {
     setSaved(false);
-    setRows((prev) => new Map(prev).set(typeId, { ...prev.get(typeId)!, checked }));
+    setRows((prev) =>
+      new Map(prev).set(typeId, { ...prev.get(typeId)!, checked }),
+    );
   }
 
   function setDetalle(typeId: string, detalle: string) {
     setSaved(false);
-    setRows((prev) => new Map(prev).set(typeId, { ...prev.get(typeId)!, detalle }));
+    setRows((prev) =>
+      new Map(prev).set(typeId, { ...prev.get(typeId)!, detalle }),
+    );
   }
 
   function cancelEdit() {
@@ -95,7 +107,11 @@ export function PatientAntecedentesCard({
         ...(row.detalle.trim() ? { detalle: row.detalle.trim() } : {}),
       }));
     startTransition(async () => {
-      const state = await updatePatientAntecedentesAction(patientId, category, items);
+      const state = await updatePatientAntecedentesAction(
+        patientId,
+        category,
+        items,
+      );
       if (state.error) {
         setError(state.error);
         return;
@@ -111,7 +127,12 @@ export function PatientAntecedentesCard({
         <CardTitle className="text-base">{title}</CardTitle>
         {editing ? (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={cancelEdit} disabled={pending}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={cancelEdit}
+              disabled={pending}
+            >
               Cancelar
             </Button>
             <Button size="sm" onClick={save} disabled={pending}>
@@ -142,10 +163,15 @@ export function PatientAntecedentesCard({
                   <Checkbox
                     id={`antecedente-${type.id}`}
                     checked={row.checked}
-                    onCheckedChange={(checked) => toggle(type.id, checked === true)}
+                    onCheckedChange={(checked) =>
+                      toggle(type.id, checked === true)
+                    }
                     disabled={pending}
                   />
-                  <label htmlFor={`antecedente-${type.id}`} className="w-40 shrink-0 text-sm">
+                  <label
+                    htmlFor={`antecedente-${type.id}`}
+                    className="w-40 shrink-0 text-sm"
+                  >
                     {type.name}
                   </label>
                   <Input
@@ -160,7 +186,9 @@ export function PatientAntecedentesCard({
             })}
           </div>
         ) : markedTypes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin antecedentes marcados.</p>
+          <p className="text-sm text-muted-foreground">
+            Sin antecedentes marcados.
+          </p>
         ) : (
           // En línea y separados por comas: "Tabaco: 4-5 cigarrillos/día,
           // Alcohol, HTA". El detalle va justo después del antecedente.
@@ -170,7 +198,11 @@ export function PatientAntecedentesCard({
               return (
                 <span key={type.id}>
                   <span className="font-medium">{type.name}</span>
-                  {row.detalle && <span className="text-muted-foreground">: {row.detalle}</span>}
+                  {row.detalle && (
+                    <span className="text-muted-foreground">
+                      : {row.detalle}
+                    </span>
+                  )}
                   {i < markedTypes.length - 1 && ", "}
                 </span>
               );
@@ -178,7 +210,9 @@ export function PatientAntecedentesCard({
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {saved && !error && <p className="text-sm text-success">Antecedentes guardados.</p>}
+        {saved && !error && (
+          <p className="text-sm text-success">Antecedentes guardados.</p>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowPathIcon,
   BuildingOffice2Icon,
@@ -10,10 +10,10 @@ import {
   CircleStackIcon,
   ClockIcon,
   MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { runBackupAction, restoreBackupAction } from '@/lib/actions/backups';
+} from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { runBackupAction, restoreBackupAction } from "@/lib/actions/backups";
 
 export interface BackupArtifact {
   id: string;
@@ -21,23 +21,23 @@ export interface BackupArtifact {
   tenant_id: string;
   tenant_name: string;
   size_bytes: string | null;
-  status: 'running' | 'succeeded' | 'failed';
+  status: "running" | "succeeded" | "failed";
   created_at: string;
   error_summary: string | null;
-  mode: 'manual' | 'daily' | 'pre_restore';
-  run_status: 'running' | 'succeeded' | 'partial' | 'failed';
+  mode: "manual" | "daily" | "pre_restore";
+  run_status: "running" | "succeeded" | "partial" | "failed";
   started_at: string;
   finished_at: string | null;
   restored_at: string | null;
 }
 
-type BackupStatus = BackupArtifact['status'] | BackupArtifact['run_status'];
-type BackupView = 'runs' | 'clinics';
+type BackupStatus = BackupArtifact["status"] | BackupArtifact["run_status"];
+type BackupView = "runs" | "clinics";
 
 interface BackupRunGroup {
   id: string;
-  mode: BackupArtifact['mode'];
-  status: BackupArtifact['run_status'];
+  mode: BackupArtifact["mode"];
+  status: BackupArtifact["run_status"];
   startedAt: string;
   artifacts: BackupArtifact[];
 }
@@ -53,34 +53,34 @@ const STATUS_LABELS: Record<
   { label: string; className: string }
 > = {
   running: {
-    label: 'En curso',
-    className: 'border-sky-200 bg-sky-50 text-sky-800',
+    label: "En curso",
+    className: "border-sky-200 bg-sky-50 text-sky-800",
   },
   succeeded: {
-    label: 'Completa',
-    className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    label: "Completa",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
   },
   partial: {
-    label: 'Parcial',
-    className: 'border-amber-200 bg-amber-50 text-amber-900',
+    label: "Parcial",
+    className: "border-amber-200 bg-amber-50 text-amber-900",
   },
   failed: {
-    label: 'Fallida',
-    className: 'border-red-200 bg-red-50 text-red-800',
+    label: "Fallida",
+    className: "border-red-200 bg-red-50 text-red-800",
   },
 };
 
 function dateTime(value: string): string {
-  return new Date(value).toLocaleString('es-ES', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+  return new Date(value).toLocaleString("es-ES", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 }
 
 function bytes(value: string | number | null): string {
-  if (value === null) return '—';
+  if (value === null) return "—";
   const size = Number(value);
-  if (!Number.isFinite(size) || size <= 0) return '—';
+  if (!Number.isFinite(size) || size <= 0) return "—";
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -92,14 +92,14 @@ function totalBytes(artifacts: BackupArtifact[]): number {
   );
 }
 
-function modeLabel(mode: BackupArtifact['mode']): string {
+function modeLabel(mode: BackupArtifact["mode"]): string {
   switch (mode) {
-    case 'daily':
-      return 'Diaria';
-    case 'pre_restore':
-      return 'Previo a restauración';
+    case "daily":
+      return "Diaria";
+    case "pre_restore":
+      return "Previo a restauración";
     default:
-      return 'Manual';
+      return "Manual";
   }
 }
 
@@ -114,7 +114,7 @@ function StatusChip({ status }: { status: BackupStatus }) {
   );
 }
 
-function ModeChip({ mode }: { mode: BackupArtifact['mode'] }) {
+function ModeChip({ mode }: { mode: BackupArtifact["mode"] }) {
   return (
     <span className="inline-flex items-center rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
       {modeLabel(mode)}
@@ -150,7 +150,7 @@ function groupByRun(artifacts: BackupArtifact[]): BackupRunGroup[] {
     .map((group) => ({
       ...group,
       artifacts: [...group.artifacts].sort((a, b) =>
-        a.tenant_name.localeCompare(b.tenant_name, 'es'),
+        a.tenant_name.localeCompare(b.tenant_name, "es"),
       ),
     }))
     .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
@@ -181,8 +181,8 @@ function groupByClinic(artifacts: BackupArtifact[]): BackupClinicGroup[] {
     }))
     .sort(
       (a, b) =>
-        Date.parse(b.artifacts[0]?.started_at ?? '') -
-        Date.parse(a.artifacts[0]?.started_at ?? ''),
+        Date.parse(b.artifacts[0]?.started_at ?? "") -
+        Date.parse(a.artifacts[0]?.started_at ?? ""),
     );
 }
 
@@ -191,7 +191,7 @@ function RestoreButton({
   pending,
   canRun,
   onRestore,
-  label = 'Restaurar',
+  label = "Restaurar",
 }: {
   artifact: BackupArtifact;
   pending: boolean;
@@ -199,7 +199,7 @@ function RestoreButton({
   onRestore: (artifact: BackupArtifact) => void;
   label?: string;
 }) {
-  if (artifact.status !== 'succeeded') return null;
+  if (artifact.status !== "succeeded") return null;
 
   return (
     <Button
@@ -230,40 +230,40 @@ export function BackupOperations({
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [restore, setRestore] = useState<BackupArtifact | null>(null);
-  const [confirmation, setConfirmation] = useState('');
+  const [confirmation, setConfirmation] = useState("");
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [view, setView] = useState<BackupView>('runs');
-  const [search, setSearch] = useState('');
+  const [view, setView] = useState<BackupView>("runs");
+  const [search, setSearch] = useState("");
 
   const runs = useMemo(() => groupByRun(artifacts), [artifacts]);
   const clinics = useMemo(() => groupByClinic(artifacts), [artifacts]);
-  const normalizedSearch = search.trim().toLocaleLowerCase('es');
+  const normalizedSearch = search.trim().toLocaleLowerCase("es");
   const visibleRuns = runs
     .map((run) => ({
       ...run,
       visibleArtifacts: normalizedSearch
         ? run.artifacts.filter((artifact) =>
             artifact.tenant_name
-              .toLocaleLowerCase('es')
+              .toLocaleLowerCase("es")
               .includes(normalizedSearch),
           )
         : run.artifacts,
     }))
     .filter((run) => run.visibleArtifacts.length > 0);
   const visibleClinics = clinics.filter((clinic) =>
-    clinic.name.toLocaleLowerCase('es').includes(normalizedSearch),
+    clinic.name.toLocaleLowerCase("es").includes(normalizedSearch),
   );
 
   const completedArtifacts = artifacts.filter(
-    (artifact) => artifact.status === 'succeeded',
+    (artifact) => artifact.status === "succeeded",
   );
   const protectedClinics = new Set(
     completedArtifacts.map((artifact) => artifact.tenant_id),
   ).size;
-  const latestCompletedRun = runs.find((run) => run.status === 'succeeded');
+  const latestCompletedRun = runs.find((run) => run.status === "succeeded");
   const displayedClinicCount =
-    view === 'runs'
+    view === "runs"
       ? visibleRuns.reduce(
           (count, run) => count + run.visibleArtifacts.length,
           0,
@@ -285,14 +285,14 @@ export function BackupOperations({
 
   function beginRestore(artifact: BackupArtifact) {
     setRestore(artifact);
-    setConfirmation('');
+    setConfirmation("");
     setRestoreMessage(null);
     setRestoreError(null);
   }
 
   function cancelRestore() {
     setRestore(null);
-    setConfirmation('');
+    setConfirmation("");
   }
 
   function confirmRestore() {
@@ -327,7 +327,7 @@ export function BackupOperations({
         </div>
         <Button onClick={runNow} disabled={pending || running || !canRun}>
           <CircleStackIcon data-icon="inline-start" />
-          {running ? 'Creando copias…' : 'Crear copia ahora'}
+          {running ? "Creando copias…" : "Crear copia ahora"}
         </Button>
         {runMessage && (
           <p role="status" className="w-full text-sm">
@@ -393,7 +393,7 @@ export function BackupOperations({
             <dd className="mt-1 text-sm font-semibold leading-6">
               {latestCompletedRun
                 ? dateTime(latestCompletedRun.startedAt)
-                : '—'}
+                : "—"}
             </dd>
           </div>
         </dl>
@@ -422,24 +422,24 @@ export function BackupOperations({
             >
               <button
                 type="button"
-                aria-pressed={view === 'runs'}
-                onClick={() => setView('runs')}
-                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${view === 'runs' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                aria-pressed={view === "runs"}
+                onClick={() => setView("runs")}
+                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${view === "runs" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Por ejecución
               </button>
               <button
                 type="button"
-                aria-pressed={view === 'clinics'}
-                onClick={() => setView('clinics')}
-                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${view === 'clinics' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                aria-pressed={view === "clinics"}
+                onClick={() => setView("clinics")}
+                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${view === "clinics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Por clínica
               </button>
             </div>
             <p className="text-sm text-muted-foreground" aria-live="polite">
-              {displayedClinicCount}{' '}
-              {view === 'runs' ? 'copias visibles' : 'clínicas visibles'}
+              {displayedClinicCount}{" "}
+              {view === "runs" ? "copias visibles" : "clínicas visibles"}
             </p>
           </div>
         </div>
@@ -455,7 +455,7 @@ export function BackupOperations({
               Cuando termine la primera ejecución, sus copias aparecerán aquí.
             </p>
           </div>
-        ) : view === 'runs' ? (
+        ) : view === "runs" ? (
           visibleRuns.length === 0 ? (
             <p className="rounded-lg border border-dashed bg-background px-5 py-8 text-center text-sm text-muted-foreground">
               No hay copias de clínicas que coincidan con «{search}».
@@ -464,7 +464,7 @@ export function BackupOperations({
             <div className="space-y-3">
               {visibleRuns.map((run, index) => {
                 const completeCount = run.artifacts.filter(
-                  (artifact) => artifact.status === 'succeeded',
+                  (artifact) => artifact.status === "succeeded",
                 ).length;
 
                 return (
@@ -503,7 +503,7 @@ export function BackupOperations({
                         run.visibleArtifacts.length !==
                           run.artifacts.length && (
                           <p className="pt-3 text-xs text-muted-foreground">
-                            Mostrando {run.visibleArtifacts.length} de{' '}
+                            Mostrando {run.visibleArtifacts.length} de{" "}
                             {run.artifacts.length} clínicas de esta ejecución.
                           </p>
                         )}
@@ -556,7 +556,7 @@ export function BackupOperations({
             {visibleClinics.map((clinic, index) => {
               const latest = clinic.artifacts[0];
               const completeCount = clinic.artifacts.filter(
-                (artifact) => artifact.status === 'succeeded',
+                (artifact) => artifact.status === "succeeded",
               ).length;
 
               return (
@@ -574,15 +574,15 @@ export function BackupOperations({
                         {clinic.name}
                       </span>
                       <span className="mt-1 block text-sm text-muted-foreground">
-                        Última copia {dateTime(latest.started_at)} ·{' '}
+                        Última copia {dateTime(latest.started_at)} ·{" "}
                         {completeCount} disponibles
                       </span>
                     </span>
                     <span className="flex items-center gap-2">
                       <StatusChip status={latest.status} />
                       <span className="text-xs text-muted-foreground">
-                        {clinic.artifacts.length}{' '}
-                        {clinic.artifacts.length === 1 ? 'copia' : 'copias'}
+                        {clinic.artifacts.length}{" "}
+                        {clinic.artifacts.length === 1 ? "copia" : "copias"}
                       </span>
                     </span>
                     <ChevronDownIcon
@@ -668,7 +668,7 @@ export function BackupOperations({
               Restaurar {restore.tenant_name}
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Se reemplazarán los datos de esta clínica por los de la copia del{' '}
+              Se reemplazarán los datos de esta clínica por los de la copia del{" "}
               {dateTime(restore.started_at)}. Escribe el nombre de la clínica
               para confirmar.
             </p>
@@ -689,7 +689,7 @@ export function BackupOperations({
               }
               onClick={confirmRestore}
             >
-              {pending ? 'Restaurando…' : 'Confirmar restauración'}
+              {pending ? "Restaurando…" : "Confirmar restauración"}
             </Button>
             <Button
               type="button"

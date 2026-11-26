@@ -6,7 +6,10 @@ export interface FormErrorResult {
 }
 
 function normalize(value: string): string {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 /** Turn API validation messages into errors beside the corresponding fields. */
@@ -19,20 +22,29 @@ export function mapFormError(
   const fieldErrors: FieldErrorMap = {};
   const remaining: string[] = [];
 
-  for (const part of message.split(/,\s+(?=[\w\p{L}])/u).map((item) => item.trim()).filter(Boolean)) {
+  for (const part of message
+    .split(/,\s+(?=[\w\p{L}])/u)
+    .map((item) => item.trim())
+    .filter(Boolean)) {
     const normalized = normalize(part);
     const match = Object.entries(fields).find(([field, aliases]) => {
       const names = [field, ...aliases].map(normalize);
-      return names.some((name) => normalized.includes(name)) || customMatchers[field]?.test(part) === true;
+      return (
+        names.some((name) => normalized.includes(name)) ||
+        customMatchers[field]?.test(part) === true
+      );
     });
 
     if (match) {
       const [field, aliases] = match;
-      const prefix = [field, ...aliases].find((name) => part.toLowerCase().startsWith(`${name.toLowerCase()} `));
-      const displayMessage = prefix ? `${labels[field] ?? field}${part.slice(prefix.length)}` : part;
+      const prefix = [field, ...aliases].find((name) =>
+        part.toLowerCase().startsWith(`${name.toLowerCase()} `),
+      );
+      const displayMessage = prefix
+        ? `${labels[field] ?? field}${part.slice(prefix.length)}`
+        : part;
       fieldErrors[field] = displayMessage;
-    }
-    else remaining.push(part);
+    } else remaining.push(part);
   }
 
   return {

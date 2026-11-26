@@ -3,7 +3,10 @@
 // skips it entirely — so the dropzone has to check dropped files itself.
 // Same rules as the attribute: ".pdf" (extension), "image/*" (type family)
 // or "image/png" (exact type), comma separated, case-insensitive.
-export function matchesAccept(file: { name: string; type: string }, accept?: string): boolean {
+export function matchesAccept(
+  file: { name: string; type: string },
+  accept?: string,
+): boolean {
   const rules = (accept ?? "")
     .split(",")
     .map((rule) => rule.trim().toLowerCase())

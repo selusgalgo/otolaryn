@@ -85,18 +85,25 @@ export function ImportClinicalEntriesColumnMapping({
   onChange,
   disabled,
 }: ImportClinicalEntriesColumnMappingProps) {
-  const template = (CONSULTATION_TEMPLATES as readonly string[]).includes(preview.template)
+  const template = (CONSULTATION_TEMPLATES as readonly string[]).includes(
+    preview.template,
+  )
     ? preview.template
     : DEFAULT_CONSULTATION_TEMPLATE;
   return (
     <div className="space-y-3 rounded-lg border p-3">
-      <p className="text-sm font-medium">Relaciona cada columna del fichero con su campo</p>
+      <p className="text-sm font-medium">
+        Relaciona cada columna del fichero con su campo
+      </p>
       <p className="text-xs text-muted-foreground">
         Campos de la plantilla de consulta de la clínica:{" "}
         {TEMPLATE_DEFINITIONS[template].name}.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {plainFields(template, preview.fields ?? TEMPLATE_DEFINITIONS[template].fields).map(({ field, label, required }) => {
+        {plainFields(
+          template,
+          preview.fields ?? TEMPLATE_DEFINITIONS[template].fields,
+        ).map(({ field, label, required }) => {
           const selected = mapping[field] ?? "";
           return (
             <div key={field} className="space-y-1">
@@ -108,10 +115,14 @@ export function ImportClinicalEntriesColumnMapping({
                 id={`ce-mapping-${field}`}
                 value={selected}
                 disabled={disabled}
-                onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
+                onChange={(e) =>
+                  onChange({ ...mapping, [field]: e.target.value || undefined })
+                }
                 className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
               >
-                <option value="">{required ? "Selecciona una columna…" : "No importar"}</option>
+                <option value="">
+                  {required ? "Selecciona una columna…" : "No importar"}
+                </option>
                 {preview.headers.map((header) => (
                   <option key={header} value={header}>
                     {header}
@@ -133,7 +144,9 @@ export function ImportClinicalEntriesColumnMapping({
                 id={`ce-mapping-${field}`}
                 value={selected}
                 disabled={disabled}
-                onChange={(e) => onChange({ ...mapping, [field]: e.target.value || undefined })}
+                onChange={(e) =>
+                  onChange({ ...mapping, [field]: e.target.value || undefined })
+                }
                 className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
               >
                 <option value="">No importar</option>

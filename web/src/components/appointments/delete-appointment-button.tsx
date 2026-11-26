@@ -30,12 +30,17 @@ export function DeleteAppointmentButton({ id }: { id: string }) {
         <DialogHeader>
           <DialogTitle>¿Eliminar esta cita?</DialogTitle>
           <DialogDescription>
-            Desaparece de la agenda. A diferencia de cancelar, no queda visible en el historial — para
-            una cita que sí llegó a existir mejor cancelarla.
+            Desaparece de la agenda. A diferencia de cancelar, no queda visible
+            en el historial — para una cita que sí llegó a existir mejor
+            cancelarla.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
             Volver
           </Button>
           <Button

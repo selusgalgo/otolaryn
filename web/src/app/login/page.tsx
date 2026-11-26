@@ -21,17 +21,23 @@ const REMEMBER_IDENTIFIER_KEY = "otolaryn_remembered_identifier";
 // Por qué se ha llegado aquí (?reason=). Los motivos de sesión terminada
 // vienen del middleware, de /session/expired o del logout.
 const REASON_MESSAGES: Record<string, string> = {
-  SESSION_EXPIRED: "Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.",
-  TOKEN_INVALID: "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
+  SESSION_EXPIRED:
+    "Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.",
+  TOKEN_INVALID:
+    "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
   DEVICE_LOCKED:
     "Este dispositivo no está autorizado para acceder a la aplicación. Contacta con el administrador de la clínica.",
   DEVICE_CREDENTIAL_INVALID:
     "La credencial de este ordenador ya no es válida: el administrador de la clínica ha generado una nueva. Pídele el enlace de instalación actualizado y ábrelo en este ordenador.",
-  ACCOUNT_DISABLED: "Tu cuenta está desactivada. Contacta con el administrador de la clínica.",
+  ACCOUNT_DISABLED:
+    "Tu cuenta está desactivada. Contacta con el administrador de la clínica.",
 };
 
 export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(loginAction, initialState);
+  const [state, formAction, pending] = useActionState(
+    loginAction,
+    initialState,
+  );
   const [identifier, setIdentifier] = useState("");
   const [rememberIdentifier, setRememberIdentifier] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -75,12 +81,21 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(51,102,255,0.12),transparent_70%)] p-4">
       <div className="w-full max-w-sm">
         {/* eslint-disable-next-line @next/next/no-img-element -- static local SVG, next/image adds no value here */}
-        <img src="/logo.svg" alt="Mederi" className="mx-auto mb-8 h-36 w-auto" />
+        <img
+          src="/logo.svg"
+          alt="Mederi"
+          className="mx-auto mb-8 h-36 w-auto"
+        />
         <Card className="rounded-2xl shadow-lg">
           <CardContent className="px-6 py-2">
-            <h1 className="text-center text-2xl font-semibold tracking-tight">Iniciar sesión</h1>
+            <h1 className="text-center text-2xl font-semibold tracking-tight">
+              Iniciar sesión
+            </h1>
             {reasonMessage && (
-              <p role="status" className="mt-2 text-center text-sm text-muted-foreground">
+              <p
+                role="status"
+                className="mt-2 text-center text-sm text-muted-foreground"
+              >
                 {reasonMessage}
               </p>
             )}
@@ -89,7 +104,11 @@ export default function LoginPage() {
                 Al entrar, volverás justo donde lo dejaste.
               </p>
             )}
-            <form action={formAction} onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <form
+              action={formAction}
+              onSubmit={handleSubmit}
+              className="mt-8 space-y-6"
+            >
               <input type="hidden" name="redirect" value={redirectTarget} />
               <div className="space-y-2">
                 <Label htmlFor="identifier">Email o nombre de usuario</Label>
@@ -121,10 +140,16 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     disabled={pending}
-                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    aria-label={
+                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                    }
                     className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   >
-                    {showPassword ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    {showPassword ? (
+                      <EyeSlashIcon className="size-4" />
+                    ) : (
+                      <EyeIcon className="size-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -132,15 +157,24 @@ export default function LoginPage() {
                 <Checkbox
                   id="rememberIdentifier"
                   checked={rememberIdentifier}
-                  onCheckedChange={(checked) => setRememberIdentifier(checked === true)}
+                  onCheckedChange={(checked) =>
+                    setRememberIdentifier(checked === true)
+                  }
                   disabled={pending}
                 />
                 <Label htmlFor="rememberIdentifier" className="font-normal">
                   Recordar usuario
                 </Label>
               </div>
-              {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-              <Button type="submit" size="lg" className="w-full" disabled={pending}>
+              {state.error && (
+                <p className="text-sm text-destructive">{state.error}</p>
+              )}
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={pending}
+              >
                 {pending ? "Entrando..." : "Entrar"}
               </Button>
             </form>

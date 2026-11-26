@@ -24,7 +24,12 @@ interface InitialsAvatarProps {
   variant?: keyof typeof VARIANT_CLASSES;
 }
 
-export function InitialsAvatar({ firstName, lastName, size = "md", variant = "patient" }: InitialsAvatarProps) {
+export function InitialsAvatar({
+  firstName,
+  lastName,
+  size = "md",
+  variant = "patient",
+}: InitialsAvatarProps) {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
   return (

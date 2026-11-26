@@ -1,5 +1,5 @@
-import { clsx, type ClassValue } from "clsx"
-import { extendTailwindMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { extendTailwindMerge } from "tailwind-merge";
 
 // Plain twMerge doesn't know about the custom `--text-heading`/`--text-body`/
 // `--text-button` font-size tokens defined in globals.css (it only reads its
@@ -13,10 +13,10 @@ const twMerge = extendTailwindMerge({
       "font-size": [{ text: ["heading", "body", "button"] }],
     },
   },
-})
+});
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 // Every plain (no time component) date the app displays — currently just
@@ -35,8 +35,18 @@ export function formatDateOnly(iso: string | null | undefined): string {
 }
 
 const SHORT_MONTHS_ES = [
-  "ene", "feb", "mar", "abr", "may", "jun",
-  "jul", "ago", "sept", "oct", "nov", "dic",
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sept",
+  "oct",
+  "nov",
+  "dic",
 ];
 
 // Same regex-on-the-raw-string approach as formatDateOnly, and for the same
@@ -64,7 +74,8 @@ export function calculateAge(dateOfBirth: string): number {
   const today = new Date();
   let age = today.getFullYear() - year;
   const hadBirthdayThisYear =
-    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+    today.getMonth() + 1 > month ||
+    (today.getMonth() + 1 === month && today.getDate() >= day);
   if (!hadBirthdayThisYear) age -= 1;
   return age;
 }
@@ -106,13 +117,18 @@ export function stripHtml(html: string): string {
 // texto completo rompería el ancho de la fila. No corta HTML; úsalo
 // siempre después de stripHtml si el origen es texto enriquecido.
 export function truncateText(text: string, maxChars: number): string {
-  return text.length > maxChars ? `${text.slice(0, maxChars).trimEnd()}…` : text;
+  return text.length > maxChars
+    ? `${text.slice(0, maxChars).trimEnd()}…`
+    : text;
 }
 
 // A few call sites only carry a combined "Nombre Apellidos" string (e.g.
 // PractitionerOption.label) but need firstName/lastName separately to feed
 // InitialsAvatar — split on the first space to reconstruct that shape.
-export function splitName(name: string): { firstName: string; lastName: string } {
+export function splitName(name: string): {
+  firstName: string;
+  lastName: string;
+} {
   const [firstName, ...rest] = name.split(" ");
   return { firstName, lastName: rest.join(" ") || firstName };
 }

@@ -57,20 +57,27 @@ export function DeactivateUserDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            ¿Desactivar a {userDisplayName(user)}?
-          </DialogTitle>
+          <DialogTitle>¿Desactivar a {userDisplayName(user)}?</DialogTitle>
           <DialogDescription>
-            Perderá acceso a la plataforma de inmediato. Sus citas e historia clínica se
-            mantienen tal cual — puedes reactivarle en cualquier momento.
+            Perderá acceso a la plataforma de inmediato. Sus citas e historia
+            clínica se mantienen tal cual — puedes reactivarle en cualquier
+            momento.
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
             Cancelar
           </Button>
-          <Button variant="destructive" disabled={pending} onClick={confirmDeactivate}>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={confirmDeactivate}
+          >
             {pending ? "Desactivando..." : "Desactivar"}
           </Button>
         </DialogFooter>

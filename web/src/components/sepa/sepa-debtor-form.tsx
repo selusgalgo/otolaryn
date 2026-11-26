@@ -8,7 +8,10 @@ import { keepValuesOnSubmit } from "@/lib/form-submit";
 import type { PublicSepaView } from "@/lib/types";
 
 interface SepaDebtorFormProps {
-  action: (prevState: SepaPublicFormState, formData: FormData) => Promise<SepaPublicFormState>;
+  action: (
+    prevState: SepaPublicFormState,
+    formData: FormData,
+  ) => Promise<SepaPublicFormState>;
   debtor: PublicSepaView["debtor"];
   // Already saved once: the button then says so, and a re-save regenerates
   // the document the client is about to review.
@@ -19,11 +22,18 @@ const initialState: SepaPublicFormState = {};
 
 // The clinic owner's own data — account holder, who signs, address, IBAN.
 // Saving it is what generates the document they then review and sign.
-export function SepaDebtorForm({ action, debtor: d, alreadySaved }: SepaDebtorFormProps) {
+export function SepaDebtorForm({
+  action,
+  debtor: d,
+  alreadySaved,
+}: SepaDebtorFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid gap-4 sm:grid-cols-6">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid gap-4 sm:grid-cols-6"
+    >
       <SepaFormField
         name="holderName"
         label="Titular de la cuenta (nombre o razón social)"
@@ -150,7 +160,9 @@ export function SepaDebtorForm({ action, debtor: d, alreadySaved }: SepaDebtorFo
               ? "Guardar cambios y actualizar el documento"
               : "Guardar y ver el documento"}
         </Button>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
       </div>
     </form>
   );

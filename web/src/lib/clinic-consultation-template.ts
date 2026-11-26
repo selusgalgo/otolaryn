@@ -16,7 +16,9 @@ import {
 // visibleFields() still shows any other field that already has data).
 export async function getClinicConsultationTemplate(): Promise<ConsultationTemplate> {
   try {
-    const { template } = await apiFetch<{ template: string }>("/settings/consultation-template");
+    const { template } = await apiFetch<{ template: string }>(
+      "/settings/consultation-template",
+    );
     return (CONSULTATION_TEMPLATES as readonly string[]).includes(template)
       ? (template as ConsultationTemplate)
       : DEFAULT_CONSULTATION_TEMPLATE;
@@ -32,16 +34,22 @@ export async function getClinicConsultationConfig(): Promise<{
   fields: ConsultationField[];
 }> {
   try {
-    const { template, fields } = await apiFetch<{ template: string; fields?: string[] }>(
-      "/settings/consultation-template",
-    );
-    const valid = (CONSULTATION_TEMPLATES as readonly string[]).includes(template)
+    const { template, fields } = await apiFetch<{
+      template: string;
+      fields?: string[];
+    }>("/settings/consultation-template");
+    const valid = (CONSULTATION_TEMPLATES as readonly string[]).includes(
+      template,
+    )
       ? (template as ConsultationTemplate)
       : DEFAULT_CONSULTATION_TEMPLATE;
     const known = (fields ?? []).filter((f): f is ConsultationField =>
       (ALL_CONSULTATION_FIELDS as string[]).includes(f),
     );
-    return { template: valid, fields: known.length > 0 ? known : TEMPLATE_DEFINITIONS[valid].fields };
+    return {
+      template: valid,
+      fields: known.length > 0 ? known : TEMPLATE_DEFINITIONS[valid].fields,
+    };
   } catch {
     return {
       template: DEFAULT_CONSULTATION_TEMPLATE,

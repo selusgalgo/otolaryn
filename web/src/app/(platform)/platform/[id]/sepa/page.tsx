@@ -1,18 +1,34 @@
 import Link from "next/link";
 import { ArrowDownTrayIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { SepaMandateForm } from "@/components/platform/sepa-mandate-form";
 import { SepaSigningPanel } from "@/components/platform/sepa-signing-panel";
-import { cancelSepaMandateAction, issueSepaSigningLinkAction, saveSepaMandateAction } from "@/lib/actions/platform";
+import {
+  cancelSepaMandateAction,
+  issueSepaSigningLinkAction,
+  saveSepaMandateAction,
+} from "@/lib/actions/platform";
 import { apiFetch } from "@/lib/api";
 import type { CreditorCertificateStatus, TenantSepaMandate } from "@/lib/types";
 
-export default async function TenantSepaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TenantSepaPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const [data, certificate] = await Promise.all([
     apiFetch<TenantSepaMandate>(`/platform/tenants/${id}/sepa-mandate`),
-    apiFetch<CreditorCertificateStatus>("/platform/creditor-profile/certificate"),
+    apiFetch<CreditorCertificateStatus>(
+      "/platform/creditor-profile/certificate",
+    ),
   ]);
   const certificateProblem = !certificate.configured
     ? "No hay certificado digital configurado: las órdenes saldrán sin tu firma."
@@ -47,7 +63,9 @@ export default async function TenantSepaPage({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-2xl font-bold">Domiciliación SEPA</h1>
           <p className="text-sm text-muted-foreground">
-            {data.mandate ? `Referencia ${data.mandate.reference}` : "Esta clínica aún no tiene orden SEPA."}
+            {data.mandate
+              ? `Referencia ${data.mandate.reference}`
+              : "Esta clínica aún no tiene orden SEPA."}
           </p>
         </div>
         {data.mandate && data.mandate.status !== "firmada" && (
@@ -67,7 +85,8 @@ export default async function TenantSepaPage({ params }: { params: Promise<{ id:
           <CardHeader>
             <CardTitle className="text-base">Firma</CardTitle>
             <CardDescription>
-              La clínica rellena sus datos y firma desde un enlace, en la web o con certificado digital.
+              La clínica rellena sus datos y firma desde un enlace, en la web o
+              con certificado digital.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -85,12 +104,17 @@ export default async function TenantSepaPage({ params }: { params: Promise<{ id:
         <CardHeader>
           <CardTitle className="text-base">Condiciones de la orden</CardTitle>
           <CardDescription>
-            Plan, cuota y fecha del primer cargo los fijas tú. Los datos del titular de la cuenta puedes dejarlos
-            vacíos: los rellena la clínica al firmar.
+            Plan, cuota y fecha del primer cargo los fijas tú. Los datos del
+            titular de la cuenta puedes dejarlos vacíos: los rellena la clínica
+            al firmar.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SepaMandateForm action={action} data={data} locked={data.mandate?.status === "firmada"} />
+          <SepaMandateForm
+            action={action}
+            data={data}
+            locked={data.mandate?.status === "firmada"}
+          />
         </CardContent>
       </Card>
     </div>

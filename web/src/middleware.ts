@@ -14,18 +14,28 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // Optional isolated preview: do not expose public signing/device links or
   // unrelated app pages through the temporary DEMO host.
-  if (process.env.MEDERI_DEMO_PREVIEW_ONLY === 'true' && !(
-    pathname === '/' || pathname === '/login' || pathname === '/dashboard' ||
-    pathname === '/settings' || pathname.startsWith('/settings/') || pathname.startsWith('/session/')
-  )) {
-    return new NextResponse('No disponible en la vista de prueba', { status: 404 });
+  if (
+    process.env.MEDERI_DEMO_PREVIEW_ONLY === "true" &&
+    !(
+      pathname === "/" ||
+      pathname === "/login" ||
+      pathname === "/dashboard" ||
+      pathname === "/settings" ||
+      pathname.startsWith("/settings/") ||
+      pathname.startsWith("/session/")
+    )
+  ) {
+    return new NextResponse("No disponible en la vista de prueba", {
+      status: 404,
+    });
   }
   // Una cookie cuyo JWT ya caducó (la cookie y el JWT duran lo mismo, pero
   // no tienen por qué morir a la vez: otro JWT_EXPIRES_IN, reloj desfasado...)
   // se trata como "sin sesión" y se borra. Antes, /login con esa cookie
   // mandaba a /dashboard, que fallaba con "Application error" y dejaba a la
   // persona sin poder volver a entrar. La firma sigue sin comprobarse aquí.
-  const sessionExpired = sessionToken !== undefined && isJwtExpired(sessionToken);
+  const sessionExpired =
+    sessionToken !== undefined && isJwtExpired(sessionToken);
   const hasSession = sessionToken !== undefined && !sessionExpired;
   const isLoginPage = pathname === "/login";
   // The one-time device-install link an admin sends to a clinic computer —
@@ -59,11 +69,19 @@ export function middleware(request: NextRequest) {
   target.searchParams.delete("_rsc");
   const currentPath = target.pathname + target.search;
 
-  if (!hasSession && !isLoginPage && !isDeviceAuthPage && !isSessionExpiredRoute && !isSepaSigningPage && !isServerAction) {
+  if (
+    !hasSession &&
+    !isLoginPage &&
+    !isDeviceAuthPage &&
+    !isSessionExpiredRoute &&
+    !isSepaSigningPage &&
+    !isServerAction
+  ) {
     const loginUrl = new URL("/login", request.url);
     if (sessionExpired) {
       loginUrl.searchParams.set("reason", "SESSION_EXPIRED");
-      if (currentPath !== "/") loginUrl.searchParams.set("redirect", currentPath);
+      if (currentPath !== "/")
+        loginUrl.searchParams.set("redirect", currentPath);
     }
     const response = NextResponse.redirect(loginUrl);
     if (sessionExpired) response.cookies.delete(COOKIE_NAME);
@@ -91,5 +109,7 @@ export const config = {
   // Also excludes static assets served from public/ (e.g. logo.svg) — without
   // this, an unauthenticated request for one of those files gets redirected
   // to /login instead of served, and shows up as a broken image.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };

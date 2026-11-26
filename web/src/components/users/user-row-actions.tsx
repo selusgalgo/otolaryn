@@ -17,8 +17,14 @@ import type { AppUser } from "@/lib/types";
 
 interface UserRowActionsProps {
   user: AppUser;
-  updateAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
-  resetPasswordAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
+  updateAction: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
+  resetPasswordAction: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
   // Omitted on /platform's tenant-users table — superadmin can edit a
   // clinic's users but there's no platform-level delete endpoint (deleting
   // a clinic's admin/staff is that clinic's own admin's call, not
@@ -52,7 +58,12 @@ export function UserRowActions({
       <RowActions
         overflowLabel={`Más acciones para ${userDisplayName(user)}`}
         actions={[
-          { id: "edit", label: `Editar a ${userDisplayName(user)}`, icon: <PencilIcon />, onSelect: () => setEditOpen(true) },
+          {
+            id: "edit",
+            label: `Editar a ${userDisplayName(user)}`,
+            icon: <PencilIcon />,
+            onSelect: () => setEditOpen(true),
+          },
           ...(setActiveAction
             ? [
                 user.active
@@ -104,7 +115,12 @@ export function UserRowActions({
         />
       )}
       {deleteAction && (
-        <DeleteUserDialog user={user} deleteAction={deleteAction} open={deleteOpen} onOpenChange={setDeleteOpen} />
+        <DeleteUserDialog
+          user={user}
+          deleteAction={deleteAction}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+        />
       )}
     </>
   );

@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { CertificateStatus } from "@/components/platform/certificate-status";
 import { CreditorProfileForm } from "@/components/platform/creditor-profile-form";
 import { updateCreditorProfileAction } from "@/lib/actions/platform";
@@ -8,7 +14,9 @@ import type { CreditorCertificateStatus, CreditorProfile } from "@/lib/types";
 export default async function BillingPage() {
   const [creditor, certificate] = await Promise.all([
     apiFetch<CreditorProfile>("/platform/creditor-profile"),
-    apiFetch<CreditorCertificateStatus>("/platform/creditor-profile/certificate"),
+    apiFetch<CreditorCertificateStatus>(
+      "/platform/creditor-profile/certificate",
+    ),
   ]);
 
   // Seeded empty by the migration (the repository is public, so the creditor's
@@ -30,11 +38,15 @@ export default async function BillingPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Datos de facturación</h1>
       {!creditorComplete && (
-        <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div
+          role="alert"
+          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        >
           <p className="font-medium">Faltan los datos del acreedor.</p>
           <p>
-            Complétalos y guarda el formulario: hasta entonces no se puede generar ninguna orden de domiciliación ni
-            instalar el certificado digital.
+            Complétalos y guarda el formulario: hasta entonces no se puede
+            generar ninguna orden de domiciliación ni instalar el certificado
+            digital.
           </p>
         </div>
       )}
@@ -42,11 +54,15 @@ export default async function BillingPage() {
         <CardHeader>
           <CardTitle className="text-base">Acreedor SEPA</CardTitle>
           <CardDescription>
-            Aparecen como acreedor en todas las órdenes de domiciliación que se generan para las clínicas.
+            Aparecen como acreedor en todas las órdenes de domiciliación que se
+            generan para las clínicas.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CreditorProfileForm action={updateCreditorProfileAction} initialProfile={creditor} />
+          <CreditorProfileForm
+            action={updateCreditorProfileAction}
+            initialProfile={creditor}
+          />
         </CardContent>
       </Card>
 
@@ -54,11 +70,15 @@ export default async function BillingPage() {
         <CardHeader>
           <CardTitle className="text-base">Certificado digital</CardTitle>
           <CardDescription>
-            Con él se firma automáticamente cada orden de domiciliación antes de enviarla a la clínica.
+            Con él se firma automáticamente cada orden de domiciliación antes de
+            enviarla a la clínica.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CertificateStatus status={certificate} creditorTaxId={creditor.taxId} />
+          <CertificateStatus
+            status={certificate}
+            creditorTaxId={creditor.taxId}
+          />
         </CardContent>
       </Card>
     </div>

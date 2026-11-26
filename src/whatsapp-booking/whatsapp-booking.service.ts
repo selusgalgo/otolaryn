@@ -260,7 +260,8 @@ export class WhatsappBookingService {
       settings.platformEnabled && settings.clinicEnabled
         ? settings.practitionerIds.filter(
             (id) =>
-              (this.context.whatsappTenantConnection || this.allowedIds().includes(id)) &&
+              (this.context.whatsappTenantConnection ||
+                this.allowedIds().includes(id)) &&
               (!type || type.practitionerIds.includes(id)),
           )
         : [];
@@ -465,9 +466,14 @@ export class WhatsappBookingService {
     // Only the explicitly configured synthetic number in the isolated demo
     // may represent several fictional people. Real numbers retain strict
     // one-phone/one-identity matching below.
-    const demoPhones =
-      (this.config.get<string>('WHATSAPP_BOOKING_DEMO_SHARED_PHONE') ?? '').split(',').map((value) => value.trim());
-    const sharedDemo = demoPhones.some((value) => /^\+34600000\d{3}$/.test(value) && value === dto.phone);
+    const demoPhones = (
+      this.config.get<string>('WHATSAPP_BOOKING_DEMO_SHARED_PHONE') ?? ''
+    )
+      .split(',')
+      .map((value) => value.trim());
+    const sharedDemo = demoPhones.some(
+      (value) => /^\+34600000\d{3}$/.test(value) && value === dto.phone,
+    );
     const exact = matches.filter(
       (p) =>
         [p.phone ?? '', p.phone2 ?? ''].some(

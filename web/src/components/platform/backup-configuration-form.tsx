@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useActionState, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { keepValuesOnSubmit } from '@/lib/form-submit';
+import { useActionState, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { keepValuesOnSubmit } from "@/lib/form-submit";
 import {
   saveBackupConfigurationAction,
   type BackupConfigurationState,
-} from '@/lib/actions/backups';
+} from "@/lib/actions/backups";
 
 const initialState: BackupConfigurationState = {};
 
@@ -40,7 +40,7 @@ export function BackupConfigurationForm({
           name="bucket"
           required
           maxLength={50}
-          defaultValue={bucket ?? ''}
+          defaultValue={bucket ?? ""}
           disabled={pending}
         />
       </div>
@@ -52,7 +52,7 @@ export function BackupConfigurationForm({
           required
           maxLength={40}
           placeholder="eu-central-003"
-          defaultValue={region ?? ''}
+          defaultValue={region ?? ""}
           disabled={pending}
         />
       </div>
@@ -86,7 +86,7 @@ export function BackupConfigurationForm({
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Comprobando…' : 'Comprobar y guardar'}
+          {pending ? "Comprobando…" : "Comprobar y guardar"}
         </Button>
         {state.error && (
           <p role="alert" className="text-sm text-destructive">

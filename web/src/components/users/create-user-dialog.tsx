@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { UserForm } from "@/components/users/user-form";
 import { createUserAction } from "@/lib/actions/users";
 import type { UserFormState } from "@/lib/actions/users";
@@ -13,10 +19,15 @@ interface CreateUserDialogProps {
   // from the caller's own JWT). superadmin's clinic overview page passes
   // createTenantUserAction bound to the chosen clinic instead — same form,
   // different tenant.
-  action?: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
+  action?: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
 }
 
-export function CreateUserDialog({ action = createUserAction }: CreateUserDialogProps) {
+export function CreateUserDialog({
+  action = createUserAction,
+}: CreateUserDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (

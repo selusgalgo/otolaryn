@@ -37,7 +37,8 @@ function partsInClinicTimeZone(instant: Date): ClinicTimeParts {
     minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(instant);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value);
   return {
     year: get("year"),
     month: get("month"),
@@ -98,7 +99,10 @@ export function formatInClinicTimeZone(
   options: Intl.DateTimeFormatOptions,
   locale = "es-ES",
 ): string {
-  return new Date(iso).toLocaleString(locale, { ...options, timeZone: CLINIC_TIME_ZONE });
+  return new Date(iso).toLocaleString(locale, {
+    ...options,
+    timeZone: CLINIC_TIME_ZONE,
+  });
 }
 
 // Minutes since local midnight (Europe/Madrid) for an ISO instant — backs

@@ -21,8 +21,11 @@ export async function GET(request: NextRequest): Promise<Response> {
   const loginUrl = new URL("/login", request.url);
   const reason = request.nextUrl.searchParams.get("reason") ?? "";
   if (KNOWN_REASONS.has(reason)) loginUrl.searchParams.set("reason", reason);
-  const redirectTarget = safeRedirectTarget(request.nextUrl.searchParams.get("redirect"));
-  if (redirectTarget && redirectTarget !== "/") loginUrl.searchParams.set("redirect", redirectTarget);
+  const redirectTarget = safeRedirectTarget(
+    request.nextUrl.searchParams.get("redirect"),
+  );
+  if (redirectTarget && redirectTarget !== "/")
+    loginUrl.searchParams.set("redirect", redirectTarget);
 
   return NextResponse.redirect(loginUrl);
 }

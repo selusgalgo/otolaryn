@@ -1,7 +1,11 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftScopeProvider } from "@/components/layout/draft-scope";
-import type { ClinicalEntryFormState, DraftSaveResult, DraftValues } from "@/lib/actions/clinical-entries";
+import type {
+  ClinicalEntryFormState,
+  DraftSaveResult,
+  DraftValues,
+} from "@/lib/actions/clinical-entries";
 import { buildDraftKey } from "@/lib/drafts";
 import type { ClinicalEntry } from "@/lib/types";
 import { ClinicalEntryForm } from "./clinical-entry-form";
@@ -12,8 +16,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 vi.mock("@/components/ui/rich-text-editor", () => ({
-  RichTextEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <textarea aria-label="editor" value={value} onChange={(e) => onChange(e.target.value)} />
+  RichTextEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+  }) => (
+    <textarea
+      aria-label="editor"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   ),
 }));
 
@@ -21,7 +35,10 @@ const SCOPE = "t1:u1";
 const KEY = buildDraftKey(SCOPE, "new:p1");
 const TICK = 16_000;
 
-type Save = (draftId: string | null, values: DraftValues) => Promise<DraftSaveResult>;
+type Save = (
+  draftId: string | null,
+  values: DraftValues,
+) => Promise<DraftSaveResult>;
 type Finalize = (
   draftId: string,
   prev: ClinicalEntryFormState,
@@ -31,7 +48,10 @@ type Finalize = (
 function renderForm(opts: {
   save: Save;
   finalize?: Finalize;
-  action?: (prev: ClinicalEntryFormState, fd: FormData) => Promise<ClinicalEntryFormState>;
+  action?: (
+    prev: ClinicalEntryFormState,
+    fd: FormData,
+  ) => Promise<ClinicalEntryFormState>;
   draftId?: string;
   initialValues?: Partial<ClinicalEntry>;
 }) {
@@ -41,7 +61,11 @@ function renderForm(opts: {
         action={opts.action ?? vi.fn().mockResolvedValue({})}
         draftKey="new:p1"
         initialValues={opts.initialValues as ClinicalEntry | undefined}
-        serverDraft={{ draftId: opts.draftId, save: opts.save, finalize: opts.finalize }}
+        serverDraft={{
+          draftId: opts.draftId,
+          save: opts.save,
+          finalize: opts.finalize,
+        }}
       />
     </DraftScopeProvider>,
   );
@@ -71,7 +95,9 @@ describe("ClinicalEntryForm — borrador en el servidor (solo altas)", () => {
   });
 
   it("el primer autoguardado crea el borrador y los siguientes lo actualizan", async () => {
-    const save = vi.fn<Save>().mockResolvedValue({ id: "d1", savedAt: new Date().toISOString() });
+    const save = vi
+      .fn<Save>()
+      .mockResolvedValue({ id: "d1", savedAt: new Date().toISOString() });
     renderForm({ save });
 
     write("Diagnóstico", "Otitis");
@@ -106,12 +132,21 @@ describe("ClinicalEntryForm — borrador en el servidor (solo altas)", () => {
   });
 
   it("si el servidor falla avisa y el borrador local sigue siendo la red de seguridad", async () => {
-    const save = vi.fn<Save>().mockResolvedValue({ sessionExpired: true, error: "Tu sesión ha caducado." });
+    const save = vi.fn<Save>().mockResolvedValue({
+      sessionExpired: true,
+      error: "Tu sesión ha caducado.",
+    });
     renderForm({ save });
     write("Diagnóstico", "Sinusitis");
     await tick();
-    expect(screen.getByText(/Tu sesión ha caducado: lo escrito se conserva en este dispositivo/)).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(KEY)!).fields.diagnosis).toBe("Sinusitis");
+    expect(
+      screen.getByText(
+        /Tu sesión ha caducado: lo escrito se conserva en este dispositivo/,
+      ),
+    ).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(KEY)!).fields.diagnosis).toBe(
+      "Sinusitis",
+    );
   });
 
   it("al abrir un borrador existente no se reenvía (no renueva su caducidad) hasta que se edita", async () => {
@@ -137,10 +172,13 @@ describe("ClinicalEntryForm — borrador en el servidor (solo altas)", () => {
 
   it("firmar tras crearse el borrador firma ESE borrador y no crea una consulta aparte", async () => {
     const save = vi.fn<Save>().mockResolvedValue({ id: "d1" });
-    const create = vi.fn().mockResolvedValue({ success: true, redirectTo: "/creada" });
-    const finalize = vi
-      .fn<Finalize>()
-      .mockResolvedValue({ success: true, redirectTo: "/patients/p1/clinical-entries/d1" });
+    const create = vi
+      .fn()
+      .mockResolvedValue({ success: true, redirectTo: "/creada" });
+    const finalize = vi.fn<Finalize>().mockResolvedValue({
+      success: true,
+      redirectTo: "/patients/p1/clinical-entries/d1",
+    });
     renderForm({ save, action: create, finalize });
 
     write("Diagnóstico", "Amigdalitis");
@@ -148,7 +186,9 @@ describe("ClinicalEntryForm — borrador en el servidor (solo altas)", () => {
 
     vi.useRealTimers();
     fireEvent.click(screen.getByRole("button", { name: "Guardar entrada" }));
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/patients/p1/clinical-entries/d1"));
+    await vi.waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/patients/p1/clinical-entries/d1"),
+    );
 
     expect(finalize).toHaveBeenCalledTimes(1);
     expect(finalize.mock.calls[0][0]).toBe("d1");
@@ -157,7 +197,9 @@ describe("ClinicalEntryForm — borrador en el servidor (solo altas)", () => {
 
   it("sin borrador previo, firmar crea la consulta directamente", async () => {
     const save = vi.fn<Save>();
-    const create = vi.fn().mockResolvedValue({ success: true, redirectTo: "/creada" });
+    const create = vi
+      .fn()
+      .mockResolvedValue({ success: true, redirectTo: "/creada" });
     const finalize = vi.fn<Finalize>();
     renderForm({ save, action: create, finalize });
 

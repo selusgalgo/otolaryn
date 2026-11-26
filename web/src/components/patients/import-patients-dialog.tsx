@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { FileDropzone } from "@/components/patients/file-dropzone";
@@ -13,7 +19,11 @@ import {
   previewPatientsImportAction,
   startImportPatientsAction,
 } from "@/lib/actions/patients";
-import type { ColumnMapping, ImportJobProgress, ImportPreview } from "@/lib/actions/patients";
+import type {
+  ColumnMapping,
+  ImportJobProgress,
+  ImportPreview,
+} from "@/lib/actions/patients";
 import type { AntecedenteType } from "@/lib/types";
 
 const ACCEPT =
@@ -170,7 +180,11 @@ export function ImportPatientsDialog({
         <DialogHeader>
           <DialogTitle>Importar pacientes</DialogTitle>
         </DialogHeader>
-        <form ref={formRef} className="grid gap-4" onSubmit={(e) => e.preventDefault()}>
+        <form
+          ref={formRef}
+          className="grid gap-4"
+          onSubmit={(e) => e.preventDefault()}
+        >
           <div className="space-y-2">
             <Label>Fichero</Label>
             <FileDropzone
@@ -183,14 +197,19 @@ export function ImportPatientsDialog({
             />
             {!preview && (
               <p className="text-xs text-muted-foreground">
-                Se leerán primero las columnas del fichero para que confirmes a qué campo corresponde
-                cada una — por ejemplo, un NUMHISTORIA de otro programa puede ser el Documento aquí.
+                Se leerán primero las columnas del fichero para que confirmes a
+                qué campo corresponde cada una — por ejemplo, un NUMHISTORIA de
+                otro programa puede ser el Documento aquí.
               </p>
             )}
           </div>
 
-          {previewLoading && <p className="text-sm text-muted-foreground">Leyendo el fichero…</p>}
-          {previewError && <p className="text-sm text-destructive">{previewError}</p>}
+          {previewLoading && (
+            <p className="text-sm text-muted-foreground">Leyendo el fichero…</p>
+          )}
+          {previewError && (
+            <p className="text-sm text-destructive">{previewError}</p>
+          )}
 
           {preview && (
             <ImportColumnMapping
@@ -206,16 +225,22 @@ export function ImportPatientsDialog({
             <div className="space-y-2 rounded-lg border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span>
-                  {progress.processedRows} de {progress.totalRows} filas procesadas
+                  {progress.processedRows} de {progress.totalRows} filas
+                  procesadas
                 </span>
                 <span className="text-muted-foreground">
                   {progress.totalRows > 0
-                    ? Math.round((progress.processedRows / progress.totalRows) * 100)
+                    ? Math.round(
+                        (progress.processedRows / progress.totalRows) * 100,
+                      )
                     : 0}
                   %
                 </span>
               </div>
-              <Progress value={progress.processedRows} max={progress.totalRows} />
+              <Progress
+                value={progress.processedRows}
+                max={progress.totalRows}
+              />
               {progress.status === "completed" && (
                 <>
                   <p>
@@ -225,8 +250,9 @@ export function ImportPatientsDialog({
                   {progress.skipped.length > 0 && (
                     <div className="space-y-1">
                       <p className="font-medium text-destructive">
-                        {progress.skipped.length} fila{progress.skipped.length === 1 ? "" : "s"}{" "}
-                        omitida{progress.skipped.length === 1 ? "" : "s"}:
+                        {progress.skipped.length} fila
+                        {progress.skipped.length === 1 ? "" : "s"} omitida
+                        {progress.skipped.length === 1 ? "" : "s"}:
                       </p>
                       <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                         {progress.skipped.map((s) => (
@@ -242,7 +268,9 @@ export function ImportPatientsDialog({
             </div>
           )}
 
-          {importError && <p className="text-sm text-destructive">{importError}</p>}
+          {importError && (
+            <p className="text-sm text-destructive">{importError}</p>
+          )}
 
           {preview && (
             <Button

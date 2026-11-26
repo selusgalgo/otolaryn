@@ -24,28 +24,51 @@ describe("userDisplayName", () => {
   const base = { firstName: "Ana", lastName: "Ruiz" };
 
   it("un profesional lleva el tratamiento", () => {
-    expect(userDisplayName({ ...base, role: "profesional", honorific: "Dra." })).toBe("Dra. Ana Ruiz");
+    expect(
+      userDisplayName({ ...base, role: "profesional", honorific: "Dra." }),
+    ).toBe("Dra. Ana Ruiz");
   });
 
   it("un administrador que también ejerce como médico lo lleva; uno solo administrador, no", () => {
-    expect(userDisplayName({ ...base, role: "admin", staffFunction: "profesional", honorific: "Dra." })).toBe(
-      "Dra. Ana Ruiz",
-    );
-    expect(userDisplayName({ ...base, role: "admin", staffFunction: null, honorific: "Dra." })).toBe("Ana Ruiz");
-    expect(userDisplayName({ ...base, role: "admin", staffFunction: "recepcion", honorific: "Dra." })).toBe(
-      "Ana Ruiz",
-    );
+    expect(
+      userDisplayName({
+        ...base,
+        role: "admin",
+        staffFunction: "profesional",
+        honorific: "Dra.",
+      }),
+    ).toBe("Dra. Ana Ruiz");
+    expect(
+      userDisplayName({
+        ...base,
+        role: "admin",
+        staffFunction: null,
+        honorific: "Dra.",
+      }),
+    ).toBe("Ana Ruiz");
+    expect(
+      userDisplayName({
+        ...base,
+        role: "admin",
+        staffFunction: "recepcion",
+        honorific: "Dra.",
+      }),
+    ).toBe("Ana Ruiz");
   });
 
   it("recepción nunca lo lleva, aunque tenga un tratamiento guardado", () => {
-    expect(userDisplayName({ ...base, role: "recepcion", honorific: "Dr." })).toBe("Ana Ruiz");
+    expect(
+      userDisplayName({ ...base, role: "recepcion", honorific: "Dr." }),
+    ).toBe("Ana Ruiz");
   });
 });
 
 describe("isDoctor", () => {
   it("coincide con quien ejerce como médico", () => {
     expect(isDoctor({ role: "profesional" })).toBe(true);
-    expect(isDoctor({ role: "admin", staffFunction: "profesional" })).toBe(true);
+    expect(isDoctor({ role: "admin", staffFunction: "profesional" })).toBe(
+      true,
+    );
     expect(isDoctor({ role: "admin", staffFunction: null })).toBe(false);
     expect(isDoctor({ role: "recepcion" })).toBe(false);
   });

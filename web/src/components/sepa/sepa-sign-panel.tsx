@@ -10,7 +10,10 @@ import type { SepaPublicFormState } from "@/lib/actions/sepa-public";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 import { cn } from "@/lib/utils";
 
-type FormAction = (prevState: SepaPublicFormState, formData: FormData) => Promise<SepaPublicFormState>;
+type FormAction = (
+  prevState: SepaPublicFormState,
+  formData: FormData,
+) => Promise<SepaPublicFormState>;
 
 interface SepaSignPanelProps {
   token: string;
@@ -47,9 +50,14 @@ function WebSignature({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-xl gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-xl gap-4"
+    >
       <div className="space-y-2">
-        <Label htmlFor="typedName">Escribe tu nombre completo para firmar</Label>
+        <Label htmlFor="typedName">
+          Escribe tu nombre completo para firmar
+        </Label>
         <Input
           id="typedName"
           name="typedName"
@@ -59,7 +67,8 @@ function WebSignature({
           placeholder={signerName}
         />
         <p className="text-xs text-muted-foreground">
-          Tal como aparece en «Firmante» del documento: <span className="font-medium">{signerName}</span>
+          Tal como aparece en «Firmante» del documento:{" "}
+          <span className="font-medium">{signerName}</span>
         </p>
       </div>
 
@@ -72,28 +81,37 @@ function WebSignature({
           className="mt-0.5 size-4 shrink-0 accent-primary"
         />
         <span>
-          He revisado la orden de domiciliación y autorizo a <span className="font-medium">{creditorName}</span> a
-          enviar instrucciones a mi banco para adeudar mi cuenta, y a mi banco a efectuar los adeudos según esas
-          instrucciones.
+          He revisado la orden de domiciliación y autorizo a{" "}
+          <span className="font-medium">{creditorName}</span> a enviar
+          instrucciones a mi banco para adeudar mi cuenta, y a mi banco a
+          efectuar los adeudos según esas instrucciones.
         </span>
       </label>
 
       <p className="text-xs text-muted-foreground">
-        Al firmar se guardan la fecha y hora, tu dirección IP y una huella del documento como prueba de tu
-        consentimiento.
+        Al firmar se guardan la fecha y hora, tu dirección IP y una huella del
+        documento como prueba de tu consentimiento.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Firmando..." : "Firmar la orden"}
         </Button>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
       </div>
     </form>
   );
 }
 
-function CertificateSignature({ token, action }: { token: string; action: FormAction }) {
+function CertificateSignature({
+  token,
+  action,
+}: {
+  token: string;
+  action: FormAction;
+}) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
@@ -109,8 +127,9 @@ function CertificateSignature({ token, action }: { token: string; action: FormAc
           </Button>
         </li>
         <li>
-          Fírmalo con tu certificado digital (por ejemplo con AutoFirma o Adobe Acrobat), colocando la firma en el
-          recuadro «Firma del deudor». No modifiques nada más.
+          Fírmalo con tu certificado digital (por ejemplo con AutoFirma o Adobe
+          Acrobat), colocando la firma en el recuadro «Firma del deudor». No
+          modifiques nada más.
         </li>
         <li>Sube aquí el PDF ya firmado:</li>
       </ol>
@@ -128,7 +147,9 @@ function CertificateSignature({ token, action }: { token: string; action: FormAc
         <Button type="submit" disabled={pending}>
           {pending ? "Enviando..." : "Enviar PDF firmado"}
         </Button>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
       </div>
     </form>
   );
@@ -145,7 +166,11 @@ export function SepaSignPanel({
 
   return (
     <div className="space-y-5">
-      <div role="tablist" aria-label="Forma de firma" className="grid gap-2 sm:grid-cols-2">
+      <div
+        role="tablist"
+        aria-label="Forma de firma"
+        className="grid gap-2 sm:grid-cols-2"
+      >
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -155,18 +180,26 @@ export function SepaSignPanel({
             onClick={() => setMethod(tab.id)}
             className={cn(
               "rounded-lg border p-3 text-left transition-colors",
-              method === tab.id ? "border-primary bg-primary-tint" : "hover:bg-muted/50",
+              method === tab.id
+                ? "border-primary bg-primary-tint"
+                : "hover:bg-muted/50",
             )}
           >
             <span className="block text-sm font-semibold">{tab.label}</span>
-            <span className="block text-xs text-muted-foreground">{tab.hint}</span>
+            <span className="block text-xs text-muted-foreground">
+              {tab.hint}
+            </span>
           </button>
         ))}
       </div>
 
       <div role="tabpanel">
         {method === "web" ? (
-          <WebSignature signerName={signerName} creditorName={creditorName} action={signWebAction} />
+          <WebSignature
+            signerName={signerName}
+            creditorName={creditorName}
+            action={signWebAction}
+          />
         ) : (
           <CertificateSignature token={token} action={signCertificateAction} />
         )}

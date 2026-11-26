@@ -6,9 +6,19 @@ import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { Card, CardContent } from "@/components/ui/card";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { CalendarAppointment } from "@/lib/actions/appointments";
-import { WEEKDAYS, buildGrid, formatMonthLabel, parseDateKey, toDateKey } from "@/lib/calendar-grid";
+import {
+  WEEKDAYS,
+  buildGrid,
+  formatMonthLabel,
+  parseDateKey,
+  toDateKey,
+} from "@/lib/calendar-grid";
 import { clinicDateInputValue } from "@/lib/clinic-time";
 import {
   OCCUPANCY_LEGEND,
@@ -55,7 +65,11 @@ interface OccupancyCalendarProps {
 }
 
 function formatDayHeading(date: Date): string {
-  const label = date.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  const label = date.toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 }
 
@@ -66,7 +80,12 @@ function formatDayHeading(date: Date): string {
 // show no slots there today).
 type TimeOfDay = "morning" | "midday" | "afternoon";
 
-const TIME_OF_DAY_FILTERS: { key: TimeOfDay; label: string; from: number; to: number }[] = [
+const TIME_OF_DAY_FILTERS: {
+  key: TimeOfDay;
+  label: string;
+  from: number;
+  to: number;
+}[] = [
   { key: "morning", label: "Mañana", from: 0, to: 12 * 60 },
   { key: "midday", label: "Mediodía", from: 12 * 60, to: 16 * 60 },
   { key: "afternoon", label: "Tarde", from: 16 * 60, to: 24 * 60 },
@@ -125,7 +144,9 @@ export function OccupancyCalendar({
   // null, so switching profesional in the side panel — a full navigation,
   // which would otherwise silently close whatever day you had open — lands
   // back on that same day already open.
-  const [openDayKey, setOpenDayKey] = useState<string | null>(initialOpenDayKey ?? null);
+  const [openDayKey, setOpenDayKey] = useState<string | null>(
+    initialOpenDayKey ?? null,
+  );
   // A practitioner switch is a Link, not a hard reload — Next's router
   // keeps this same component instance mounted and just hands it new
   // props, so useState's initializer above only ever ran once, back when
@@ -140,7 +161,10 @@ export function OccupancyCalendar({
   useEffect(() => {
     if (initialOpenDayKey) setOpenDayKey(initialOpenDayKey);
   }, [initialOpenDayKey, practitionerId]);
-  const [quickBook, setQuickBook] = useState<{ date: string; time: string } | null>(null);
+  const [quickBook, setQuickBook] = useState<{
+    date: string;
+    time: string;
+  } | null>(null);
   // Shared across whichever day's popover is open — picking "Tarde" once
   // and then browsing to the next day keeps that same narrowing instead of
   // resetting it every time a different day is clicked.
@@ -150,7 +174,8 @@ export function OccupancyCalendar({
     const qs = new URLSearchParams();
     qs.set("from", dayKey);
     qs.set("to", dayKey);
-    if (selectedPractitionerId) qs.set("practitionerId", selectedPractitionerId);
+    if (selectedPractitionerId)
+      qs.set("practitionerId", selectedPractitionerId);
     return `/appointments?${qs.toString()}`;
   }
 
@@ -178,7 +203,8 @@ export function OccupancyCalendar({
     const qs = new URLSearchParams();
     qs.set("from", toDateKey(new Date(y, m, 1)));
     qs.set("to", toDateKey(new Date(y, m + 1, 0)));
-    if (selectedPractitionerId) qs.set("practitionerId", selectedPractitionerId);
+    if (selectedPractitionerId)
+      qs.set("practitionerId", selectedPractitionerId);
     return `/appointments?${qs.toString()}`;
   }
 
@@ -276,7 +302,11 @@ export function OccupancyCalendar({
               // always had, instead of a popover with nothing useful in it.
               if (!showOccupancy) {
                 return (
-                  <Link key={key} href={dayHref(key)} className={cn(dayButtonClassName, "text-center")}>
+                  <Link
+                    key={key}
+                    href={dayHref(key)}
+                    className={cn(dayButtonClassName, "text-center")}
+                  >
                     {cell.date.getDate()}
                   </Link>
                 );
@@ -299,18 +329,26 @@ export function OccupancyCalendar({
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      title={OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label}
+                      title={
+                        OCCUPANCY_LEGEND.find((l) => l.key === occupancy)?.label
+                      }
                       className={dayButtonClassName}
                     >
                       {cell.date.getDate()}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64">
-                    <p className="mb-2 text-sm font-medium">{formatDayHeading(cell.date)}</p>
+                    <p className="mb-2 text-sm font-medium">
+                      {formatDayHeading(cell.date)}
+                    </p>
                     {occupancy === "closed" ? (
-                      <p className="text-sm text-muted-foreground">La clínica no atiende este día.</p>
+                      <p className="text-sm text-muted-foreground">
+                        La clínica no atiende este día.
+                      </p>
                     ) : freeSlots.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No quedan huecos libres este día.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No quedan huecos libres este día.
+                      </p>
                     ) : (
                       <>
                         <div className="mb-2 flex gap-1.5">
@@ -318,7 +356,11 @@ export function OccupancyCalendar({
                             <button
                               key={f.key}
                               type="button"
-                              onClick={() => setTimeFilter(timeFilter === f.key ? null : f.key)}
+                              onClick={() =>
+                                setTimeFilter(
+                                  timeFilter === f.key ? null : f.key,
+                                )
+                              }
                               className={cn(
                                 "rounded-full border px-2.5 py-1 text-xs transition-colors",
                                 timeFilter === f.key
@@ -331,15 +373,20 @@ export function OccupancyCalendar({
                           ))}
                         </div>
                         {(() => {
-                          const activeFilter = TIME_OF_DAY_FILTERS.find((f) => f.key === timeFilter);
+                          const activeFilter = TIME_OF_DAY_FILTERS.find(
+                            (f) => f.key === timeFilter,
+                          );
                           const visibleSlots = activeFilter
                             ? freeSlots.filter(
-                                (time) => minutesOf(time) >= activeFilter.from && minutesOf(time) < activeFilter.to,
+                                (time) =>
+                                  minutesOf(time) >= activeFilter.from &&
+                                  minutesOf(time) < activeFilter.to,
                               )
                             : freeSlots;
                           return visibleSlots.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
-                              Ningún hueco por {activeFilter?.label.toLowerCase()} este día.
+                              Ningún hueco por{" "}
+                              {activeFilter?.label.toLowerCase()} este día.
                             </p>
                           ) : (
                             <div className="flex flex-wrap gap-1.5">
@@ -448,10 +495,17 @@ export function OccupancyCalendar({
                       : "border-input bg-background hover:bg-muted",
                   )}
                 >
-                  <InitialsAvatar firstName={firstName} lastName={lastName} size="sm" variant="doctor" />
+                  <InitialsAvatar
+                    firstName={firstName}
+                    lastName={lastName}
+                    size="sm"
+                    variant="doctor"
+                  />
                   <span className="flex-1 truncate">{p.label}</span>
                   <span
-                    title={OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.label}
+                    title={
+                      OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.label
+                    }
                     className={cn(
                       "size-2.5 shrink-0 rounded-full",
                       OCCUPANCY_LEGEND.find((l) => l.key === dotStatus)?.swatch,

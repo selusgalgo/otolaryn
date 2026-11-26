@@ -1,26 +1,54 @@
 "use client";
 
-import { createContext, useActionState, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useActionState,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_LABELS } from "@/lib/appointment-status";
-import { getAppointmentDefaultDurationAction, getNextFreeSlotsAction } from "@/lib/actions/appointments";
+import {
+  APPOINTMENT_STATUSES,
+  APPOINTMENT_STATUS_LABELS,
+} from "@/lib/appointment-status";
+import {
+  getAppointmentDefaultDurationAction,
+  getNextFreeSlotsAction,
+} from "@/lib/actions/appointments";
 import type { AppointmentFormState } from "@/lib/actions/appointments";
-import { clinicDateInputValue, clinicLocalToUtcIso, clinicTimeInputValue, formatInClinicTimeZone } from "@/lib/clinic-time";
+import {
+  clinicDateInputValue,
+  clinicLocalToUtcIso,
+  clinicTimeInputValue,
+  formatInClinicTimeZone,
+} from "@/lib/clinic-time";
 import type { PractitionerOption } from "@/lib/practitioners";
 import type { Appointment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
-import { useFormDirtyState, useUnsavedChangesWarning } from "@/lib/unsaved-changes";
+import {
+  useFormDirtyState,
+  useUnsavedChangesWarning,
+} from "@/lib/unsaved-changes";
 import { focusFirstFieldError } from "@/lib/form-errors";
 import { toast } from "sonner";
 
 interface AppointmentFormProps {
-  action: (prevState: AppointmentFormState, formData: FormData) => Promise<AppointmentFormState>;
+  action: (
+    prevState: AppointmentFormState,
+    formData: FormData,
+  ) => Promise<AppointmentFormState>;
   initialValues?: Appointment;
   submitLabel: string;
   // Pre-rendered JSX, not a component reference — this form can be used
@@ -79,7 +107,9 @@ interface AppointmentFormProps {
 
 const initialState: AppointmentFormState = {};
 
-export const AppointmentFieldErrorsContext = createContext<Record<string, string>>({});
+export const AppointmentFieldErrorsContext = createContext<
+  Record<string, string>
+>({});
 
 export function useAppointmentFieldErrors(): Record<string, string> {
   return useContext(AppointmentFieldErrorsContext);
@@ -99,8 +129,15 @@ const toDateInputValue = clinicDateInputValue;
 const toTimeInputValue = clinicTimeInputValue;
 
 function formatSlotLabel(iso: string): string {
-  const datePart = formatInClinicTimeZone(iso, { weekday: "short", day: "numeric", month: "short" });
-  const timePart = formatInClinicTimeZone(iso, { hour: "2-digit", minute: "2-digit" });
+  const datePart = formatInClinicTimeZone(iso, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const timePart = formatInClinicTimeZone(iso, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return `${datePart} · ${timePart}`;
 }
 
@@ -142,7 +179,9 @@ export function AppointmentForm({
   // red-text error styling used everywhere else (e.g. login), and behaves
   // inconsistently across browsers/mobile. `noValidate` on the <form>
   // below turns that off in favor of this explicit, visible check.
-  const [clientFieldErrors, setClientFieldErrors] = useState<Record<string, string>>({});
+  const [clientFieldErrors, setClientFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const fieldErrors = { ...(state.fieldErrors ?? {}), ...clientFieldErrors };
   const onSuccessRef = useRef(onSuccess);
   useEffect(() => {
@@ -176,17 +215,26 @@ export function AppointmentForm({
   function validateBeforeSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (needsPractitionerFirst && !practitionerId) {
       e.preventDefault();
-      setClientFieldErrors({ practitionerId: "Selecciona un profesional antes de guardar." });
+      setClientFieldErrors({
+        practitionerId: "Selecciona un profesional antes de guardar.",
+      });
       document.getElementById("practitionerId")?.focus();
       return;
     }
     if (!dateInputRef.current?.value || !timeInputRef.current?.value) {
       e.preventDefault();
       setClientFieldErrors({
-        ...(!dateInputRef.current?.value ? { date: "Indica la fecha de la cita." } : {}),
-        ...(!timeInputRef.current?.value ? { time: "Indica la hora de la cita." } : {}),
+        ...(!dateInputRef.current?.value
+          ? { date: "Indica la fecha de la cita." }
+          : {}),
+        ...(!timeInputRef.current?.value
+          ? { time: "Indica la hora de la cita." }
+          : {}),
       });
-      (dateInputRef.current?.value ? timeInputRef.current : dateInputRef.current)?.focus();
+      (dateInputRef.current?.value
+        ? timeInputRef.current
+        : dateInputRef.current
+      )?.focus();
       return;
     }
     setClientFieldErrors({});
@@ -194,7 +242,8 @@ export function AppointmentForm({
   }
 
   const showSuggestions = suggestSlots && !initialValues;
-  const canFetchSuggestions = showSuggestions && (!needsPractitionerFirst || practitionerId !== "");
+  const canFetchSuggestions =
+    showSuggestions && (!needsPractitionerFirst || practitionerId !== "");
   const [suggestedSlots, setSuggestedSlots] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -202,27 +251,43 @@ export function AppointmentForm({
       captureBaseline();
       const date = dateInputRef.current?.value;
       const time = timeInputRef.current?.value;
-      const nameInput = formRef.current?.elements.namedItem("patientDisplayName");
-      const patientName = confirmationPatientName
-        || (nameInput instanceof HTMLInputElement ? nameInput.value : "");
-      const dateTime = date && time
-        ? formatInClinicTimeZone(clinicLocalToUtcIso(date, time), { dateStyle: "medium", timeStyle: "short" })
-        : "";
+      const nameInput =
+        formRef.current?.elements.namedItem("patientDisplayName");
+      const patientName =
+        confirmationPatientName ||
+        (nameInput instanceof HTMLInputElement ? nameInput.value : "");
+      const dateTime =
+        date && time
+          ? formatInClinicTimeZone(clinicLocalToUtcIso(date, time), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "";
       const confirmation = initialValues ? "Cita actualizada" : "Cita creada";
-      toast.success(`${confirmation}${patientName ? ` para ${patientName}` : ""}${dateTime ? ` · ${dateTime}` : ""}.`);
+      toast.success(
+        `${confirmation}${patientName ? ` para ${patientName}` : ""}${dateTime ? ` · ${dateTime}` : ""}.`,
+      );
       onSuccessRef.current?.();
     }
   }, [state, confirmationPatientName, initialValues, captureBaseline, formRef]);
 
   useEffect(() => {
-    focusFirstFieldError(formRef.current, { ...(state.fieldErrors ?? {}), ...clientFieldErrors });
+    focusFirstFieldError(formRef.current, {
+      ...(state.fieldErrors ?? {}),
+      ...clientFieldErrors,
+    });
   }, [state.fieldErrors, clientFieldErrors, formRef]);
 
   useEffect(() => {
     if (!canFetchSuggestions || !duration) return;
     let cancelled = false;
     setSuggestedSlots(null);
-    getNextFreeSlotsAction(defaultDate, 5, practitionerId || undefined, duration).then((slots) => {
+    getNextFreeSlotsAction(
+      defaultDate,
+      5,
+      practitionerId || undefined,
+      duration,
+    ).then((slots) => {
       if (!cancelled) setSuggestedSlots(slots);
     });
     return () => {
@@ -258,8 +323,10 @@ export function AppointmentForm({
   }, [duration, rebaseFields]);
 
   function applySlot(iso: string) {
-    if (dateInputRef.current) dateInputRef.current.value = toDateInputValue(iso);
-    if (timeInputRef.current) timeInputRef.current.value = toTimeInputValue(iso);
+    if (dateInputRef.current)
+      dateInputRef.current.value = toDateInputValue(iso);
+    if (timeInputRef.current)
+      timeInputRef.current.value = toTimeInputValue(iso);
     scheduleRefresh();
   }
 
@@ -280,7 +347,9 @@ export function AppointmentForm({
         disabled={pending}
         className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
         aria-invalid={!!fieldErrors.practitionerId}
-        aria-describedby={fieldErrors.practitionerId ? "practitionerId-error" : undefined}
+        aria-describedby={
+          fieldErrors.practitionerId ? "practitionerId-error" : undefined
+        }
       >
         <option value="" disabled>
           Selecciona un profesional
@@ -291,7 +360,11 @@ export function AppointmentForm({
           </option>
         ))}
       </select>
-      {fieldErrors.practitionerId && <p id="practitionerId-error" className="text-xs text-destructive">{fieldErrors.practitionerId}</p>}
+      {fieldErrors.practitionerId && (
+        <p id="practitionerId-error" className="text-xs text-destructive">
+          {fieldErrors.practitionerId}
+        </p>
+      )}
     </div>
   );
 
@@ -303,7 +376,9 @@ export function AppointmentForm({
           Selecciona un profesional para ver sus horarios libres.
         </p>
       ) : suggestedSlots === null ? (
-        <p className="text-sm text-muted-foreground">Buscando horarios libres…</p>
+        <p className="text-sm text-muted-foreground">
+          Buscando horarios libres…
+        </p>
       ) : suggestedSlots.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No se encontraron horarios libres en las próximas dos semanas.
@@ -335,13 +410,21 @@ export function AppointmentForm({
           id="date"
           name="date"
           type="date"
-          defaultValue={initialValues ? toDateInputValue(initialValues.scheduledAt) : defaultDate}
+          defaultValue={
+            initialValues
+              ? toDateInputValue(initialValues.scheduledAt)
+              : defaultDate
+          }
           required
           disabled={pending}
           aria-invalid={!!fieldErrors.date}
           aria-describedby={fieldErrors.date ? "date-error" : undefined}
         />
-        {fieldErrors.date && <p id="date-error" className="text-xs text-destructive">{fieldErrors.date}</p>}
+        {fieldErrors.date && (
+          <p id="date-error" className="text-xs text-destructive">
+            {fieldErrors.date}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="time">Hora</Label>
@@ -350,13 +433,21 @@ export function AppointmentForm({
           id="time"
           name="time"
           type="time"
-          defaultValue={initialValues ? toTimeInputValue(initialValues.scheduledAt) : defaultTime}
+          defaultValue={
+            initialValues
+              ? toTimeInputValue(initialValues.scheduledAt)
+              : defaultTime
+          }
           required
           disabled={pending}
           aria-invalid={!!fieldErrors.time}
           aria-describedby={fieldErrors.time ? "time-error" : undefined}
         />
-        {fieldErrors.time && <p id="time-error" className="text-xs text-destructive">{fieldErrors.time}</p>}
+        {fieldErrors.time && (
+          <p id="time-error" className="text-xs text-destructive">
+            {fieldErrors.time}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -378,9 +469,15 @@ export function AppointmentForm({
         }}
         disabled={pending}
         aria-invalid={!!fieldErrors.durationMinutes}
-        aria-describedby={fieldErrors.durationMinutes ? "durationMinutes-error" : undefined}
+        aria-describedby={
+          fieldErrors.durationMinutes ? "durationMinutes-error" : undefined
+        }
       />
-      {fieldErrors.durationMinutes && <p id="durationMinutes-error" className="text-xs text-destructive">{fieldErrors.durationMinutes}</p>}
+      {fieldErrors.durationMinutes && (
+        <p id="durationMinutes-error" className="text-xs text-destructive">
+          {fieldErrors.durationMinutes}
+        </p>
+      )}
     </div>
   );
 
@@ -402,7 +499,11 @@ export function AppointmentForm({
           </option>
         ))}
       </select>
-      {fieldErrors.status && <p id="status-error" className="text-xs text-destructive">{fieldErrors.status}</p>}
+      {fieldErrors.status && (
+        <p id="status-error" className="text-xs text-destructive">
+          {fieldErrors.status}
+        </p>
+      )}
     </div>
   );
 
@@ -423,24 +524,59 @@ export function AppointmentForm({
         <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-open:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2">
-        <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} aria-invalid={!!fieldErrors.notes} aria-describedby={fieldErrors.notes ? "notes-error" : undefined} />
-        {fieldErrors.notes && <p id="notes-error" className="text-xs text-destructive">{fieldErrors.notes}</p>}
+        <Textarea
+          id="notes"
+          name="notes"
+          defaultValue={initialValues?.notes ?? ""}
+          disabled={pending}
+          rows={2}
+          aria-invalid={!!fieldErrors.notes}
+          aria-describedby={fieldErrors.notes ? "notes-error" : undefined}
+        />
+        {fieldErrors.notes && (
+          <p id="notes-error" className="text-xs text-destructive">
+            {fieldErrors.notes}
+          </p>
+        )}
       </CollapsibleContent>
     </Collapsible>
   ) : (
     <div className="space-y-2">
       <Label htmlFor="notes">Notas</Label>
-      <Textarea id="notes" name="notes" defaultValue={initialValues?.notes ?? ""} disabled={pending} rows={2} aria-invalid={!!fieldErrors.notes} aria-describedby={fieldErrors.notes ? "notes-error" : undefined} />
-      {fieldErrors.notes && <p id="notes-error" className="text-xs text-destructive">{fieldErrors.notes}</p>}
+      <Textarea
+        id="notes"
+        name="notes"
+        defaultValue={initialValues?.notes ?? ""}
+        disabled={pending}
+        rows={2}
+        aria-invalid={!!fieldErrors.notes}
+        aria-describedby={fieldErrors.notes ? "notes-error" : undefined}
+      />
+      {fieldErrors.notes && (
+        <p id="notes-error" className="text-xs text-destructive">
+          {fieldErrors.notes}
+        </p>
+      )}
     </div>
   );
 
   const footer = (
-    <div className={cn("flex items-center gap-4", columns && "justify-between border-t pt-4")}>
-      {state.error && (
-        <p className="text-sm text-destructive" role="alert">{state.error}</p>
+    <div
+      className={cn(
+        "flex items-center gap-4",
+        columns && "justify-between border-t pt-4",
       )}
-      <Button type="submit" disabled={pending} className={cn("w-fit", columns && "ml-auto")}>
+    >
+      {state.error && (
+        <p className="text-sm text-destructive" role="alert">
+          {state.error}
+        </p>
+      )}
+      <Button
+        type="submit"
+        disabled={pending}
+        className={cn("w-fit", columns && "ml-auto")}
+      >
         {pending ? (
           "Guardando..."
         ) : (

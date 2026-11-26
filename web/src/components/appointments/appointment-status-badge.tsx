@@ -11,7 +11,11 @@ const STATUS_STYLES: Record<AppointmentStatus, string> = {
   no_show: "bg-slate-100 text-slate-700",
 };
 
-export function AppointmentStatusBadge({ status }: { status: AppointmentStatus }) {
+export function AppointmentStatusBadge({
+  status,
+}: {
+  status: AppointmentStatus;
+}) {
   return (
     <span
       className={cn(

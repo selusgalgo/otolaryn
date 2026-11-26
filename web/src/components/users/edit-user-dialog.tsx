@@ -2,7 +2,12 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserFormState } from "@/lib/actions/users";
@@ -22,8 +27,14 @@ const initialState: UserFormState = {};
 
 interface EditUserDialogProps {
   user: AppUser;
-  updateAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
-  resetPasswordAction: (prevState: UserFormState, formData: FormData) => Promise<UserFormState>;
+  updateAction: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
+  resetPasswordAction: (
+    prevState: UserFormState,
+    formData: FormData,
+  ) => Promise<UserFormState>;
   // Opened from the row's ⋮ menu (see UserRowActions) rather than its own
   // trigger button, so the menu and this dialog can share one place to
   // close from.
@@ -46,9 +57,14 @@ export function EditUserDialog({
   onOpenChange,
 }: EditUserDialogProps) {
   const [role, setRole] = useState<string>(user.role);
-  const [staffFunction, setStaffFunction] = useState<string>(user.staffFunction ?? "");
+  const [staffFunction, setStaffFunction] = useState<string>(
+    user.staffFunction ?? "",
+  );
   const [honorific, setHonorific] = useState<string>(user.honorific ?? "Dr.");
-  const [dataState, dataFormAction, dataPending] = useActionState(updateAction, initialState);
+  const [dataState, dataFormAction, dataPending] = useActionState(
+    updateAction,
+    initialState,
+  );
   const [passwordState, passwordFormAction, passwordPending] = useActionState(
     resetPasswordAction,
     initialState,
@@ -80,9 +96,7 @@ export function EditUserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            Editar {userDisplayName(user)}
-          </DialogTitle>
+          <DialogTitle>Editar {userDisplayName(user)}</DialogTitle>
         </DialogHeader>
 
         <form action={dataFormAction} className="grid gap-4">
@@ -204,8 +218,12 @@ export function EditUserDialog({
               </select>
             </div>
           )}
-          {dataState.error && <p className="text-sm text-destructive">{dataState.error}</p>}
-          {dataState.success && <p className="text-sm text-success">Datos actualizados.</p>}
+          {dataState.error && (
+            <p className="text-sm text-destructive">{dataState.error}</p>
+          )}
+          {dataState.success && (
+            <p className="text-sm text-success">Datos actualizados.</p>
+          )}
           <Button type="submit" disabled={dataPending} className="w-fit">
             {dataPending ? "Guardando..." : "Guardar cambios"}
           </Button>
@@ -213,7 +231,11 @@ export function EditUserDialog({
 
         <div className="border-t pt-4">
           <h3 className="mb-3 text-sm font-medium">Restablecer contraseña</h3>
-          <form ref={passwordFormRef} action={passwordFormAction} className="grid gap-4">
+          <form
+            ref={passwordFormRef}
+            action={passwordFormAction}
+            className="grid gap-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Contraseña nueva</Label>
@@ -246,7 +268,12 @@ export function EditUserDialog({
             {passwordState.success && (
               <p className="text-sm text-success">Contraseña restablecida.</p>
             )}
-            <Button type="submit" variant="outline" disabled={passwordPending} className="w-fit">
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={passwordPending}
+              className="w-fit"
+            >
               {passwordPending ? "Restableciendo..." : "Restablecer contraseña"}
             </Button>
           </form>

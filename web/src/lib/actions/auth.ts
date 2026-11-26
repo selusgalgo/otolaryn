@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { homeForRole } from "@/lib/auth";
 import { safeRedirectTarget } from "@/lib/safe-redirect";
-import { clearSessionToken, getDeviceToken, setSessionToken } from "@/lib/session";
+import {
+  clearSessionToken,
+  getDeviceToken,
+  setSessionToken,
+} from "@/lib/session";
 import type { Me } from "@/lib/types";
 
 export interface LoginState {
@@ -15,7 +19,10 @@ interface LoginResponse {
   accessToken: string;
 }
 
-export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
+export async function loginAction(
+  _prevState: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
   // Email or username — the backend checks both columns (AuthService.login).
   const identifier = String(formData.get("identifier") ?? "");
   const password = String(formData.get("password") ?? "");

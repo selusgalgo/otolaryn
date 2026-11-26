@@ -54,7 +54,10 @@ export class WhatsappDeliveryService {
       [messageHash],
     );
     if (rows.length) {
-      if (rows[0].phone_hash !== phoneHash || rows[0].content_hash !== contentHash)
+      if (
+        rows[0].phone_hash !== phoneHash ||
+        rows[0].content_hash !== contentHash
+      )
         throw new ConflictException('Identificador de mensaje ya utilizado');
       return { prepared: true, duplicate: true };
     }

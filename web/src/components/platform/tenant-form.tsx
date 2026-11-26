@@ -8,7 +8,10 @@ import type { TenantFormState } from "@/lib/actions/platform";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
 interface TenantFormProps {
-  action: (prevState: TenantFormState, formData: FormData) => Promise<TenantFormState>;
+  action: (
+    prevState: TenantFormState,
+    formData: FormData,
+  ) => Promise<TenantFormState>;
   submitLabel: string;
   submitIcon?: React.ReactNode;
   onSuccess?: () => void;
@@ -16,7 +19,12 @@ interface TenantFormProps {
 
 const initialState: TenantFormState = {};
 
-export function TenantForm({ action, submitLabel, submitIcon, onSuccess }: TenantFormProps) {
+export function TenantForm({
+  action,
+  submitLabel,
+  submitIcon,
+  onSuccess,
+}: TenantFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
   useEffect(() => {
@@ -24,7 +32,10 @@ export function TenantForm({ action, submitLabel, submitIcon, onSuccess }: Tenan
   }, [state.success, onSuccess]);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-lg gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-lg gap-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la clínica</Label>
         <Input id="name" name="name" required disabled={pending} />
@@ -35,20 +46,43 @@ export function TenantForm({ action, submitLabel, submitIcon, onSuccess }: Tenan
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="adminFirstName">Nombre del admin</Label>
-          <Input id="adminFirstName" name="adminFirstName" required disabled={pending} />
+          <Input
+            id="adminFirstName"
+            name="adminFirstName"
+            required
+            disabled={pending}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="adminLastName">Apellidos del admin</Label>
-          <Input id="adminLastName" name="adminLastName" required disabled={pending} />
+          <Input
+            id="adminLastName"
+            name="adminLastName"
+            required
+            disabled={pending}
+          />
         </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="adminEmail">Email del admin</Label>
-        <Input id="adminEmail" name="adminEmail" type="email" required disabled={pending} />
+        <Input
+          id="adminEmail"
+          name="adminEmail"
+          type="email"
+          required
+          disabled={pending}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="adminPassword">Contraseña inicial del admin</Label>
-        <Input id="adminPassword" name="adminPassword" type="password" minLength={8} required disabled={pending} />
+        <Input
+          id="adminPassword"
+          name="adminPassword"
+          type="password"
+          minLength={8}
+          required
+          disabled={pending}
+        />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">

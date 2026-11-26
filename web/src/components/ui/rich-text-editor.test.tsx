@@ -9,11 +9,16 @@ async function renderEditor(value: string) {
   const onChange = vi.fn<(html: string) => void>();
   render(<RichTextEditor value={value} onChange={onChange} />);
   // Tiptap monta el editor después del primer render (immediatelyRender: false).
-  await waitFor(() => expect(document.querySelector(".ProseMirror")).not.toBeNull());
+  await waitFor(() =>
+    expect(document.querySelector(".ProseMirror")).not.toBeNull(),
+  );
   return onChange;
 }
 
-async function choose(user: ReturnType<typeof userEvent.setup>, option: string) {
+async function choose(
+  user: ReturnType<typeof userEvent.setup>,
+  option: string,
+) {
   await user.click(screen.getByRole("button", { name: "Encabezados" }));
   await user.click(screen.getByRole("menuitem", { name: option }));
 }
@@ -21,10 +26,22 @@ async function choose(user: ReturnType<typeof userEvent.setup>, option: string) 
 describe("RichTextEditor — barra de herramientas", () => {
   it("ya no enseña H1/H2/H3 y sí «Encabezados», con los nombres en cada botón", async () => {
     await renderEditor("<p>Hola</p>");
-    for (const sigla of ["H1", "H2", "H3"]) expect(screen.queryByText(sigla)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Encabezados" })).toBeInTheDocument();
-    for (const name of ["Negrita", "Cursiva", "Lista con viñetas", "Lista numerada", "Cita"]) {
-      expect(screen.getByRole("button", { name })).toHaveAttribute("title", name);
+    for (const sigla of ["H1", "H2", "H3"])
+      expect(screen.queryByText(sigla)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Encabezados" }),
+    ).toBeInTheDocument();
+    for (const name of [
+      "Negrita",
+      "Cursiva",
+      "Lista con viñetas",
+      "Lista numerada",
+      "Cita",
+    ]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute(
+        "title",
+        name,
+      );
     }
   });
 

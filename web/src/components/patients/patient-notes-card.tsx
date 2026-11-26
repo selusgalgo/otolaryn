@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { updatePatientNotesAction, type PatientFormState } from "@/lib/actions/patients";
+import {
+  updatePatientNotesAction,
+  type PatientFormState,
+} from "@/lib/actions/patients";
 import { toast } from "sonner";
 import {
   confirmDiscardUnsavedChanges,
@@ -26,7 +29,10 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
   const draftRef = useRef(draft);
   const isDirty = draft !== (notes ?? "");
   const boundUpdate = updatePatientNotesAction.bind(null, patientId);
-  const [state, formAction, pending] = useActionState(boundUpdate, initialState);
+  const [state, formAction, pending] = useActionState(
+    boundUpdate,
+    initialState,
+  );
   useUnsavedChangesWarning(editing && isDirty);
 
   useEffect(() => {
@@ -37,7 +43,8 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
   }, [state]);
 
   function cancelEditing() {
-    if (!confirmDiscardUnsavedChanges(draftRef.current !== (notes ?? ""))) return;
+    if (!confirmDiscardUnsavedChanges(draftRef.current !== (notes ?? "")))
+      return;
     setEditing(false);
   }
 
@@ -72,8 +79,16 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
               }}
               disabled={pending}
             />
-            {state.fieldErrors?.notes && <p className="text-xs text-destructive">{state.fieldErrors.notes}</p>}
-            {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+            {state.fieldErrors?.notes && (
+              <p className="text-xs text-destructive">
+                {state.fieldErrors.notes}
+              </p>
+            )}
+            {state.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {state.error}
+              </p>
+            )}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={pending}>
                 {pending ? "Guardando..." : "Guardar"}
@@ -90,7 +105,10 @@ export function PatientNotesCard({ patientId, notes }: PatientNotesCardProps) {
             </div>
           </form>
         ) : (
-          <RichTextContent html={notes} emptyText="Sin historia clínica todavía." />
+          <RichTextContent
+            html={notes}
+            emptyText="Sin historia clínica todavía."
+          />
         )}
       </CardContent>
     </Card>

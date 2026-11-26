@@ -3,10 +3,19 @@
 import { useState } from "react";
 import { PencilIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ClinicalEntryForm } from "@/components/clinical-entries/clinical-entry-form";
 import { updateClinicalEntryAction } from "@/lib/actions/clinical-entries";
-import type { ConsultationField, ConsultationTemplate } from "@/lib/consultation-template";
+import type {
+  ConsultationField,
+  ConsultationTemplate,
+} from "@/lib/consultation-template";
 import type { ClinicalEntry } from "@/lib/types";
 
 // admin y profesional (el backend ya 403 a recepcion — ver
@@ -24,7 +33,11 @@ export function EditClinicalEntryDialog({
   referringDoctorSuggestions?: string[];
 }) {
   const [open, setOpen] = useState(false);
-  const boundAction = updateClinicalEntryAction.bind(null, entry.patientId, entry.id);
+  const boundAction = updateClinicalEntryAction.bind(
+    null,
+    entry.patientId,
+    entry.id,
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

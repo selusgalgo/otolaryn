@@ -9,12 +9,23 @@ import type { ScheduleFormState } from "@/lib/actions/settings";
 import type { DaySchedule, TimeSlot } from "@/lib/types";
 import { keepValuesOnSubmit } from "@/lib/form-submit";
 
-const WEEKDAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const WEEKDAY_LABELS = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
 
 const DEFAULT_SLOT: TimeSlot = { startTime: "09:00", endTime: "18:00" };
 
 interface ScheduleFormProps {
-  action: (prevState: ScheduleFormState, formData: FormData) => Promise<ScheduleFormState>;
+  action: (
+    prevState: ScheduleFormState,
+    formData: FormData,
+  ) => Promise<ScheduleFormState>;
   initialDays: DaySchedule[];
 }
 
@@ -34,25 +45,36 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
 
   function addSlot(index: number) {
     setDays((prev) =>
-      prev.map((day, i) => (i === index ? { ...day, slots: [...day.slots, DEFAULT_SLOT] } : day)),
+      prev.map((day, i) =>
+        i === index ? { ...day, slots: [...day.slots, DEFAULT_SLOT] } : day,
+      ),
     );
   }
 
   function removeSlot(dayIndex: number, slotIndex: number) {
     setDays((prev) =>
       prev.map((day, i) =>
-        i === dayIndex ? { ...day, slots: day.slots.filter((_, s) => s !== slotIndex) } : day,
+        i === dayIndex
+          ? { ...day, slots: day.slots.filter((_, s) => s !== slotIndex) }
+          : day,
       ),
     );
   }
 
-  function updateSlot(dayIndex: number, slotIndex: number, field: keyof TimeSlot, value: string) {
+  function updateSlot(
+    dayIndex: number,
+    slotIndex: number,
+    field: keyof TimeSlot,
+    value: string,
+  ) {
     setDays((prev) =>
       prev.map((day, i) =>
         i === dayIndex
           ? {
               ...day,
-              slots: day.slots.map((slot, s) => (s === slotIndex ? { ...slot, [field]: value } : slot)),
+              slots: day.slots.map((slot, s) =>
+                s === slotIndex ? { ...slot, [field]: value } : slot,
+              ),
             }
           : day,
       ),
@@ -60,7 +82,10 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
   }
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-2xl gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-2xl gap-4"
+    >
       <div className="divide-y">
         {days.map((day, dayIndex) => {
           const open = day.slots.length > 0;
@@ -76,7 +101,9 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                 <Checkbox
                   id={`day-${day.weekday}`}
                   checked={open}
-                  onCheckedChange={(checked) => toggleDay(dayIndex, checked === true)}
+                  onCheckedChange={(checked) =>
+                    toggleDay(dayIndex, checked === true)
+                  }
                   disabled={pending}
                 />
                 <Label htmlFor={`day-${day.weekday}`} className="font-normal">
@@ -90,7 +117,14 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                       <input
                         type="time"
                         value={slot.startTime}
-                        onChange={(e) => updateSlot(dayIndex, slotIndex, "startTime", e.target.value)}
+                        onChange={(e) =>
+                          updateSlot(
+                            dayIndex,
+                            slotIndex,
+                            "startTime",
+                            e.target.value,
+                          )
+                        }
                         disabled={pending}
                         className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       />
@@ -98,7 +132,14 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                       <input
                         type="time"
                         value={slot.endTime}
-                        onChange={(e) => updateSlot(dayIndex, slotIndex, "endTime", e.target.value)}
+                        onChange={(e) =>
+                          updateSlot(
+                            dayIndex,
+                            slotIndex,
+                            "endTime",
+                            e.target.value,
+                          )
+                        }
                         disabled={pending}
                         className="h-9 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       />
@@ -124,19 +165,27 @@ export function ScheduleForm({ action, initialDays }: ScheduleFormProps) {
                   </button>
                 </div>
               ) : (
-                <p className="ml-6 text-sm text-muted-foreground sm:ml-0 sm:flex-1 sm:pt-2">Cerrado</p>
+                <p className="ml-6 text-sm text-muted-foreground sm:ml-0 sm:flex-1 sm:pt-2">
+                  Cerrado
+                </p>
               )}
               {/* The Server Action reads this, not the Checkbox/inputs above
                   directly — same "state mirrored into a hidden input" pattern
                   as the rest of this form, needed because a variable number
                   of tramos per day doesn't map to fixed field names. */}
-              <input type="hidden" name={`day${day.weekday}`} value={JSON.stringify(day.slots)} />
+              <input
+                type="hidden"
+                name={`day${day.weekday}`}
+                value={JSON.stringify(day.slots)}
+              />
             </div>
           );
         })}
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state.success && <p className="text-sm text-success">Horario guardado.</p>}
+      {state.success && (
+        <p className="text-sm text-success">Horario guardado.</p>
+      )}
       <Button type="submit" disabled={pending} className="w-fit">
         {pending ? "Guardando..." : "Guardar horario"}
       </Button>

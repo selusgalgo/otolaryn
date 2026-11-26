@@ -44,8 +44,12 @@ export function HolderPicker({
   hasDependents,
   disabled,
 }: HolderPickerProps) {
-  const [holder, setHolder] = useState<PatientLinkSummary | null>(initialHolder);
-  const [relationship, setRelationship] = useState<HolderRelationship | "">(initialRelationship ?? "");
+  const [holder, setHolder] = useState<PatientLinkSummary | null>(
+    initialHolder,
+  );
+  const [relationship, setRelationship] = useState<HolderRelationship | "">(
+    initialRelationship ?? "",
+  );
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Patient[]>([]);
   const [searching, setSearching] = useState(false);
@@ -61,7 +65,11 @@ export function HolderPicker({
     debounceRef.current = setTimeout(() => {
       searchPatientsAction(query)
         // Ni él mismo ni quien ya es familiar a cargo de otro (sin cadenas).
-        .then((found) => setResults(found.filter((p) => p.id !== patientId && !p.holderPatientId)))
+        .then((found) =>
+          setResults(
+            found.filter((p) => p.id !== patientId && !p.holderPatientId),
+          ),
+        )
         .finally(() => setSearching(false));
     }, 300);
     return () => {
@@ -72,9 +80,12 @@ export function HolderPicker({
   if (hasDependents) {
     return (
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Familiar a cargo de</Label>
+        <Label className="text-xs text-muted-foreground">
+          Familiar a cargo de
+        </Label>
         <p className="text-xs text-muted-foreground">
-          Este paciente es titular de otros, así que no puede ser a su vez familiar a cargo.
+          Este paciente es titular de otros, así que no puede ser a su vez
+          familiar a cargo.
         </p>
       </div>
     );
@@ -83,7 +94,11 @@ export function HolderPicker({
   return (
     <div className="space-y-2">
       <input type="hidden" name="holderPatientId" value={holder?.id ?? ""} />
-      <input type="hidden" name="holderRelationship" value={holder ? relationship : ""} />
+      <input
+        type="hidden"
+        name="holderRelationship"
+        value={holder ? relationship : ""}
+      />
       <Label htmlFor="holder-search" className="text-xs text-muted-foreground">
         Familiar a cargo de (titular)
       </Label>
@@ -95,7 +110,9 @@ export function HolderPicker({
                 {holder.firstName} {holder.lastName}
               </span>
               {holderLine(holder) && (
-                <span className="block text-xs text-muted-foreground">{holderLine(holder)}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {holderLine(holder)}
+                </span>
               )}
             </span>
             <Button
@@ -112,19 +129,26 @@ export function HolderPicker({
             </Button>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="holder-relationship" className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="holder-relationship"
+              className="text-xs text-muted-foreground"
+            >
               Parentesco
             </Label>
             <select
               id="holder-relationship"
               value={relationship}
-              onChange={(e) => setRelationship(e.target.value as HolderRelationship | "")}
+              onChange={(e) =>
+                setRelationship(e.target.value as HolderRelationship | "")
+              }
               disabled={disabled}
               required
               className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
             >
               <option value="">Elige el parentesco…</option>
-              {(Object.keys(HOLDER_RELATIONSHIP_LABEL) as HolderRelationship[]).map((r) => (
+              {(
+                Object.keys(HOLDER_RELATIONSHIP_LABEL) as HolderRelationship[]
+              ).map((r) => (
                 <option key={r} value={r}>
                   {HOLDER_RELATIONSHIP_LABEL[r]}
                 </option>
@@ -142,7 +166,9 @@ export function HolderPicker({
             autoComplete="off"
             disabled={disabled}
           />
-          {searching && <p className="text-xs text-muted-foreground">Buscando…</p>}
+          {searching && (
+            <p className="text-xs text-muted-foreground">Buscando…</p>
+          )}
           {results.length > 0 && (
             <ul className="max-h-48 overflow-y-auto rounded-md border text-sm">
               {results.map((p) => (
@@ -164,7 +190,11 @@ export function HolderPicker({
                     <span className="font-medium">
                       {p.firstName} {p.lastName}
                     </span>
-                    {holderLine(p) && <span className="block text-xs text-muted-foreground">{holderLine(p)}</span>}
+                    {holderLine(p) && (
+                      <span className="block text-xs text-muted-foreground">
+                        {holderLine(p)}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}

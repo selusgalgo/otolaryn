@@ -15,7 +15,11 @@ function formatDateTime(iso: string): string {
   return formatInClinicTimeZone(iso, { dateStyle: "full", timeStyle: "short" });
 }
 
-export default async function AppointmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AppointmentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
 
   const me = await getCurrentUser();
@@ -42,10 +46,15 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link href={`/patients/${patient.id}`} className="text-sm text-muted-foreground hover:underline">
+          <Link
+            href={`/patients/${patient.id}`}
+            className="text-sm text-muted-foreground hover:underline"
+          >
             {patient.firstName} {patient.lastName}
           </Link>
-          <h1 className="text-2xl font-bold">{formatDateTime(appointment.scheduledAt)}</h1>
+          <h1 className="text-2xl font-bold">
+            {formatDateTime(appointment.scheduledAt)}
+          </h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <EditAppointmentDialog
@@ -53,7 +62,9 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
             patientName={`${patient.firstName} ${patient.lastName}`}
             practitioners={practitioners}
           />
-          {appointment.status !== "cancelled" && <CancelAppointmentButton id={appointment.id} />}
+          {appointment.status !== "cancelled" && (
+            <CancelAppointmentButton id={appointment.id} />
+          )}
           {(me.role === "admin" || me.role === "recepcion") && (
             <DeleteAppointmentButton id={appointment.id} />
           )}

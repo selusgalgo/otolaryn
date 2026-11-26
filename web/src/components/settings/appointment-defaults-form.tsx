@@ -26,9 +26,14 @@ export function AppointmentDefaultsForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form onSubmit={keepValuesOnSubmit(formAction)} className="grid max-w-xs gap-4">
+    <form
+      onSubmit={keepValuesOnSubmit(formAction)}
+      className="grid max-w-xs gap-4"
+    >
       <div className="space-y-2">
-        <Label htmlFor="defaultDurationMinutes">Duración por defecto (minutos)</Label>
+        <Label htmlFor="defaultDurationMinutes">
+          Duración por defecto (minutos)
+        </Label>
         <Input
           id="defaultDurationMinutes"
           name="defaultDurationMinutes"
@@ -41,7 +46,8 @@ export function AppointmentDefaultsForm({
           required
         />
         <p className="text-xs text-muted-foreground">
-          Con la que se precarga una cita nueva — se puede cambiar en el momento de crearla.
+          Con la que se precarga una cita nueva — se puede cambiar en el momento
+          de crearla.
         </p>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

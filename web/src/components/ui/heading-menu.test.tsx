@@ -13,7 +13,8 @@ function fakeEditor(activeLevel?: number) {
     run: vi.fn(() => true),
   };
   const editor = {
-    isActive: (name: string, attrs?: { level?: number }) => name === "heading" && attrs?.level === activeLevel,
+    isActive: (name: string, attrs?: { level?: number }) =>
+      name === "heading" && attrs?.level === activeLevel,
     chain: () => chain,
   } as unknown as HeadingEditor;
   return { editor, chain };
@@ -28,32 +29,46 @@ async function openMenu() {
 describe("HeadingMenu", () => {
   it("muestra un solo botón «Encabezados», sin las siglas H1/H2/H3", () => {
     render(<HeadingMenu editor={fakeEditor().editor} />);
-    expect(screen.getByRole("button", { name: "Encabezados" })).toBeInTheDocument();
-    for (const sigla of ["H1", "H2", "H3"]) expect(screen.queryByText(sigla)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Encabezados" }),
+    ).toBeInTheDocument();
+    for (const sigla of ["H1", "H2", "H3"])
+      expect(screen.queryByText(sigla)).not.toBeInTheDocument();
   });
 
   it("ofrece Texto normal, Título, Subtítulo y Apartado", async () => {
     render(<HeadingMenu editor={fakeEditor().editor} />);
     await openMenu();
-    expect(screen.getByRole("menuitem", { name: "Texto normal" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Título" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Subtítulo" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Apartado" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Texto normal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Título" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Subtítulo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Apartado" }),
+    ).toBeInTheDocument();
   });
 
   it.each([
     ["Título", 1],
     ["Subtítulo", 2],
     ["Apartado", 3],
-  ])("«%s» aplica el encabezado de nivel %i devolviendo el foco al editor", async (label, level) => {
-    const { editor, chain } = fakeEditor();
-    render(<HeadingMenu editor={editor} />);
-    const user = await openMenu();
-    await user.click(screen.getByRole("menuitem", { name: label }));
-    expect(chain.focus).toHaveBeenCalled();
-    expect(chain.toggleHeading).toHaveBeenCalledWith({ level });
-    expect(chain.run).toHaveBeenCalled();
-  });
+  ])(
+    "«%s» aplica el encabezado de nivel %i devolviendo el foco al editor",
+    async (label, level) => {
+      const { editor, chain } = fakeEditor();
+      render(<HeadingMenu editor={editor} />);
+      const user = await openMenu();
+      await user.click(screen.getByRole("menuitem", { name: label }));
+      expect(chain.focus).toHaveBeenCalled();
+      expect(chain.toggleHeading).toHaveBeenCalledWith({ level });
+      expect(chain.run).toHaveBeenCalled();
+    },
+  );
 
   it("«Texto normal» vuelve a párrafo", async () => {
     const { editor, chain } = fakeEditor(2);
@@ -67,14 +82,23 @@ describe("HeadingMenu", () => {
   it("marca la opción activa: el nivel en el que está el cursor, o Texto normal", async () => {
     const withHeading = render(<HeadingMenu editor={fakeEditor(2).editor} />);
     await openMenu();
-    expect(screen.getByRole("menuitem", { name: "Subtítulo" })).toHaveAttribute("aria-current", "true");
-    expect(screen.getByRole("menuitem", { name: "Título" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("menuitem", { name: "Texto normal" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("menuitem", { name: "Subtítulo" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(
+      screen.getByRole("menuitem", { name: "Título" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.getByRole("menuitem", { name: "Texto normal" }),
+    ).not.toHaveAttribute("aria-current");
     withHeading.unmount();
 
     render(<HeadingMenu editor={fakeEditor().editor} />);
     await openMenu();
-    expect(screen.getByRole("menuitem", { name: "Texto normal" })).toHaveAttribute("aria-current", "true");
+    expect(
+      screen.getByRole("menuitem", { name: "Texto normal" }),
+    ).toHaveAttribute("aria-current", "true");
   });
 
   it("se deshabilita con el editor deshabilitado o aún sin montar", () => {

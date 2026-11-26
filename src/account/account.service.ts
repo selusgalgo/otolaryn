@@ -73,7 +73,10 @@ export class AccountService {
     }
   }
 
-  async updateAgendaView(userId: string, agendaView: AgendaView): Promise<void> {
+  async updateAgendaView(
+    userId: string,
+    agendaView: AgendaView,
+  ): Promise<void> {
     const result = await this.users.update({ id: userId }, { agendaView });
     if (!result.affected) throw new NotFoundException('Usuario no encontrado');
   }

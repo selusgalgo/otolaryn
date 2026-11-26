@@ -20,8 +20,12 @@ export class WhatsappReminderTenantConfig1738400000000 implements MigrationInter
           AND COALESCE(settings.features->>'reminderTemplateName', '') ~ '^[a-z][a-z0-9_]{0,127}$'
           AND COALESCE(settings.features->>'reminderTemplateLanguage', '') ~ '^[a-z]{2,3}(_[A-Z]{2})?$'
       $$`);
-    await queryRunner.query('REVOKE ALL ON FUNCTION iam.whatsapp_reminder_tenants() FROM PUBLIC');
-    await queryRunner.query('GRANT EXECUTE ON FUNCTION iam.whatsapp_reminder_tenants() TO otolaryn_app');
+    await queryRunner.query(
+      'REVOKE ALL ON FUNCTION iam.whatsapp_reminder_tenants() FROM PUBLIC',
+    );
+    await queryRunner.query(
+      'GRANT EXECUTE ON FUNCTION iam.whatsapp_reminder_tenants() TO otolaryn_app',
+    );
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

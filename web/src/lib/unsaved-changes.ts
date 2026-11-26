@@ -41,12 +41,18 @@ function handleBeforeUnload(event: BeforeUnloadEvent): void {
 }
 
 function handleDocumentClick(event: MouseEvent): void {
-  if (!hasUnsavedChanges() || event.defaultPrevented || event.button !== 0) return;
+  if (!hasUnsavedChanges() || event.defaultPrevented || event.button !== 0)
+    return;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   if (!(event.target instanceof Element)) return;
 
   const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
-  if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+  if (
+    !anchor ||
+    anchor.hasAttribute("download") ||
+    (anchor.target && anchor.target !== "_self")
+  )
+    return;
 
   const target = new URL(anchor.href, window.location.href);
   if (
@@ -137,7 +143,9 @@ function readFormValues(form: HTMLFormElement | null): FormValues | null {
   if (!form) return null;
   const values: FormValues = {};
   const controls = Array.from(form.elements).filter(
-    (element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+    (
+      element,
+    ): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
       element instanceof HTMLInputElement ||
       element instanceof HTMLSelectElement ||
       element instanceof HTMLTextAreaElement,
@@ -153,14 +161,22 @@ function readFormValues(form: HTMLFormElement | null): FormValues | null {
     }
 
     let controlValues: string[];
-    if (control instanceof HTMLInputElement && ["checkbox", "radio"].includes(control.type)) {
-      controlValues = [`${control.checked ? "checked" : "unchecked"}:${control.value}`];
+    if (
+      control instanceof HTMLInputElement &&
+      ["checkbox", "radio"].includes(control.type)
+    ) {
+      controlValues = [
+        `${control.checked ? "checked" : "unchecked"}:${control.value}`,
+      ];
     } else if (control instanceof HTMLInputElement && control.type === "file") {
       controlValues = Array.from(control.files ?? []).map(
         (file) => `${file.name}:${file.size}:${file.type}:${file.lastModified}`,
       );
     } else if (control instanceof HTMLSelectElement && control.multiple) {
-      controlValues = Array.from(control.selectedOptions, (option) => option.value);
+      controlValues = Array.from(
+        control.selectedOptions,
+        (option) => option.value,
+      );
     } else {
       controlValues = [control.value];
     }
@@ -202,7 +218,8 @@ export function useFormDirtyState(onDirtyChange?: (dirty: boolean) => void) {
   }, [setDirty]);
 
   const scheduleRefresh = useCallback(() => {
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    if (frameRef.current !== null)
+      window.cancelAnimationFrame(frameRef.current);
     frameRef.current = window.requestAnimationFrame(() => {
       frameRef.current = null;
       refreshDirty();
@@ -220,7 +237,9 @@ export function useFormDirtyState(onDirtyChange?: (dirty: boolean) => void) {
     (event: ReactMouseEvent<HTMLFormElement>) => {
       if (
         event.target instanceof Element &&
-        event.target.closest("button:not([type='submit']):not([data-ignore-dirty])")
+        event.target.closest(
+          "button:not([type='submit']):not([data-ignore-dirty])",
+        )
       ) {
         // Some composite fields update hidden values after their button
         // handler runs (patient pickers and rich-text controls). Mark the
@@ -250,7 +269,8 @@ export function useFormDirtyState(onDirtyChange?: (dirty: boolean) => void) {
   useEffect(() => {
     captureBaseline();
     return () => {
-      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      if (frameRef.current !== null)
+        window.cancelAnimationFrame(frameRef.current);
     };
   }, [captureBaseline]);
 

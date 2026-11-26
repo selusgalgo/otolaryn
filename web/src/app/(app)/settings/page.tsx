@@ -39,29 +39,46 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const [profile, schedule, appointmentDefaults, antecedenteTypes, insuranceEntities, deviceLock, whatsapp, practitioners] =
-    await Promise.all([
-      apiFetch<ClinicProfile>("/settings/clinic-profile"),
-      apiFetch<Schedule>("/settings/schedule"),
-      apiFetch<AppointmentDefaults>("/settings/appointment-defaults"),
-      apiFetch<AntecedenteType[]>("/antecedente-types"),
-      apiFetch<InsuranceEntity[]>("/insurance-entities"),
-      apiFetch<DeviceLock>("/settings/device-lock"),
-      apiFetch<WhatsappBookingSettings>("/settings/whatsapp-booking"),
-      apiFetch<AppUser[]>("/users?bookable=true"),
-    ]);
-  const personalTypes = antecedenteTypes.filter((t) => t.category === "personal");
-  const familiarTypes = antecedenteTypes.filter((t) => t.category === "familiar");
+  const [
+    profile,
+    schedule,
+    appointmentDefaults,
+    antecedenteTypes,
+    insuranceEntities,
+    deviceLock,
+    whatsapp,
+    practitioners,
+  ] = await Promise.all([
+    apiFetch<ClinicProfile>("/settings/clinic-profile"),
+    apiFetch<Schedule>("/settings/schedule"),
+    apiFetch<AppointmentDefaults>("/settings/appointment-defaults"),
+    apiFetch<AntecedenteType[]>("/antecedente-types"),
+    apiFetch<InsuranceEntity[]>("/insurance-entities"),
+    apiFetch<DeviceLock>("/settings/device-lock"),
+    apiFetch<WhatsappBookingSettings>("/settings/whatsapp-booking"),
+    apiFetch<AppUser[]>("/users?bookable=true"),
+  ]);
+  const personalTypes = antecedenteTypes.filter(
+    (t) => t.category === "personal",
+  );
+  const familiarTypes = antecedenteTypes.filter(
+    (t) => t.category === "familiar",
+  );
 
   return (
     <div className="space-y-12">
       <SettingsSection id="clinic-profile">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Identidad en los PDF exportados</CardTitle>
+            <CardTitle className="text-base">
+              Identidad en los PDF exportados
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ClinicProfileForm action={updateClinicProfileAction} initialProfile={profile} />
+            <ClinicProfileForm
+              action={updateClinicProfileAction}
+              initialProfile={profile}
+            />
           </CardContent>
         </Card>
       </SettingsSection>
@@ -72,7 +89,10 @@ export default async function SettingsPage() {
             <CardTitle className="text-base">Días y tramos horarios</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScheduleForm action={updateScheduleAction} initialDays={schedule.days} />
+            <ScheduleForm
+              action={updateScheduleAction}
+              initialDays={schedule.days}
+            />
           </CardContent>
         </Card>
       </SettingsSection>
@@ -85,25 +105,44 @@ export default async function SettingsPage() {
           <CardContent>
             <AppointmentDefaultsForm
               action={updateAppointmentDefaultsAction}
-              initialDefaultDurationMinutes={appointmentDefaults.defaultDurationMinutes}
+              initialDefaultDurationMinutes={
+                appointmentDefaults.defaultDurationMinutes
+              }
             />
           </CardContent>
         </Card>
       </SettingsSection>
 
-      {whatsapp.platformEnabled && <SettingsSection id="whatsapp-booking">
-        <Card><CardHeader><CardTitle className="text-base">Reservas por WhatsApp</CardTitle></CardHeader>
-          <CardContent><WhatsappSetupWizard action={updateWhatsappBookingAction} settings={whatsapp} practitioners={practitioners} /></CardContent>
-        </Card>
-      </SettingsSection>}
+      {whatsapp.platformEnabled && (
+        <SettingsSection id="whatsapp-booking">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Reservas por WhatsApp</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WhatsappSetupWizard
+                action={updateWhatsappBookingAction}
+                settings={whatsapp}
+                practitioners={practitioners}
+              />
+            </CardContent>
+          </Card>
+        </SettingsSection>
+      )}
 
       <SettingsSection id="antecedentes">
         <div className="grid gap-4 md:grid-cols-2">
           <AntecedenteCategoryCard title="Antecedentes personales">
-            <AntecedenteTypesForm category="personal" initialTypes={personalTypes} />
+            <AntecedenteTypesForm
+              category="personal"
+              initialTypes={personalTypes}
+            />
           </AntecedenteCategoryCard>
           <AntecedenteCategoryCard title="Antecedentes familiares">
-            <AntecedenteTypesForm category="familiar" initialTypes={familiarTypes} />
+            <AntecedenteTypesForm
+              category="familiar"
+              initialTypes={familiarTypes}
+            />
           </AntecedenteCategoryCard>
         </div>
       </SettingsSection>
@@ -122,7 +161,9 @@ export default async function SettingsPage() {
       <SettingsSection id="security">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Dispositivos autorizados</CardTitle>
+            <CardTitle className="text-base">
+              Dispositivos autorizados
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <DeviceLockForm initialDeviceLock={deviceLock} />

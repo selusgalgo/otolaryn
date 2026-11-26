@@ -18,13 +18,21 @@ function initialsOf(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
 
-export function Avatar({ firstName, lastName, src, variant = "patient", className }: AvatarProps) {
+export function Avatar({
+  firstName,
+  lastName,
+  src,
+  variant = "patient",
+  className,
+}: AvatarProps) {
   return (
     <span
       data-variant={variant}
       className={cn(
         "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold",
-        variant === "doctor" ? DOCTOR_COLOR_CLASSES : "bg-primary-tint text-primary",
+        variant === "doctor"
+          ? DOCTOR_COLOR_CLASSES
+          : "bg-primary-tint text-primary",
         className,
       )}
     >

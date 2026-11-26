@@ -36,7 +36,9 @@ export default async function PatientsPage({
   const page = Number(params.page ?? "1") || 1;
   const search = params.search?.trim() || "";
   const sortBy: PatientSortBy | undefined =
-    params.sortBy === "name" || params.sortBy === "dateOfBirth" ? params.sortBy : undefined;
+    params.sortBy === "name" || params.sortBy === "dateOfBirth"
+      ? params.sortBy
+      : undefined;
   const sortDir: SortDirection = params.sortDir === "desc" ? "desc" : "asc";
 
   const query = new URLSearchParams();
@@ -48,15 +50,23 @@ export default async function PatientsPage({
     query.set("sortDir", sortDir);
   }
 
-  const [result, me, insuranceOptions, practitionerOptions, antecedenteTypes, whatsappStatus] =
-    await Promise.all([
-      apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
-      getCurrentUser(),
-      getInsuranceOptions(),
-      getPractitionerOptions(),
-      getActiveAntecedenteTypes(),
-      apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status").catch(() => ({ enabled: false })),
-    ]);
+  const [
+    result,
+    me,
+    insuranceOptions,
+    practitionerOptions,
+    antecedenteTypes,
+    whatsappStatus,
+  ] = await Promise.all([
+    apiFetch<Paginated<Patient>>(`/patients?${query.toString()}`),
+    getCurrentUser(),
+    getInsuranceOptions(),
+    getPractitionerOptions(),
+    getActiveAntecedenteTypes(),
+    apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status").catch(
+      () => ({ enabled: false }),
+    ),
+  ]);
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const pageHref = (p: number) => {
     const href = new URLSearchParams();
@@ -77,7 +87,9 @@ export default async function PatientsPage({
           {/* Comprobación temporal de la migración: contraste rápido contra
               el nº de filas de pacientes.xls sin tener que contar páginas.
               Quitar cuando la migración quede verificada. */}
-          <span className="text-sm text-muted-foreground">({result.total} en total)</span>
+          <span className="text-sm text-muted-foreground">
+            ({result.total} en total)
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PatientsActionsMenu
@@ -122,7 +134,11 @@ export default async function PatientsPage({
         key={`${page}-${search}-${sortBy ?? ""}-${sortDir}`}
         patients={result.data}
         showOrigin={whatsappStatus.enabled}
-        emptyMessage={search ? "Sin resultados para esa búsqueda." : "No hay pacientes todavía."}
+        emptyMessage={
+          search
+            ? "Sin resultados para esa búsqueda."
+            : "No hay pacientes todavía."
+        }
         // profesional/recepcion pueden crear/editar pacientes para dar
         // citas, pero archivar (dar de baja) es una decisión solo de
         // admin — el backend ya devuelve 403 para esos roles en ambas
@@ -142,13 +158,23 @@ export default async function PatientsPage({
           </span>
           <div className="flex items-center gap-2">
             {page > 1 ? (
-              <Button asChild variant="outline" size="icon-sm" aria-label="Página anterior">
+              <Button
+                asChild
+                variant="outline"
+                size="icon-sm"
+                aria-label="Página anterior"
+              >
                 <Link href={pageHref(page - 1)}>
                   <ChevronLeftIcon className="size-4" />
                 </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="icon-sm" disabled aria-label="Página anterior">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled
+                aria-label="Página anterior"
+              >
                 <ChevronLeftIcon className="size-4" />
               </Button>
             )}
@@ -156,13 +182,23 @@ export default async function PatientsPage({
               {result.page}/{totalPages}
             </span>
             {page < totalPages ? (
-              <Button asChild variant="outline" size="icon-sm" aria-label="Página siguiente">
+              <Button
+                asChild
+                variant="outline"
+                size="icon-sm"
+                aria-label="Página siguiente"
+              >
                 <Link href={pageHref(page + 1)}>
                   <ChevronRightIcon className="size-4" />
                 </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="icon-sm" disabled aria-label="Página siguiente">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled
+                aria-label="Página siguiente"
+              >
                 <ChevronRightIcon className="size-4" />
               </Button>
             )}

@@ -105,7 +105,12 @@ interface RichTextEditorProps {
 // numbered lists, blockquote. `value`/`onChange` carry plain HTML — the
 // caller is responsible for putting that HTML into the form (a hidden
 // input), since Tiptap has no native form field of its own.
-export function RichTextEditor({ value, onChange, disabled, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  disabled,
+  placeholder,
+}: RichTextEditorProps) {
   const editor = useRichTextEditor(value, onChange, disabled, placeholder);
 
   return (

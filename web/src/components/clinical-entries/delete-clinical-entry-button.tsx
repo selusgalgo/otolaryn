@@ -41,19 +41,27 @@ export function DeleteClinicalEntryButton({
         <DialogHeader>
           <DialogTitle>¿Eliminar esta consulta?</DialogTitle>
           <DialogDescription>
-            Desaparece de la ficha del paciente. Pensado para corregir un error (paciente equivocado,
-            duplicado de una importación) — una corrección normal se registra como una consulta nueva, no
-            borrando la anterior.
+            Desaparece de la ficha del paciente. Pensado para corregir un error
+            (paciente equivocado, duplicado de una importación) — una corrección
+            normal se registra como una consulta nueva, no borrando la anterior.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
             Volver
           </Button>
           <Button
             variant="destructive"
             disabled={pending}
-            onClick={() => startTransition(() => deleteClinicalEntryAction(patientId, entryId))}
+            onClick={() =>
+              startTransition(() =>
+                deleteClinicalEntryAction(patientId, entryId),
+              )
+            }
           >
             {pending ? "Eliminando..." : "Confirmar eliminación"}
           </Button>

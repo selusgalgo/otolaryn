@@ -16,7 +16,10 @@ export default async function NewAppointmentPage({
     redirect("/dashboard");
   }
 
-  const [practitioners, { date }] = await Promise.all([getPractitionerOptions(), searchParams]);
+  const [practitioners, { date }] = await Promise.all([
+    getPractitionerOptions(),
+    searchParams,
+  ]);
 
   return (
     <div className="space-y-4">

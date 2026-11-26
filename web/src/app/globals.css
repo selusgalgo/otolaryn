@@ -79,9 +79,14 @@
    dialogs, dropdowns, popovers) picks it up without touching components. */
 @theme {
   --shadow-xs: 0 1px 2px rgba(2, 35, 65, 0.05);
-  --shadow-sm: 0 1px 2px rgba(2, 35, 65, 0.04), 0 6px 16px -8px rgba(0, 34, 176, 0.12);
-  --shadow-md: 0 4px 8px -4px rgba(2, 35, 65, 0.06), 0 16px 32px -16px rgba(0, 34, 176, 0.2);
-  --shadow-lg: 0 8px 16px -8px rgba(2, 35, 65, 0.08), 0 30px 60px -30px rgba(0, 34, 176, 0.3);
+  --shadow-sm:
+    0 1px 2px rgba(2, 35, 65, 0.04), 0 6px 16px -8px rgba(0, 34, 176, 0.12);
+  --shadow-md:
+    0 4px 8px -4px rgba(2, 35, 65, 0.06),
+    0 16px 32px -16px rgba(0, 34, 176, 0.2);
+  --shadow-lg:
+    0 8px 16px -8px rgba(2, 35, 65, 0.08),
+    0 30px 60px -30px rgba(0, 34, 176, 0.3);
 }
 
 :root {

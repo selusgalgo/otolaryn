@@ -61,7 +61,12 @@ export async function updatePasswordAction(
     });
   } catch (err) {
     if (err instanceof ApiError) {
-      return { error: err.status === 401 ? "La contraseña actual no es correcta." : err.message };
+      return {
+        error:
+          err.status === 401
+            ? "La contraseña actual no es correcta."
+            : err.message,
+      };
     }
     return { error: "No se pudo cambiar la contraseña." };
   }

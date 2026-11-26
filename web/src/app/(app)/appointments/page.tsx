@@ -1,8 +1,8 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Button } from '@/components/ui/button';
-import { InitialsAvatar } from '@/components/ui/initials-avatar';
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import {
   Table,
   TableBody,
@@ -10,43 +10,43 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   AppointmentPeriodView,
   type PeriodAppointment,
-} from '@/components/appointments/appointment-period-view';
-import { AppointmentRowActions } from '@/components/appointments/appointment-row-actions';
-import { AgendaViewSwitch } from '@/components/appointments/agenda-view-switch';
-import { AppointmentStatusBadge } from '@/components/appointments/appointment-status-badge';
-import { NewAppointmentDialog } from '@/components/appointments/new-appointment-dialog';
-import { OccupancyCalendar } from '@/components/appointments/occupancy-calendar';
-import { apiFetch } from '@/lib/api';
-import { getMonthAppointmentsAction } from '@/lib/actions/appointments';
-import { getCurrentUser } from '@/lib/auth';
-import { parseDateKey, toDateKey } from '@/lib/calendar-grid';
+} from "@/components/appointments/appointment-period-view";
+import { AppointmentRowActions } from "@/components/appointments/appointment-row-actions";
+import { AgendaViewSwitch } from "@/components/appointments/agenda-view-switch";
+import { AppointmentStatusBadge } from "@/components/appointments/appointment-status-badge";
+import { NewAppointmentDialog } from "@/components/appointments/new-appointment-dialog";
+import { OccupancyCalendar } from "@/components/appointments/occupancy-calendar";
+import { apiFetch } from "@/lib/api";
+import { getMonthAppointmentsAction } from "@/lib/actions/appointments";
+import { getCurrentUser } from "@/lib/auth";
+import { parseDateKey, toDateKey } from "@/lib/calendar-grid";
 import {
   clinicDateInputValue,
   clinicLocalToUtcIso,
   formatInClinicTimeZone,
-} from '@/lib/clinic-time';
-import { withHonorific } from '@/lib/doctor-name';
-import { getPractitionerOptions } from '@/lib/practitioners';
+} from "@/lib/clinic-time";
+import { withHonorific } from "@/lib/doctor-name";
+import { getPractitionerOptions } from "@/lib/practitioners";
 import type {
   Appointment,
   AppointmentDefaults,
   Paginated,
   Patient,
   Schedule,
-} from '@/lib/types';
-import { formatDocumentId, splitName } from '@/lib/utils';
+} from "@/lib/types";
+import { formatDocumentId, splitName } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 const PERIOD_PAGE_SIZE = 100;
-type AgendaView = 'day' | 'week' | 'month';
+type AgendaView = "day" | "week" | "month";
 
 function isDateKey(value?: string): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
+  const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return (
     date.getFullYear() === year &&
@@ -71,8 +71,8 @@ function rangeForView(
   view: AgendaView,
   anchor: string,
 ): { from: string; to: string } {
-  if (view === 'day') return { from: anchor, to: anchor };
-  if (view === 'week') {
+  if (view === "day") return { from: anchor, to: anchor };
+  if (view === "week") {
     const from = startOfWeek(anchor);
     return { from, to: addDays(from, 6) };
   }
@@ -85,11 +85,11 @@ function rangeForView(
 
 function shiftAnchor(view: AgendaView, anchor: string, delta: number): string {
   const date = parseDateKey(anchor);
-  if (view === 'day') {
+  if (view === "day") {
     date.setDate(date.getDate() + delta);
     return toDateKey(date);
   }
-  if (view === 'week') {
+  if (view === "week") {
     date.setDate(date.getDate() + delta * 7);
     return toDateKey(date);
   }
@@ -109,83 +109,83 @@ function shiftAnchor(view: AgendaView, anchor: string, delta: number): string {
 }
 
 function formatPeriodLabel(view: AgendaView, from: string, to: string): string {
-  if (view === 'day') {
-    const value = parseDateKey(from).toLocaleDateString('es-ES', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+  if (view === "day") {
+    const value = parseDateKey(from).toLocaleDateString("es-ES", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
     });
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
-  if (view === 'week') {
+  if (view === "week") {
     const start = parseDateKey(from);
     const end = parseDateKey(to);
-    const startMonth = start.toLocaleDateString('es-ES', { month: 'short' });
-    const endMonth = end.toLocaleDateString('es-ES', { month: 'short' });
+    const startMonth = start.toLocaleDateString("es-ES", { month: "short" });
+    const endMonth = end.toLocaleDateString("es-ES", { month: "short" });
     if (
       start.getFullYear() === end.getFullYear() &&
       start.getMonth() === end.getMonth()
     ) {
       return (
         start.getDate() +
-        '–' +
+        "–" +
         end.getDate() +
-        ' ' +
+        " " +
         endMonth +
-        ' ' +
+        " " +
         end.getFullYear()
       );
     }
     if (start.getFullYear() === end.getFullYear()) {
       return (
         start.getDate() +
-        ' ' +
+        " " +
         startMonth +
-        ' – ' +
+        " – " +
         end.getDate() +
-        ' ' +
+        " " +
         endMonth +
-        ' ' +
+        " " +
         end.getFullYear()
       );
     }
     return (
-      start.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
+      start.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       }) +
-      ' – ' +
-      end.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
+      " – " +
+      end.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       })
     );
   }
 
-  return parseDateKey(from).toLocaleDateString('es-ES', {
-    month: 'long',
-    year: 'numeric',
+  return parseDateKey(from).toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric",
   });
 }
 
 function periodStartIso(dateKey: string): string {
-  return clinicLocalToUtcIso(dateKey, '00:00');
+  return clinicLocalToUtcIso(dateKey, "00:00");
 }
 
 function periodEndIso(dateKey: string): string {
-  const end = new Date(clinicLocalToUtcIso(dateKey, '23:59'));
+  const end = new Date(clinicLocalToUtcIso(dateKey, "23:59"));
   end.setUTCSeconds(59, 999);
   return end.toISOString();
 }
 
 function formatDateTime(iso: string): string {
   return formatInClinicTimeZone(iso, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 }
 
@@ -203,14 +203,17 @@ export default async function AppointmentsPage({
   }>;
 }) {
   const me = await getCurrentUser();
-  const whatsappEnabled = (await apiFetch<{ enabled: boolean }>('/whatsapp-booking/feature-status')).enabled;
-  const whatsapp = whatsappEnabled && (me.role === 'admin' || me.role === 'recepcion')
-    ? await apiFetch<{ count: number }>('/whatsapp-booking/activity/unread')
-    : null;
-  if (me.role === 'profesional' && !me.agendaAccess) {
-    redirect('/dashboard');
+  const whatsappEnabled = (
+    await apiFetch<{ enabled: boolean }>("/whatsapp-booking/feature-status")
+  ).enabled;
+  const whatsapp =
+    whatsappEnabled && (me.role === "admin" || me.role === "recepcion")
+      ? await apiFetch<{ count: number }>("/whatsapp-booking/activity/unread")
+      : null;
+  if (me.role === "profesional" && !me.agendaAccess) {
+    redirect("/dashboard");
   }
-  const profile = await apiFetch<{ agendaView: AgendaView }>('/account');
+  const profile = await apiFetch<{ agendaView: AgendaView }>("/account");
 
   const params = await searchParams;
   const todayKey = clinicDateInputValue(new Date().toISOString());
@@ -218,61 +221,67 @@ export default async function AppointmentsPage({
   const toParam = isDateKey(params.to) ? params.to : undefined;
   const dateParam = isDateKey(params.date) ? params.date : undefined;
   const validView =
-    params.view === 'day' || params.view === 'week' || params.view === 'month'
+    params.view === "day" || params.view === "week" || params.view === "month"
       ? params.view
       : undefined;
   const view: AgendaView =
     validView ??
-    (fromParam && toParam ? (fromParam === toParam ? 'day' : 'month') : profile.agendaView ?? 'month');
+    (fromParam && toParam
+      ? fromParam === toParam
+        ? "day"
+        : "month"
+      : (profile.agendaView ?? "month"));
   const anchorKey = dateParam ?? fromParam ?? todayKey;
   const period = rangeForView(view, anchorKey);
   const { from, to } = period;
   const practitionerId = params.practitionerId;
-  const page = Math.max(1, Math.floor(Number(params.page ?? '1') || 1));
-  const pageSize = view === 'month' ? PAGE_SIZE : PERIOD_PAGE_SIZE;
+  const page = Math.max(1, Math.floor(Number(params.page ?? "1") || 1));
+  const pageSize = view === "month" ? PAGE_SIZE : PERIOD_PAGE_SIZE;
 
   const query = new URLSearchParams();
-  query.set('from', periodStartIso(from));
-  query.set('to', periodEndIso(to));
-  if (practitionerId) query.set('practitionerId', practitionerId);
-  query.set('page', String(view === 'month' ? page : 1));
-  query.set('pageSize', String(pageSize));
+  query.set("from", periodStartIso(from));
+  query.set("to", periodEndIso(to));
+  if (practitionerId) query.set("practitionerId", practitionerId);
+  query.set("page", String(view === "month" ? page : 1));
+  query.set("pageSize", String(pageSize));
 
   const monthDate = parseDateKey(from);
-  const [firstResult, [schedule, practitioners], monthData] = await Promise.all([
-    apiFetch<Paginated<Appointment>>('/appointments?' + query.toString()),
-    Promise.all([
-      apiFetch<Schedule>('/settings/schedule'),
-      getPractitionerOptions(),
-    ]),
-    view === 'month'
-      ? Promise.all([
-          apiFetch<AppointmentDefaults>('/settings/appointment-defaults'),
-          getMonthAppointmentsAction(
-            monthDate.getFullYear(),
-            monthDate.getMonth(),
-            practitionerId,
-          ),
-          getMonthAppointmentsAction(
-            monthDate.getFullYear(),
-            monthDate.getMonth(),
-          ),
-        ])
-      : Promise.resolve(null),
-  ]);
+  const [firstResult, [schedule, practitioners], monthData] = await Promise.all(
+    [
+      apiFetch<Paginated<Appointment>>("/appointments?" + query.toString()),
+      Promise.all([
+        apiFetch<Schedule>("/settings/schedule"),
+        getPractitionerOptions(),
+      ]),
+      view === "month"
+        ? Promise.all([
+            apiFetch<AppointmentDefaults>("/settings/appointment-defaults"),
+            getMonthAppointmentsAction(
+              monthDate.getFullYear(),
+              monthDate.getMonth(),
+              practitionerId,
+            ),
+            getMonthAppointmentsAction(
+              monthDate.getFullYear(),
+              monthDate.getMonth(),
+            ),
+          ])
+        : Promise.resolve(null),
+    ],
+  );
   let result = firstResult;
 
   // Day and week views render every appointment in the period. Fetch the
   // remaining API pages too, so a full clinic week does not silently stop at
   // the first 100 rows.
-  if (view !== 'month' && result.total > result.data.length) {
+  if (view !== "month" && result.total > result.data.length) {
     const pageCount = Math.ceil(result.total / result.pageSize);
     const remainingPages = await Promise.all(
       Array.from({ length: pageCount - 1 }, (_, index) => {
         const pageQuery = new URLSearchParams(query);
-        pageQuery.set('page', String(index + 2));
+        pageQuery.set("page", String(index + 2));
         return apiFetch<Paginated<Appointment>>(
-          '/appointments?' + pageQuery.toString(),
+          "/appointments?" + pageQuery.toString(),
         );
       }),
     );
@@ -291,7 +300,7 @@ export default async function AppointmentsPage({
   );
   const patientRecords = await Promise.all(
     patientIds.map((id) =>
-      apiFetch<Patient>('/patients/' + id).catch(() => null),
+      apiFetch<Patient>("/patients/" + id).catch(() => null),
     ),
   );
   const patientById = new Map(
@@ -305,8 +314,8 @@ export default async function AppointmentsPage({
       return {
         id: appointment.id,
         patientName: patient
-          ? patient.firstName + ' ' + patient.lastName
-          : 'Paciente',
+          ? patient.firstName + " " + patient.lastName
+          : "Paciente",
         scheduledAt: appointment.scheduledAt,
         durationMinutes: appointment.durationMinutes,
         status: appointment.status,
@@ -322,7 +331,8 @@ export default async function AppointmentsPage({
   const allAppointments = monthData?.[2] ?? [];
 
   const selectedDateKey = from === to ? from : undefined;
-  const tabAnchorKey = dateParam ?? selectedDateKey ?? (view === 'month' ? todayKey : anchorKey);
+  const tabAnchorKey =
+    dateParam ?? selectedDateKey ?? (view === "month" ? todayKey : anchorKey);
 
   function periodHref(
     targetView: AgendaView,
@@ -331,13 +341,13 @@ export default async function AppointmentsPage({
   ): string {
     const targetRange = rangeForView(targetView, targetDate);
     const search = new URLSearchParams();
-    search.set('view', targetView);
-    search.set('date', targetDate);
-    search.set('from', targetRange.from);
-    search.set('to', targetRange.to);
-    if (practitionerId) search.set('practitionerId', practitionerId);
-    if (targetPage > 1) search.set('page', String(targetPage));
-    return '/appointments?' + search.toString();
+    search.set("view", targetView);
+    search.set("date", targetDate);
+    search.set("from", targetRange.from);
+    search.set("to", targetRange.to);
+    if (practitionerId) search.set("practitionerId", practitionerId);
+    if (targetPage > 1) search.set("page", String(targetPage));
+    return "/appointments?" + search.toString();
   }
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -351,28 +361,41 @@ export default async function AppointmentsPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">Agenda</h1>
-          {whatsapp && <Link href="/appointments/whatsapp" className="text-sm font-medium underline">
-            Actividad de WhatsApp{whatsapp.count > 0 ? ` · ${whatsapp.count} sin leer` : ''}
-          </Link>}
+          {whatsapp && (
+            <Link
+              href="/appointments/whatsapp"
+              className="text-sm font-medium underline"
+            >
+              Actividad de WhatsApp
+              {whatsapp.count > 0 ? ` · ${whatsapp.count} sin leer` : ""}
+            </Link>
+          )}
         </div>
-        {view === 'month' && (
+        {view === "month" && (
           <NewAppointmentDialog practitioners={practitioners} />
         )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-2">
-        <AgendaViewSwitch view={view} hrefs={{ day: periodHref('day', tabAnchorKey), week: periodHref('week', tabAnchorKey), month: periodHref('month', tabAnchorKey) }} />
+        <AgendaViewSwitch
+          view={view}
+          hrefs={{
+            day: periodHref("day", tabAnchorKey),
+            week: periodHref("week", tabAnchorKey),
+            month: periodHref("month", tabAnchorKey),
+          }}
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon-sm" asChild>
             <Link
               href={periodHref(view, shiftAnchor(view, anchorKey, -1))}
               aria-label={
-                view === 'day'
-                  ? 'Día anterior'
-                  : view === 'week'
-                    ? 'Semana anterior'
-                    : 'Mes anterior'
+                view === "day"
+                  ? "Día anterior"
+                  : view === "week"
+                    ? "Semana anterior"
+                    : "Mes anterior"
               }
             >
               <ChevronLeftIcon />
@@ -385,11 +408,11 @@ export default async function AppointmentsPage({
             <Link
               href={periodHref(view, shiftAnchor(view, anchorKey, 1))}
               aria-label={
-                view === 'day'
-                  ? 'Día siguiente'
-                  : view === 'week'
-                    ? 'Semana siguiente'
-                    : 'Mes siguiente'
+                view === "day"
+                  ? "Día siguiente"
+                  : view === "week"
+                    ? "Semana siguiente"
+                    : "Mes siguiente"
               }
             >
               <ChevronRightIcon />
@@ -427,7 +450,7 @@ export default async function AppointmentsPage({
         </div>
       </div>
 
-      {view === 'month' ? (
+      {view === "month" ? (
         <>
           <OccupancyCalendar
             year={parseDateKey(from).getFullYear()}
@@ -484,7 +507,7 @@ export default async function AppointmentsPage({
                             <div>
                               <div className="font-medium">
                                 <Link
-                                  href={'/patients/' + patient.id}
+                                  href={"/patients/" + patient.id}
                                   className="hover:underline"
                                 >
                                   {patient.firstName} {patient.lastName}
@@ -501,7 +524,7 @@ export default async function AppointmentsPage({
                       </TableCell>
                       <TableCell>
                         <Link
-                          href={'/appointments/' + appointment.id}
+                          href={"/appointments/" + appointment.id}
                           className="hover:underline"
                         >
                           {formatDateTime(appointment.scheduledAt)}
@@ -530,10 +553,14 @@ export default async function AppointmentsPage({
                       <TableCell>
                         <AppointmentRowActions
                           appointment={appointment}
-                          patientName={patient ? `${patient.firstName} ${patient.lastName}` : undefined}
+                          patientName={
+                            patient
+                              ? `${patient.firstName} ${patient.lastName}`
+                              : undefined
+                          }
                           practitioners={practitioners}
                           canDelete={
-                            me.role === 'admin' || me.role === 'recepcion'
+                            me.role === "admin" || me.role === "recepcion"
                           }
                         />
                       </TableCell>
@@ -552,7 +579,7 @@ export default async function AppointmentsPage({
               <div className="flex gap-2">
                 {page > 1 ? (
                   <Button asChild variant="outline" size="sm">
-                    <Link href={periodHref('month', anchorKey, page - 1)}>
+                    <Link href={periodHref("month", anchorKey, page - 1)}>
                       Anterior
                     </Link>
                   </Button>
@@ -563,7 +590,7 @@ export default async function AppointmentsPage({
                 )}
                 {page < totalPages ? (
                   <Button asChild variant="outline" size="sm">
-                    <Link href={periodHref('month', anchorKey, page + 1)}>
+                    <Link href={periodHref("month", anchorKey, page + 1)}>
                       Siguiente
                     </Link>
                   </Button>

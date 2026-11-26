@@ -16,24 +16,31 @@ export async function GET(request: NextRequest): Promise<Response> {
   const query = new URLSearchParams({ format });
   if (search) query.set("search", search);
 
-  const upstream = await fetch(`${API_URL}/patients/export?${query.toString()}`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
-      // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
-      ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+  const upstream = await fetch(
+    `${API_URL}/patients/export?${query.toString()}`,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // Sin esto, en una clínica con bloqueo de dispositivo la API rechaza
+        // la descarga (401) aunque la sesión sea válida — igual que apiFetch.
+        ...(deviceToken ? { "X-Device-Token": deviceToken } : {}),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
+  );
 
   if (!upstream.ok || !upstream.body) {
-    return new Response("No se pudo generar la exportación.", { status: upstream.status || 500 });
+    return new Response("No se pudo generar la exportación.", {
+      status: upstream.status || 500,
+    });
   }
 
   return new Response(upstream.body, {
     headers: {
-      "Content-Type": upstream.headers.get("content-type") ?? "application/octet-stream",
-      "Content-Disposition": upstream.headers.get("content-disposition") ?? "attachment",
+      "Content-Type":
+        upstream.headers.get("content-type") ?? "application/octet-stream",
+      "Content-Disposition":
+        upstream.headers.get("content-disposition") ?? "attachment",
     },
   });
 }

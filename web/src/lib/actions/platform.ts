@@ -25,11 +25,23 @@ export interface TenantFormState {
   success?: boolean;
 }
 
-export async function updateTenantWhatsappPlatformAction(tenantId: string, _prev: TenantFormState, formData: FormData): Promise<TenantFormState> {
+export async function updateTenantWhatsappPlatformAction(
+  tenantId: string,
+  _prev: TenantFormState,
+  formData: FormData,
+): Promise<TenantFormState> {
   try {
-    await apiFetch(`/platform/tenants/${tenantId}/whatsapp-booking`, { method: "PATCH", body: { platformEnabled: formData.get("platformEnabled") === "on" } });
+    await apiFetch(`/platform/tenants/${tenantId}/whatsapp-booking`, {
+      method: "PATCH",
+      body: { platformEnabled: formData.get("platformEnabled") === "on" },
+    });
   } catch (err) {
-    return { error: err instanceof ApiError ? err.message : "No se pudo guardar la habilitación." };
+    return {
+      error:
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo guardar la habilitación.",
+    };
   }
   revalidatePath(`/platform/${tenantId}/settings`);
   return { success: true };
@@ -350,14 +362,18 @@ export interface SigningLinkResult {
 async function publicOrigin(): Promise<string> {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const proto =
+    h.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
 }
 
 // Issuing a link revokes the previous one (the API keeps a single active
 // token per mandate), and the token only ever exists in this response — it
 // is stored hashed — so the panel shows the URL right away.
-export async function issueSepaSigningLinkAction(tenantId: string): Promise<SigningLinkResult> {
+export async function issueSepaSigningLinkAction(
+  tenantId: string,
+): Promise<SigningLinkResult> {
   try {
     const { token, expiresAt } = await apiFetch<{
       token: string;
@@ -375,9 +391,14 @@ export async function issueSepaSigningLinkAction(tenantId: string): Promise<Sign
   }
 }
 
-export async function cancelSepaMandateAction(tenantId: string): Promise<SepaFormState> {
+export async function cancelSepaMandateAction(
+  tenantId: string,
+): Promise<SepaFormState> {
   try {
-    await apiFetch<SepaMandate>(`/platform/tenants/${tenantId}/sepa-mandate/cancel`, { method: "POST" });
+    await apiFetch<SepaMandate>(
+      `/platform/tenants/${tenantId}/sepa-mandate/cancel`,
+      { method: "POST" },
+    );
   } catch (err) {
     if (err instanceof ApiError) {
       return { error: err.message };

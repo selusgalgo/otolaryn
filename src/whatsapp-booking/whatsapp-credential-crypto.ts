@@ -15,26 +15,50 @@ export class WhatsappCredentialCrypto {
 
   encrypt(tenantId: string, token: string): string {
     this.validateTenant(tenantId);
-    if (!token || Buffer.byteLength(token, 'utf8') > 8192) throw new Error('Credencial inválida');
+    if (!token || Buffer.byteLength(token, 'utf8') > 8192)
+      throw new Error('Credencial inválida');
     const nonce = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.key, nonce);
     cipher.setAAD(Buffer.from(`mederi-whatsapp:v1:${tenantId.toLowerCase()}`));
-    const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-    return ['v1', nonce.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
+    const ciphertext = Buffer.concat([
+      cipher.update(token, 'utf8'),
+      cipher.final(),
+    ]);
+    return [
+      'v1',
+      nonce.toString('base64url'),
+      cipher.getAuthTag().toString('base64url'),
+      ciphertext.toString('base64url'),
+    ].join('.');
   }
 
   decrypt(tenantId: string, payload: string): string {
     this.validateTenant(tenantId);
     const parts = payload.split('.');
-    if (parts.length !== 4 || parts[0] !== 'v1' || !parts.slice(1).every((part) => /^[A-Za-z0-9_-]+$/.test(part))) throw new Error('Credencial cifrada inválida');
+    if (
+      parts.length !== 4 ||
+      parts[0] !== 'v1' ||
+      !parts.slice(1).every((part) => /^[A-Za-z0-9_-]+$/.test(part))
+    )
+      throw new Error('Credencial cifrada inválida');
     const nonce = Buffer.from(parts[1], 'base64url');
     const tag = Buffer.from(parts[2], 'base64url');
     const data = Buffer.from(parts[3], 'base64url');
-    if (nonce.length !== 12 || tag.length !== 16 || !data.length || data.length > 8192) throw new Error('Credencial cifrada inválida');
+    if (
+      nonce.length !== 12 ||
+      tag.length !== 16 ||
+      !data.length ||
+      data.length > 8192
+    )
+      throw new Error('Credencial cifrada inválida');
     const decipher = createDecipheriv('aes-256-gcm', this.key, nonce);
-    decipher.setAAD(Buffer.from(`mederi-whatsapp:v1:${tenantId.toLowerCase()}`));
+    decipher.setAAD(
+      Buffer.from(`mederi-whatsapp:v1:${tenantId.toLowerCase()}`),
+    );
     decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString(
+      'utf8',
+    );
   }
 
   private validateTenant(tenantId: string) {
